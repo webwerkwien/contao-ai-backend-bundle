@@ -1,0 +1,12 @@
+/vendor/
+/composer.lock
+/var/
+/.idea/
+/.vscode/
+/.phpunit.cache/
+/.phpunit.result.cache
+/coverage/
+/build/
+/docs/superpowers/
+.DS_Store
+Thumbs.db

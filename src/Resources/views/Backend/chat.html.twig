@@ -1,0 +1,197 @@
+{% if not hasKey %}
+    <div class="tl_message">
+        <p class="tl_error">{{ 'tl_user.ai_api_key.1'|trans({}, 'contao_tl_user') }}</p>
+    </div>
+{% else %}
+    <style{% if csp_nonce('style-src') is defined %} nonce="{{ csp_nonce('style-src') }}"{% endif %}>
+        .ai-chat { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; border: 1px solid #ccc; border-radius: 6px; padding: 1rem; background: #fff; }
+        .ai-chat__transcript { min-height: 12rem; max-height: 28rem; overflow-y: auto; padding: .5rem; border: 1px solid #eee; border-radius: 4px; background: #fafafa; font-size: .95rem; line-height: 1.4; }
+        .ai-chat__msg { margin: 0 0 .75rem; padding: .5rem .75rem; border-radius: 4px; word-break: break-word; white-space: pre-wrap; }
+        .ai-chat__msg--user { background: #e6f3ff; }
+        .ai-chat__msg--assistant { background: #f3f3f3; }
+        .ai-chat__msg--error { background: #fbe9e9; color: #8a1f1f; }
+        .ai-chat__form { display: flex; flex-direction: column; gap: .5rem; }
+        .ai-chat__form textarea { width: 100%; resize: vertical; font-family: inherit; font-size: .95rem; padding: .5rem; border: 1px solid #ccc; border-radius: 4px; }
+        .ai-chat__form textarea:disabled { background: #fafafa; color: #888; }
+        .ai-chat__form-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+        .ai-chat__hint { color: #666; }
+    </style>
+
+    <div class="ai-chat" id="ai-chat-root"
+         data-stream-url="{{ streamUrl|e('html_attr') }}"
+         data-csrf-token="{{ csrfToken|e('html_attr') }}"
+         data-platform="{{ platform|e('html_attr') }}"
+         data-tool-count="{{ tools|length }}">
+        <div class="ai-chat__transcript" id="ai-chat-transcript" role="log" aria-live="polite"></div>
+
+        <form class="ai-chat__form" id="ai-chat-form">
+            <textarea id="ai-chat-input" rows="3" placeholder="Frag den Agenten…" aria-label="Eingabe"></textarea>
+            <div class="ai-chat__form-row">
+                <small class="ai-chat__hint">{{ tools|length }} Tools verfügbar · {{ platform|slice(0, 40) }}</small>
+                <button type="submit" class="tl_submit" id="ai-chat-submit">Senden</button>
+            </div>
+        </form>
+    </div>
+
+    <script{% if csp_nonce('script-src') is defined %} nonce="{{ csp_nonce('script-src') }}"{% endif %}>
+    {
+        const root = document.getElementById('ai-chat-root');
+        if (root) {
+            const streamUrl = root.dataset.streamUrl;
+            const csrfToken = root.dataset.csrfToken;
+            const transcript = document.getElementById('ai-chat-transcript');
+            const form = document.getElementById('ai-chat-form');
+            const input = document.getElementById('ai-chat-input');
+            const submitBtn = document.getElementById('ai-chat-submit');
+
+            const HISTORY_HARD_CAP = 60;
+            const HISTORY_SEND_CAP = 30;
+
+            const history = [];
+            let busy = false;
+            let activeAbort = null;
+
+            const setBusy = (value) => {
+                busy = value;
+                submitBtn.disabled = value;
+                input.disabled = value;
+            };
+
+            const appendMessage = (role, text) => {
+                const el = document.createElement('div');
+                el.classList.add('ai-chat__msg', `ai-chat__msg--${role}`);
+                el.textContent = text;
+                transcript.appendChild(el);
+                transcript.scrollTop = transcript.scrollHeight;
+                return el;
+            };
+
+            const trimHistory = () => {
+                if (history.length > HISTORY_HARD_CAP) {
+                    history.splice(0, history.length - HISTORY_HARD_CAP);
+                }
+            };
+
+            const dispatchSseBlock = (block, onEvent) => {
+                const lines = block.split('\n');
+                let eventName = 'message';
+                let dataRaw = '';
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) eventName = line.slice(7).trim();
+                    else if (line.startsWith('data: ')) dataRaw += (dataRaw ? '\n' : '') + line.slice(6);
+                }
+                if (!dataRaw) return;
+                let data = {};
+                try { data = JSON.parse(dataRaw); } catch (_) { data = { content: dataRaw }; }
+                onEvent(eventName, data);
+            };
+
+            const postSse = async ({ payload, onEvent, onClose, onFatal, signal }) => {
+                try {
+                    const response = await fetch(streamUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        signal,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'text/event-stream',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!response.ok) {
+                        const errBody = await response.text().catch(() => '');
+                        onFatal(new Error(`HTTP ${response.status}: ${errBody.slice(0, 300)}`));
+                        return;
+                    }
+                    if (!response.body) {
+                        onFatal(new Error('Response body nicht verfügbar (Streaming wird nicht unterstützt)'));
+                        return;
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        let sep;
+                        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+                            const block = buffer.slice(0, sep);
+                            buffer = buffer.slice(sep + 2);
+                            dispatchSseBlock(block, onEvent);
+                        }
+                    }
+                    if (buffer.trim()) dispatchSseBlock(buffer, onEvent);
+                    onClose();
+                } catch (err) {
+                    if (err && err.name === 'AbortError') {
+                        onClose();
+                        return;
+                    }
+                    onFatal(err);
+                }
+            };
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                if (busy) return;
+                const text = (input.value || '').trim();
+                if (!text) return;
+
+                if (activeAbort) activeAbort.abort();
+                activeAbort = new AbortController();
+
+                appendMessage('user', text);
+                history.push({ role: 'user', content: text });
+                trimHistory();
+                input.value = '';
+                setBusy(true);
+
+                const assistantNode = appendMessage('assistant', '');
+                let assistantBuffer = '';
+                let appendedToHistory = false;
+
+                postSse({
+                    payload: {
+                        csrfToken,
+                        message: text,
+                    },
+                    signal: activeAbort.signal,
+                    onEvent: (eventName, data) => {
+                        if (eventName === 'message') {
+                            assistantBuffer += String(data.content || '');
+                            assistantNode.textContent = assistantBuffer;
+                        } else if (eventName === 'error') {
+                            assistantNode.classList.add('ai-chat__msg--error');
+                            assistantNode.textContent = `[${data.kind || 'error'}] ${data.message || 'Unbekannter Fehler'}`;
+                        } else if (eventName === 'done') {
+                            history.push({ role: 'assistant', content: assistantBuffer });
+                            trimHistory();
+                            appendedToHistory = true;
+                        }
+                    },
+                    onClose: () => {
+                        if (!appendedToHistory && assistantBuffer) {
+                            history.push({ role: 'assistant', content: assistantBuffer });
+                            trimHistory();
+                        }
+                        setBusy(false);
+                        activeAbort = null;
+                    },
+                    onFatal: (err) => {
+                        assistantNode.classList.add('ai-chat__msg--error');
+                        assistantNode.textContent = `[transport] ${err.message || err}`;
+                        setBusy(false);
+                        activeAbort = null;
+                    },
+                });
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (activeAbort) activeAbort.abort();
+            });
+        }
+    }
+    </script>
+{% endif %}

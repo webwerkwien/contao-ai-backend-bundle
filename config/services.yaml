@@ -1,0 +1,36 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    Webwerkwien\ContaoAiBackendBundle\:
+        resource: '../src/'
+        exclude:
+            - '../src/{ContaoAiBackendBundle.php,ContaoManager,Exception,Service/AgentInvocation.php,Service/UserAiConfigDto.php,Resources}'
+
+    Webwerkwien\ContaoAiBackendBundle\Controller\:
+        resource: '../src/Controller/'
+        public: true
+        tags: ['controller.service_arguments']
+
+    Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController:
+        autowire: true
+        public: true
+        tags: ['controller.service_arguments']
+        arguments:
+            $csrfTokenName: '%contao.csrf_token_name%'
+            $projectDir: '%kernel.project_dir%'
+
+    Webwerkwien\ContaoAiBackendBundle\Service\SystemPromptProvider:
+        arguments:
+            $promptFile: '%kernel.project_dir%/vendor/webwerkwien/contao-ai-backend-bundle/src/Resources/prompts/system.md'
+
+    # Public service consumed by the legacy Contao backend module callback (AiChatModule)
+    Webwerkwien\ContaoAiBackendBundle\Service\ChatViewRenderer:
+        autowire: true
+        public: true
+
+    _instanceof:
+        Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool:
+            tags: ['contao_ai_backend.tool']

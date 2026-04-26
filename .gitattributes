@@ -1,0 +1,29 @@
+# Enforce LF line endings for all text files (prevents CRLF/BOM issues on Windows)
+* text=auto eol=lf
+
+# PHP files always LF
+*.php text eol=lf
+
+# Composer / JSON always LF
+*.json text eol=lf
+
+# Markdown always LF
+*.md text eol=lf
+
+# YAML always LF
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Twig templates always LF
+*.twig text eol=lf
+
+# Contao legacy templates always LF
+*.html5 text eol=lf
+
+# Binary files — no line ending conversion
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
