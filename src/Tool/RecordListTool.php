@@ -1,6 +1,5 @@
 <?php declare(strict_types=1);
 
-// Build: 2026-05-01 force-reload — method renamed list -> listRecords (PHP keyword conflict)
 namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
 use Contao\BackendUser;

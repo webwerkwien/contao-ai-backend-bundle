@@ -25,7 +25,20 @@ use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
 
 class AiStreamController extends AbstractController
 {
-    private const MAX_HISTORY_MESSAGES = 40;
+    /**
+     * Phase-6 finding (live test 2026-05-01): persisted assistant text from
+     * earlier turns causes Claude to skip tool calls on repeated questions —
+     * it copies its own prior formatted answer ("Hier sind die letzten 3
+     * News-Einträge: …") instead of re-fetching, and even appends "die Liste
+     * ist unverändert". The H-2 history was designed against tampered client
+     * messages, not against in-context staleness.
+     *
+     * Disabling persistence (cap = 0) is the safest fix: every backend request
+     * is treated as standalone. Multi-turn ergonomics ("publish that one")
+     * are sacrificed in exchange for correctness — re-enable with a smarter
+     * eviction strategy when one is implemented.
+     */
+    private const MAX_HISTORY_MESSAGES = 0;
     private const MAX_USER_INPUT_BYTES = 8192;
     private const PAYLOAD_DEPTH = 512;
 

@@ -3,10 +3,12 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Service;
 
 use Contao\BackendUser;
+use Psr\Log\LoggerInterface;
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
@@ -24,6 +26,8 @@ class AgentFactory
         private readonly iterable $platformBridges,
         private readonly UserAiConfig $userConfig,
         private readonly SystemPromptProvider $promptProvider,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -46,7 +50,15 @@ class AgentFactory
             }
         }
 
-        $toolbox  = new Toolbox($allowedTools);
+        // Wire EventDispatcher into Toolbox so ToolCallLogger can audit each
+        // tool invocation. Without this, a chat that "looks successful" but
+        // skipped tool calls (LLM extrapolating from prior outputs) is
+        // indistinguishable from a real run in the SSE response alone.
+        $toolbox  = new Toolbox(
+            tools: $allowedTools,
+            logger: $this->logger,
+            eventDispatcher: $this->eventDispatcher,
+        );
         $processor = new AgentProcessor($toolbox);
         $agent    = new Agent($platform, $model, [$processor], [$processor]);
 
