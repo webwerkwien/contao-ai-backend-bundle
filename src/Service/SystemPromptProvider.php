@@ -31,6 +31,52 @@ class SystemPromptProvider
     ];
 
     /**
+     * Maps a Contao backend module to the DCA tables the user gains scope on.
+     * Mirrors RecordListTool::TABLE_MODULE (inverted) — kept here too so the
+     * system prompt can render a per-user accessible-tables list without
+     * pulling RecordListTool as a dependency. Update both when adding a table.
+     *
+     * @var array<string, list<string>>
+     */
+    private const MODULE_TABLES = [
+        'news'     => ['tl_news', 'tl_news_archive'],
+        'page'     => ['tl_page'],
+        'article'  => ['tl_article', 'tl_content'],
+        'calendar' => ['tl_calendar', 'tl_calendar_events'],
+        'files'    => ['tl_files'],
+    ];
+
+    /**
+     * @return list<string> Tables the user may name in record_list / dca_schema
+     *   based on their backend module assignments. Admins see everything; the
+     *   intent for non-admins is that the LLM only ever sees and names tables
+     *   the user could already see in the regular Contao backend, so a stray
+     *   `record_list tl_user` from the model triggers an immediate refusal
+     *   rather than even leaking the existence of tables the user has no
+     *   business knowing about.
+     */
+    private function accessibleTablesFor(BackendUser $user): array
+    {
+        if ($user->isAdmin) {
+            $all = [];
+            foreach (self::MODULE_TABLES as $tables) {
+                foreach ($tables as $t) {
+                    $all[$t] = true;
+                }
+            }
+            return array_keys($all);
+        }
+        $modules = (array) ($user->modules ?? []);
+        $scoped = [];
+        foreach ($modules as $module) {
+            foreach (self::MODULE_TABLES[$module] ?? [] as $t) {
+                $scoped[$t] = true;
+            }
+        }
+        return array_keys($scoped);
+    }
+
+    /**
      * @param list<string> $allowedToolNames Already-filtered names from
      *   ToolAccessChecker::listAllowedTools — NOT raw class-level AsTool names.
      *   The class-level set leaks admin-only sub-tools (news_delete) into the
@@ -59,12 +105,16 @@ class SystemPromptProvider
         $tools = $allowedNames ? '- ' . implode("\n- ", $allowedNames) : '(none)';
         $denied = $deniedNames ? '- ' . implode("\n- ", $deniedNames) : '(none)';
 
+        $tables = $this->accessibleTablesFor($user);
+        $accessibleTables = $tables ? '- ' . implode("\n- ", $tables) : '(none — record_list/dca_schema not usable)';
+
         return strtr($this->loadTemplate(), [
-            '{{username}}'   => $username,
-            '{{locale}}'     => $locale,
-            '{{admin}}'      => $isAdmin,
-            '{{tools}}'      => $tools,
-            '{{tools_denied}}' => $denied,
+            '{{username}}'           => $username,
+            '{{locale}}'             => $locale,
+            '{{admin}}'              => $isAdmin,
+            '{{tools}}'              => $tools,
+            '{{tools_denied}}'       => $denied,
+            '{{accessible_tables}}'  => $accessibleTables,
         ]);
     }
 

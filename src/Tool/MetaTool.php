@@ -11,9 +11,9 @@ use Webwerkwien\ContaoAiCoreBundle\Command\DcaSchemaCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ListingConfigCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\SearchQueryCommand;
 
-#[AsTool('dca_schema',     'Read the DCA field definitions of a Contao table (tl_news, tl_page, …) so the agent knows which fields exist and their types', method: 'dcaSchema')]
-#[AsTool('listing_config', 'Read the configuration of a Contao listing module (which fields are shown, sorting, filters)', method: 'listingConfig')]
-#[AsTool('search_query',   'Run a Contao search query across the indexed content (full-text)', method: 'searchQuery')]
+#[AsTool('dca_schema',     'Read the DCA field definitions of a Contao table the current user has module access to. The table name MUST come from the explicit per-user list provided in the system prompt — do not pass any other table name.', method: 'dcaSchema')]
+#[AsTool('listing_config', 'Read the configuration of a Contao listing module (which fields are shown, sorting, filters). Only the user with the page module may use this — refuse otherwise.', method: 'listingConfig')]
+#[AsTool('search_query',   'Run a Contao search query across the indexed content (full-text). Only the user with the page module may use this.', method: 'searchQuery')]
 class MetaTool extends AbstractCoreCommandTool
 {
     public function __construct(
@@ -147,9 +147,21 @@ class MetaTool extends AbstractCoreCommandTool
 
     protected function assertAccess(string $toolName): void
     {
-        // Meta tools are read-only. We still require an authenticated backend user.
+        // All meta-tools require an authenticated backend session.
         if (!$this->tokenChecker->hasBackendUser()) {
             throw new ToolAccessDeniedException('Keine aktive Backend-Session.');
+        }
+        // Module-gated meta-tools (search_query, listing_config) are also
+        // filtered out of the schema sent to the LLM via ToolAccessChecker
+        // (TOOL_MAP entry). Run the runtime check here as defense in depth so
+        // a direct `Toolbox::execute(new ToolCall('search_query', …))` from
+        // somewhere unexpected still fails closed for non-page users.
+        if (\in_array($toolName, ['search_query', 'listing_config'], true)) {
+            $user = $this->getCurrentBackendUser();
+            if (null === $user) {
+                throw new ToolAccessDeniedException('Keine aktive Backend-Session.');
+            }
+            $this->accessChecker->assertCanUseTool($user, $toolName);
         }
     }
 }

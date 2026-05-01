@@ -52,6 +52,15 @@ class ToolAccessChecker
         'content_update' => ['module' => 'article', 'op' => 'edit'],
         'content_delete' => ['module' => 'article', 'op' => 'delete'],
         'content_read'   => ['module' => 'article', 'op' => 'read'],
+        // Module-gated meta-tools. dca_schema deliberately stays UNMAPPED so
+        // any backend user can query field shapes for the tables they already
+        // have scope on — the system prompt's accessible_tables list bounds
+        // the disclosure surface. search_query / listing_config touch state
+        // beyond a single table (full-text index, listing-module config) and
+        // require the page module the same way the regular Contao backend
+        // gates them.
+        'search_query'   => ['module' => 'page', 'op' => 'read'],
+        'listing_config' => ['module' => 'page', 'op' => 'read'],
     ];
 
     /**
