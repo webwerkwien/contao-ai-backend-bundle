@@ -6,6 +6,7 @@ use Contao\ArticleModel;
 use Contao\BackendUser;
 use Contao\ContentModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
@@ -146,7 +147,7 @@ class ContentTool extends AbstractCoreCommandTool
         if (null === $page) {
             throw new ToolExecutionException(\sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $pid));
         }
-        if (!$user->isAllowed(BackendUser::CAN_EDIT_ARTICLES, $page->row())) {
+        if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
             throw new ToolAccessDeniedException(
                 \sprintf('Kein Zugriff auf Artikel %d für Inhaltselement-Operationen.', $pid)
             );

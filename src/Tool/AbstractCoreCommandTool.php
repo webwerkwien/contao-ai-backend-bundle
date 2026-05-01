@@ -8,6 +8,7 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
@@ -23,6 +24,15 @@ abstract class AbstractCoreCommandTool
      */
     protected PendingActionStore $pendingActionStore;
 
+    /**
+     * Symfony Security authorization checker. Contao 5 dropped the
+     * `BackendUser::CAN_*` numeric class constants in favour of voter-based
+     * permission strings (see ContaoCorePermissions::USER_CAN_*); subclasses
+     * use isGranted() instead of the old User::isAllowed() helper. Setter
+     * injection so subclass constructors stay unchanged.
+     */
+    protected AuthorizationCheckerInterface $authorizationChecker;
+
     public function __construct(
         protected readonly ToolAccessChecker $accessChecker,
         protected readonly TokenChecker $tokenChecker,
@@ -33,6 +43,12 @@ abstract class AbstractCoreCommandTool
     public function setPendingActionStore(PendingActionStore $store): void
     {
         $this->pendingActionStore = $store;
+    }
+
+    #[Required]
+    public function setAuthorizationChecker(AuthorizationCheckerInterface $checker): void
+    {
+        $this->authorizationChecker = $checker;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
 use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
@@ -60,7 +61,7 @@ class PageTool extends AbstractCoreCommandTool
         // For create, the new page does not exist yet — verify the user is
         // allowed to add a sub-page below the parent (CAN_EDIT_PAGE on parent).
         if (0 !== $pid) {
-            $this->assertPageOperation($pid, BackendUser::CAN_EDIT_PAGE_HIERARCHY);
+            $this->assertPageOperation($pid, ContaoCorePermissions::USER_CAN_EDIT_PAGE_HIERARCHY);
         } else {
             // Root pages: admin only.
             $user = $this->requireBackendUser();
@@ -123,9 +124,11 @@ class PageTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Per-record permission via BackendUser::isAllowed() with the appropriate
-     * Contao operation flag. Reads the page row first, then asks the user
-     * voter — same path the regular backend uses for every page operation.
+     * Per-record permission via Symfony Security voters with the
+     * ContaoCorePermissions::USER_CAN_* string subjects. Reads the page row
+     * first, then asks the voter — same path the regular Contao 5 backend
+     * uses for every page operation. Replaces the legacy
+     * BackendUser::isAllowed(CAN_*) call which no longer exists in Contao 5.
      */
     protected function assertRecordAccess(int $recordId, string $operation): void
     {
@@ -140,16 +143,16 @@ class PageTool extends AbstractCoreCommandTool
             throw new ToolExecutionException(\sprintf('Seite %d nicht gefunden.', $recordId));
         }
 
-        $flag = match ($operation) {
-            'delete'           => BackendUser::CAN_DELETE_PAGE,
-            'update', 'publish'=> BackendUser::CAN_EDIT_PAGE,
-            'read'             => BackendUser::CAN_EDIT_PAGE,
-            default            => BackendUser::CAN_EDIT_PAGE,
+        // ContaoCorePermissions strings — Contao 5 voter-based permission system.
+        $permission = match ($operation) {
+            'delete'           => ContaoCorePermissions::USER_CAN_DELETE_PAGE,
+            'update', 'publish', 'read' => ContaoCorePermissions::USER_CAN_EDIT_PAGE,
+            default            => ContaoCorePermissions::USER_CAN_EDIT_PAGE,
         };
-        $this->assertPageOperation($recordId, $flag);
+        $this->assertPageOperation($recordId, $permission);
     }
 
-    private function assertPageOperation(int $pageId, int $flag): void
+    private function assertPageOperation(int $pageId, string $permission): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {
@@ -161,7 +164,7 @@ class PageTool extends AbstractCoreCommandTool
         if (null === $page) {
             throw new ToolExecutionException(\sprintf('Seite %d nicht gefunden.', $pageId));
         }
-        if (!$user->isAllowed($flag, $page->row())) {
+        if (!$this->authorizationChecker->isGranted($permission, $page->row())) {
             throw new ToolAccessDeniedException(
                 \sprintf('Kein Zugriff auf Seite %d für diese Operation.', $pageId)
             );

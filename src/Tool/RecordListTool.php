@@ -4,6 +4,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
 use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
@@ -216,7 +217,7 @@ class RecordListTool extends AbstractCoreCommandTool
             ),
             'tl_page' => array_filter(
                 $results,
-                fn ($row) => \is_array($row) && $user->isAllowed(BackendUser::CAN_EDIT_PAGE, $row),
+                fn ($row) => \is_array($row) && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $row),
             ),
             'tl_article' => array_filter(
                 $results,
@@ -260,7 +261,7 @@ class RecordListTool extends AbstractCoreCommandTool
             return false;
         }
         $page = PageModel::findById($pageId);
-        return null !== $page && $user->isAllowed(BackendUser::CAN_EDIT_PAGE, $page->row());
+        return null !== $page && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $page->row());
     }
 
     /**
@@ -283,7 +284,7 @@ class RecordListTool extends AbstractCoreCommandTool
                 return false;
             }
             $page = PageModel::findById((int) $article->pid);
-            return null !== $page && $user->isAllowed(BackendUser::CAN_EDIT_PAGE, $page->row());
+            return null !== $page && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $page->row());
         }
         // Unknown ptable (custom modules) — be conservative.
         return false;
