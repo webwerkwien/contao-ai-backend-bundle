@@ -78,6 +78,21 @@ class ContentTool extends AbstractCoreCommandTool
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
+
+        $this->framework->initialize();
+        $element = \Contao\ContentModel::findById($id);
+        $type = null !== $element ? (string) ($element->type ?? 'unbekannt') : 'unbekannt';
+        $stagePayload = ['id' => $id, 'type' => $type, 'pid' => null !== $element ? (int) $element->pid : null];
+        $staged = $this->requireConfirmation(
+            'content_delete',
+            (string) $id,
+            \sprintf('Das Inhaltselement (ID %d, Typ "%s") soll endgültig gelöscht werden. Wirklich fortfahren?', $id, $type),
+            $stagePayload,
+        );
+        if (null !== $staged) {
+            return $staged;
+        }
+
         return $this->runCommand($this->deleteCommand, ['id' => (string) $id], 'content_delete');
     }
 

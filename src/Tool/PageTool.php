@@ -89,6 +89,21 @@ class PageTool extends AbstractCoreCommandTool
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
+
+        $this->framework->initialize();
+        $page = PageModel::findById($id);
+        $title = null !== $page ? (string) ($page->title ?? 'unbekannt') : 'unbekannt';
+        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => null !== $page ? (int) $page->pid : null];
+        $staged = $this->requireConfirmation(
+            'page_delete',
+            (string) $id,
+            \sprintf('Die Seite "%s" (ID %d) und alle Unterseiten sollen endgültig gelöscht werden. Wirklich fortfahren?', $title, $id),
+            $stagePayload,
+        );
+        if (null !== $staged) {
+            return $staged;
+        }
+
         return $this->runCommand($this->deleteCommand, ['id' => (string) $id], 'page_delete');
     }
 

@@ -76,6 +76,21 @@ class ArticleTool extends AbstractCoreCommandTool
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
+
+        $this->framework->initialize();
+        $article = \Contao\ArticleModel::findById($id);
+        $title = null !== $article ? (string) ($article->title ?? 'unbekannt') : 'unbekannt';
+        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => null !== $article ? (int) $article->pid : null];
+        $staged = $this->requireConfirmation(
+            'article_delete',
+            (string) $id,
+            \sprintf('Der Artikel "%s" (ID %d) soll endgültig gelöscht werden. Wirklich fortfahren?', $title, $id),
+            $stagePayload,
+        );
+        if (null !== $staged) {
+            return $staged;
+        }
+
         return $this->runCommand($this->deleteCommand, ['id' => (string) $id], 'article_delete');
     }
 

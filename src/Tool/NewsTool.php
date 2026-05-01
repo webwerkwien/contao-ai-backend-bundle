@@ -87,6 +87,36 @@ class NewsTool extends AbstractCoreCommandTool
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
+
+        // Two-step confirmation. First call stages, returns a question for
+        // the user; second call within 5 minutes (after the user said yes)
+        // proceeds to actually delete. See AbstractCoreCommandTool::requireConfirmation.
+        $this->framework->initialize();
+        $news = NewsModel::findById($id);
+        $title = 'unbekannt';
+        if (null !== $news && \is_string($news->headline ?? null)) {
+            $decoded = @unserialize($news->headline, ['allowed_classes' => false]);
+            if (\is_array($decoded) && isset($decoded['value'])) {
+                $title = (string) $decoded['value'];
+            } else {
+                $title = (string) $news->headline;
+            }
+        }
+        $stagePayload = [
+            'id'      => $id,
+            'archive' => null !== $news ? (int) $news->pid : null,
+            'title'   => $title,
+        ];
+        $staged = $this->requireConfirmation(
+            'news_delete',
+            (string) $id,
+            \sprintf('Die News "%s" (ID %d) soll endgültig gelöscht werden. Wirklich fortfahren?', $title, $id),
+            $stagePayload,
+        );
+        if (null !== $staged) {
+            return $staged;
+        }
+
         return $this->runCommand($this->deleteCommand, [
             'id' => (string) $id,
         ], 'news_delete');

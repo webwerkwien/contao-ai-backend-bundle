@@ -8,16 +8,31 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
+use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
 
 abstract class AbstractCoreCommandTool
 {
+    /**
+     * Pending-action store for two-step destructive flows. Set via setter
+     * injection so the existing constructors of every concrete tool subclass
+     * keep working unchanged — Symfony's autowiring fills it in automatically.
+     */
+    protected PendingActionStore $pendingActionStore;
+
     public function __construct(
         protected readonly ToolAccessChecker $accessChecker,
         protected readonly TokenChecker $tokenChecker,
     ) {
+    }
+
+    #[Required]
+    public function setPendingActionStore(PendingActionStore $store): void
+    {
+        $this->pendingActionStore = $store;
     }
 
     /**
@@ -97,6 +112,56 @@ abstract class AbstractCoreCommandTool
             throw new ToolAccessDeniedException('Keine aktive Backend-Session.');
         }
         return $user;
+    }
+
+    /**
+     * Two-step gate for destructive tool calls (delete, unpublish). The first
+     * call to a destructive method should run access + record checks, then
+     * invoke this helper. If no fresh staged entry exists for this user/tool/key,
+     * the entry is created and a `pending_confirmation` JSON payload is
+     * returned wrapped in the same `<tool_output_data>` sentinel as a normal
+     * tool output. The LLM is expected to relay the confirmation question to
+     * the user verbatim and re-invoke the same tool with the same key after
+     * a positive reply; the second call passes through and executes.
+     *
+     * Storing the staged entry server-side rather than in the chat history
+     * is what makes confirmation flows survive the Phase-7 Smart-History
+     * stub: the agent's own assistant text is replaced before persistence,
+     * but the pending entry lives in a separate session slot keyed by user.
+     *
+     * Returns null when staging happened (caller should return the result),
+     * or returns nothing when the action has been confirmed and the caller
+     * should proceed to actually run the wrapped command. A return of null
+     * is the "stage" branch; an explicit return value (a JSON string in the
+     * sentinel wrapper) is what the caller hands back to the LLM.
+     *
+     * @param array<string, mixed> $stagePayload data echoed back to the LLM
+     *   for the confirmation prompt — title, archive name, etc.
+     */
+    protected function requireConfirmation(string $tool, string $key, string $humanQuestion, array $stagePayload): ?string
+    {
+        $user = $this->getCurrentBackendUser();
+        if (null === $user) {
+            // No session: cannot stage; let the caller execute. Tests / CLI fall here.
+            return null;
+        }
+        $userId = (int) ($user->id ?? 0);
+        if (0 === $userId) {
+            return null;
+        }
+        if (null !== $this->pendingActionStore->consume($userId, $tool, $key)) {
+            return null; // confirmed -> caller proceeds
+        }
+        $this->pendingActionStore->stage($userId, $tool, $key, $stagePayload);
+        $payload = [
+            'status'   => 'pending_confirmation',
+            'tool'     => $tool,
+            'question' => $humanQuestion,
+            'stage'    => $stagePayload,
+            'note'     => 'Frage den User wörtlich. Bei klarem Ja innerhalb 5 Minuten denselben Tool-Aufruf erneut absetzen — dann führt der Server aus. Bei Nein nicht erneut aufrufen.',
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        return "<tool_output_data tool=\"{$tool}\">\n{$json}\n</tool_output_data>";
     }
 
     /**
