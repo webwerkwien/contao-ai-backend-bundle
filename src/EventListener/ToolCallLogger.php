@@ -26,6 +26,20 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 class ToolCallLogger implements EventSubscriberInterface
 {
+    /**
+     * Tools (by name) the agent invoked during the current request.
+     *
+     * Symfony services are singletons within an FPM worker, so this property
+     * persists across requests. AiStreamController calls startRequest() at the
+     * top of every chat invocation to clear it; getToolNames() is consulted
+     * after agent->call() to decide whether the assistant turn should be
+     * stubbed in the persisted history (any tool was used) or stored verbatim
+     * (purely conversational).
+     *
+     * @var list<string>
+     */
+    private array $toolsCalledThisRequest = [];
+
     public function __construct(
         // Use the contao.general channel so entries hit the same Contao
         // Monolog handler that writes var/logs/prod-YYYY-MM-DD.log; the
@@ -33,6 +47,19 @@ class ToolCallLogger implements EventSubscriberInterface
         #[Autowire(service: 'monolog.logger.contao.general')]
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    public function startRequest(): void
+    {
+        $this->toolsCalledThisRequest = [];
+    }
+
+    /**
+     * @return list<string> tool names invoked since the last startRequest()
+     */
+    public function getToolNames(): array
+    {
+        return array_values(array_unique($this->toolsCalledThisRequest));
     }
 
     public static function getSubscribedEvents(): array
@@ -47,6 +74,7 @@ class ToolCallLogger implements EventSubscriberInterface
     public function onRequested(ToolCallRequested $event): void
     {
         $call = $event->getToolCall();
+        $this->toolsCalledThisRequest[] = $call->getName();
         $this->logger->warning('contao-ai-backend tool requested', [
             'tool'      => $call->getName(),
             'arguments' => $call->getArguments(),

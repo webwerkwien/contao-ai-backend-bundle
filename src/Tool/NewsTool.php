@@ -73,7 +73,7 @@ class NewsTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id News entry ID
-     * @param array<string, scalar|null> $fields Field name => value pairs
+     * @param array<string, scalar|null> $fields Object mapping field name to new value, e.g. {"headline": "New title", "published": true, "teaser": "Lead text"}. Allowed field names: headline, subheadline, teaser, date, time, published, start, stop. Pass exactly the fields that should change.
      */
     public function update(int $id, array $fields): string
     {

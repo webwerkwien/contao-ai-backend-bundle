@@ -17,6 +17,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
@@ -25,20 +26,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
 
 class AiStreamController extends AbstractController
 {
-    /**
-     * Phase-6 finding (live test 2026-05-01): persisted assistant text from
-     * earlier turns causes Claude to skip tool calls on repeated questions —
-     * it copies its own prior formatted answer ("Hier sind die letzten 3
-     * News-Einträge: …") instead of re-fetching, and even appends "die Liste
-     * ist unverändert". The H-2 history was designed against tampered client
-     * messages, not against in-context staleness.
-     *
-     * Disabling persistence (cap = 0) is the safest fix: every backend request
-     * is treated as standalone. Multi-turn ergonomics ("publish that one")
-     * are sacrificed in exchange for correctness — re-enable with a smarter
-     * eviction strategy when one is implemented.
-     */
-    private const MAX_HISTORY_MESSAGES = 0;
+    private const MAX_HISTORY_MESSAGES = 40;
     private const MAX_USER_INPUT_BYTES = 8192;
     private const PAYLOAD_DEPTH = 512;
 
@@ -76,6 +64,7 @@ class AiStreamController extends AbstractController
         private readonly ContaoCsrfTokenManager $csrf,
         private readonly string $csrfTokenName,
         private readonly string $projectDir,
+        private readonly ToolCallLogger $toolCallLogger,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -116,6 +105,11 @@ class AiStreamController extends AbstractController
 
         $messages = $this->buildMessageBag($invocation->systemPrompt, $history, $userInput);
 
+        // Reset the per-request tool-call tracker so we can decide afterwards
+        // whether this turn touched any tool (-> persist a stub) or stayed
+        // purely conversational (-> persist the full assistant text).
+        $this->toolCallLogger->startRequest();
+
         // Synchronous response (no StreamedResponse) — Symfony reverse cache layer mishandles streams.
         // Body is SSE-formatted so the frontend parser works unchanged when real streaming returns.
         $body = '';
@@ -132,8 +126,15 @@ class AiStreamController extends AbstractController
             $emit('message', ['content' => $assistantContent]);
             $emit('done', ['ok' => true]);
             // Persist only on successful turns — failed turns leave the store untouched
-            // so the agent does not retain garbled state.
-            $this->appendHistory($request, $user, $userInput, $assistantContent);
+            // so the agent does not retain garbled state. If any tool was invoked
+            // this turn, the assistant content is replaced with a stub before
+            // persisting (Phase-7 finding 2026-05-01): the model otherwise re-uses
+            // its prior formatted answer on repeated questions and skips the tool.
+            $persistedAssistant = $this->buildHistoryAssistantContent(
+                $assistantContent,
+                $this->toolCallLogger->getToolNames(),
+            );
+            $this->appendHistory($request, $user, $userInput, $persistedAssistant);
         } catch (ToolAccessDeniedException $e) {
             // Access-denied messages are written by us and stay user-facing — log for audit.
             $this->logger->info('contao_ai_backend tool access denied', ['exception' => $e]);
@@ -288,6 +289,36 @@ class AiStreamController extends AbstractController
             $stored,
             static fn ($e): bool => \is_array($e) && isset($e['role'], $e['content'])
         )) : [];
+    }
+
+    /**
+     * Build the assistant content stored in history. When a tool was invoked
+     * this turn, the full text answer is replaced with a one-line stub naming
+     * the tools used. Reason: a verbatim tool answer (typically a markdown
+     * table or list of records) would otherwise live in history and let the
+     * model reuse it on the next identical question without invoking the
+     * tool again — observed live 2026-05-01.
+     *
+     * Conversation context is preserved (the user message AND a marker that a
+     * tool was used at this position) so multi-turn flows like
+     * "show last 3 news" -> "now publish the newest" still work — the model
+     * sees the marker, knows tool data is stale, and re-invokes the tool to
+     * find the newest record.
+     *
+     * Pure conversational turns (no tool used) keep the full text so general
+     * Q&A continues to flow naturally across turns.
+     *
+     * @param list<string> $toolsUsed
+     */
+    private function buildHistoryAssistantContent(string $assistantContent, array $toolsUsed): string
+    {
+        if ([] === $toolsUsed) {
+            return $assistantContent;
+        }
+        return \sprintf(
+            '[Vorheriger Turn: %s aufgerufen. IDs, Datensatz-Inhalte und Listen-Reihenfolge aus diesem Turn sind NICHT mehr im Kontext verfügbar. Wenn die nächste Anfrage auf einen Eintrag verweist ("der neueste", "diesen Eintrag", "ID X"), MUSS zuerst das passende Read- oder List-Tool erneut aufgerufen werden, um die aktuelle ID zu bestimmen — niemals ID raten.]',
+            implode(', ', $toolsUsed),
+        );
     }
 
     private function appendHistory(Request $request, BackendUser $user, string $userInput, string $assistantContent): void

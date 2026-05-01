@@ -255,6 +255,15 @@ abstract class AbstractCoreCommandTool
     protected function buildSetOptions(array $fields): array
     {
         $allowed = $this->allowedFields();
+
+        // The agent's JSON-schema view of `array $fields` is ambiguous: depending
+        // on how symfony/ai translates the PHP type, Claude sometimes sends an
+        // object like `{"headline": "x"}` and sometimes a list of pair-objects
+        // like `[{"name": "headline", "value": "x"}]` or `[{"key": ..., "value": ...}]`,
+        // or even a flat list `[{"headline": "x"}]`. Normalize all variants to
+        // a single associative array so the rest of this method stays simple.
+        $fields = self::normalizeFieldsPayload($fields);
+
         $out = [];
         foreach ($fields as $key => $value) {
             if (null === $value) {
@@ -272,6 +281,80 @@ abstract class AbstractCoreCommandTool
                 );
             }
             $out[] = $key . '=' . $stringValue;
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<int|string, mixed> $fields
+     * @return array<string, scalar|null>
+     */
+    private static function normalizeFieldsPayload(array $fields): array
+    {
+        if ([] === $fields) {
+            return [];
+        }
+        // Already associative? Detect by checking for at least one non-int key.
+        foreach (array_keys($fields) as $k) {
+            if (!\is_int($k)) {
+                /** @var array<string, scalar|null> $fields */
+                return $fields;
+            }
+        }
+        // List form. Walk entries and merge.
+        $out = [];
+
+        // Special case: flat list of even length, all scalar — alternating
+        // [name, value, name, value, …]. Claude has been observed sending this
+        // for `array $fields` parameters because the JSON-schema view of the
+        // PHP `array` type is generic.
+        $allScalar = true;
+        foreach ($fields as $entry) {
+            if (!\is_scalar($entry) && null !== $entry) {
+                $allScalar = false;
+                break;
+            }
+        }
+        if ($allScalar && 0 === \count($fields) % 2 && \count($fields) > 0) {
+            $values = array_values($fields);
+            for ($i = 0; $i < \count($values); $i += 2) {
+                $name = (string) $values[$i];
+                if ('' === $name) {
+                    continue;
+                }
+                $out[$name] = $values[$i + 1];
+            }
+            return $out;
+        }
+
+        foreach ($fields as $entry) {
+            if (\is_array($entry)) {
+                if (\array_key_exists('name', $entry) && \array_key_exists('value', $entry)) {
+                    // [{"name": "headline", "value": "..."}]
+                    $out[(string) $entry['name']] = $entry['value'];
+                    continue;
+                }
+                if (\array_key_exists('key', $entry) && \array_key_exists('value', $entry)) {
+                    // [{"key": "headline", "value": "..."}]
+                    $out[(string) $entry['key']] = $entry['value'];
+                    continue;
+                }
+                if (1 === \count($entry)) {
+                    // [{"headline": "..."}]
+                    $k = array_key_first($entry);
+                    $out[(string) $k] = $entry[$k];
+                    continue;
+                }
+                // Multi-key associative inside the list — merge as-is.
+                foreach ($entry as $k => $v) {
+                    if (\is_string($k)) {
+                        $out[$k] = $v;
+                    }
+                }
+            }
+            // Bare scalars in a list are ignored — there is no meaningful
+            // mapping to a field name. The down-stream allow-list check on
+            // unknown keys would have rejected them anyway.
         }
         return $out;
     }

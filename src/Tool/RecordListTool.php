@@ -16,7 +16,11 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordListCommand;
     'List records from a Contao table with pagination and ordering. Use this to get an overview before *_read. '
     .'Allowed tables: tl_news, tl_news_archive, tl_page, tl_article, tl_content, tl_calendar, tl_calendar_events, tl_files. '
     .'Returns id + a curated set of columns per table. '
-    .'Supports filter (e.g. pid=5), order (e.g. "tstamp DESC"), limit (max 50), offset.',
+    .'Supports filter (e.g. pid=5), order, limit (max 50), offset. '
+    .'Order column choice: for "newest/most-recently-edited" use `tstamp DESC` (last-modified, always unique). '
+    .'For "next/upcoming publication" use `date DESC`. The default is `id DESC` which is also a safe '
+    .'"newest-created" proxy. Avoid ordering by `date` alone for "newest" — Contao stores publication dates '
+    .'at midnight, so multiple same-day records tie and the agent picking the first row is undefined.',
     method: 'listRecords',
 )]
 class RecordListTool extends AbstractCoreCommandTool
