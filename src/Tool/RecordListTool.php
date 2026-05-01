@@ -15,7 +15,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordListCommand;
     'record_list',
     'List records from a Contao table the current user has module access to. The table name MUST come from the explicit per-user list provided in the system prompt — do not pass any other table name. '
     .'Returns id + a curated set of columns per table. '
-    .'Supports filter (e.g. pid=5), order, limit (max 50), offset. '
+    .'Supports filter as a JSON object (e.g. {"pid": 5, "published": "1"}), order, limit (max 50), offset. '
     .'Order column choice: when the user says "neueste"/"latest"/"last entry" without further qualification, '
     .'they mean LAST CREATED — use the default `id DESC` (auto-increment guarantees newest-created first). '
     .'Use `tstamp DESC` only when the user explicitly asks for "zuletzt bearbeitet"/"last modified". '
@@ -292,11 +292,14 @@ class RecordListTool extends AbstractCoreCommandTool
     /**
      * Convert {field: value} into ["field=value", …] expected by RecordListCommand.
      *
-     * @param array<string, scalar|null> $filter
+     * @param array<int|string, mixed> $filter raw payload from the agent — may
+     *   arrive as object, list of pairs, alternating tuple, etc. Same shape
+     *   ambiguity as for *Tool::update field maps; reuse the central normalizer.
      * @return list<string>
      */
     private function buildFilterArgs(array $filter): array
     {
+        $filter = self::normalizeFieldsPayload($filter);
         $out = [];
         foreach ($filter as $field => $value) {
             if (null === $value) {

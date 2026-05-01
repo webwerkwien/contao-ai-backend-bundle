@@ -351,10 +351,23 @@ abstract class AbstractCoreCommandTool
     }
 
     /**
+     * Normalize a field-mapping payload from Claude. Public so any tool that
+     * accepts an `array` parameter (record_list filters, *Tool::update fields)
+     * can share the same coercion — Claude sends the same family of shapes
+     * regardless of which tool, and the JSON-schema view of `array` doesn't
+     * disambiguate object-vs-list-of-pairs.
+     *
+     * Accepts:
+     *   - {"field": "value"} (already associative)
+     *   - [{"name": "f", "value": "v"}, …]
+     *   - [{"key":  "f", "value": "v"}, …]
+     *   - [{"f": "v"}, …]
+     *   - ["f", "v", "f2", "v2"] (alternating, observed live)
+     *
      * @param array<int|string, mixed> $fields
      * @return array<string, scalar|null>
      */
-    private static function normalizeFieldsPayload(array $fields): array
+    public static function normalizeFieldsPayload(array $fields): array
     {
         if ([] === $fields) {
             return [];
@@ -380,6 +393,31 @@ abstract class AbstractCoreCommandTool
                 break;
             }
         }
+        // Special case: list of "field=value" strings. Observed shape on
+        // record_list filter parameters — Claude saw "e.g. pid=5" in the
+        // tool description and serialized the filters as the same syntax
+        // the underlying CLI command consumes. Convert each entry by
+        // splitting on the first '=' and skipping malformed ones.
+        if ($allScalar && \count($fields) > 0) {
+            $allEqualPairs = true;
+            foreach ($fields as $entry) {
+                if (!\is_string($entry) || false === strpos($entry, '=')) {
+                    $allEqualPairs = false;
+                    break;
+                }
+            }
+            if ($allEqualPairs) {
+                foreach ($fields as $entry) {
+                    [$k, $v] = explode('=', (string) $entry, 2);
+                    $k = trim($k);
+                    if ('' !== $k) {
+                        $out[$k] = $v;
+                    }
+                }
+                return $out;
+            }
+        }
+
         if ($allScalar && 0 === \count($fields) % 2 && \count($fields) > 0) {
             $values = array_values($fields);
             for ($i = 0; $i < \count($values); $i += 2) {
