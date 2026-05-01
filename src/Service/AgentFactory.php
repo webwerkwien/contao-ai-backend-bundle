@@ -10,6 +10,7 @@ use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
+use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
 
@@ -26,6 +27,7 @@ class AgentFactory
         private readonly iterable $platformBridges,
         private readonly UserAiConfig $userConfig,
         private readonly SystemPromptProvider $promptProvider,
+        private readonly ToolAccessChecker $accessChecker,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
     ) {
@@ -62,10 +64,13 @@ class AgentFactory
         $processor = new AgentProcessor($toolbox);
         $agent    = new Agent($platform, $model, [$processor], [$processor]);
 
+        $allowedToolNames = $this->accessChecker->listAllowedTools($user);
+
         return new AgentInvocation(
             $agent,
-            $this->promptProvider->forUser($user, $allowedTools),
+            $this->promptProvider->forUser($user, $allowedToolNames),
             $model,
+            $allowedToolNames,
         );
     }
 

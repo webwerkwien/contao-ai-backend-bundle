@@ -121,7 +121,15 @@ class AiStreamController extends AbstractController
         $emit('start', ['model' => $invocation->model]);
 
         try {
-            $result = $invocation->agent->call($messages);
+            // Pass per-tool allow-list to AgentProcessor's processInput so
+            // admin-only sub-tools (e.g. news_delete for an editor with the
+            // news module) are NOT advertised in the JSON-schema sent to the
+            // LLM. Runtime ToolAccessChecker still rejects on attempt — this
+            // is defense in depth, but advertising the tool lets the model
+            // attempt it, wastes a roundtrip, and confuses the user.
+            $result = $invocation->agent->call($messages, [
+                'tools' => $invocation->allowedToolNames,
+            ]);
             $assistantContent = (string) $result->getContent();
             $emit('message', ['content' => $assistantContent]);
             $emit('done', ['ok' => true]);
