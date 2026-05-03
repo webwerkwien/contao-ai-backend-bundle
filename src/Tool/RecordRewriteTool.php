@@ -220,6 +220,31 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         $rows = $this->connection->fetchAllAssociative($sql, $params);
         $ids = array_map(static fn(array $r): int => (int) $r['id'], $rows);
 
+        // Spezialfall tl_article -> tl_content: nested content-elements
+        // (ptable=tl_content) sind die Kinder von Container-Elementen wie
+        // accordion/colset/grouped layouts. Wer "alle Inhalte des Articles
+        // umschreiben" sagt, meint typischerweise auch diese — sonst bleiben
+        // die Sub-Texte im Akkordeon original. BFS bis keine neuen Kinder
+        // mehr auftauchen.
+        if ('tl_article' === $table && 'tl_content' === $childTable) {
+            $queue = $ids;
+            while ([] !== $queue) {
+                $childRows = $this->connection->fetchAllAssociative(
+                    \sprintf(
+                        "SELECT id FROM `tl_content` WHERE `pid` IN (%s) AND `ptable` = ?",
+                        implode(',', array_fill(0, \count($queue), '?'))
+                    ),
+                    [...$queue, 'tl_content']
+                );
+                $newIds = array_map(static fn(array $r): int => (int) $r['id'], $childRows);
+                if ([] === $newIds) {
+                    break;
+                }
+                $ids   = array_merge($ids, $newIds);
+                $queue = $newIds;
+            }
+        }
+
         $capped = false;
         if (\count($ids) > self::MAX_RECURSIVE_RECORDS) {
             $ids = \array_slice($ids, 0, self::MAX_RECURSIVE_RECORDS);

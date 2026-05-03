@@ -30,7 +30,8 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
     'record_clone',
     'Clone a Contao container record and its full child cascade in one server-side operation. '
     .'Returns the new root id and the count of cloned children. '
-    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article and their tl_content elements). '
+    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article and their tl_content elements; nested content children inside accordion/colset/grouped layouts are included automatically). '
+    .'Set recursive=true on tl_page to also clone the full descendant subpage tree (capped at depth 10 / 50 total pages); ignored for the other tables which have no subtree semantics. '
     .'Children are created as drafts (published=0) so the operator can review/translate before publishing. '
     .'Use this instead of issuing many individual create calls for bulk-copy workflows.',
     method: 'cloneRecord',
@@ -77,11 +78,12 @@ class RecordCloneTool extends AbstractCoreCommandTool
     // weshalb das Tool selbst für Admins nicht im Prompt landete.
 
     /**
-     * @param string                              $sourceTable    Container table to clone (currently: tl_news_archive)
+     * @param string                              $sourceTable    Container table to clone (tl_news_archive, tl_calendar, tl_faq_category, tl_page)
      * @param int                                 $sourceId       ID of the source container record
      * @param array<string, scalar|null>|string   $modifications  Field overrides for the cloned root record, e.g. {"title": "Pressemitteilungen 2026"}. Allowed fields per table are constrained server-side; unknown fields are silently dropped. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets Claude pick either.
+     * @param bool                                $recursive      For container-of-container tables (currently only tl_page), also clone the entire descendant tree (subpages with their articles+content) under the new root. Capped at depth 10 / 50 total pages. Ignored for tables without subtree semantics. Default: false (only direct cascade).
      */
-    public function cloneRecord(string $sourceTable, int $sourceId, array|string $modifications = []): string
+    public function cloneRecord(string $sourceTable, int $sourceId, array|string $modifications = [], bool $recursive = false): string
     {
         $user = $this->requireBackendUser();
         if (!$user->isAdmin) {
@@ -111,10 +113,14 @@ class RecordCloneTool extends AbstractCoreCommandTool
             $modsJson = '{}';
         }
 
-        return $this->runCommand($this->cloneCommand, [
+        $args = [
             '--source-table'  => $sourceTable,
             '--source-id'     => (string) $sourceId,
             '--modifications' => $modsJson,
-        ], 'record_clone');
+        ];
+        if ($recursive) {
+            $args['--recursive'] = true;
+        }
+        return $this->runCommand($this->cloneCommand, $args, 'record_clone');
     }
 }
