@@ -1,0 +1,13 @@
+# Geladen von ContaoAiBackendBundle::loadExtension() nur wenn \Contao\FaqModel
+# (contao/faq-bundle) installiert ist.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    _instanceof:
+        Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
+            tags: ['contao_ai_backend.entity_rewriter']
+
+    Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\FaqRewriter: ~

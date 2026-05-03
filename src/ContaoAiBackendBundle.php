@@ -2,6 +2,9 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle;
 
+use Contao\CalendarEventsModel;
+use Contao\FaqModel;
+use Contao\NewsModel;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -14,6 +17,20 @@ class ContaoAiBackendBundle extends AbstractBundle
         ContainerBuilder $containerBuilder,
     ): void {
         $containerConfigurator->import('../config/services.yaml');
+
+        // Plugin-bedingte Tools/Rewriter: Klassen referenzieren plugin-spezifische
+        // Models (NewsModel, CalendarEventsModel, FaqModel) und die jeweiligen
+        // *_update-Commands aus dem Core-Bundle. Ohne diese Guards bricht der
+        // Container-Build, sobald das jeweilige contao-bundle fehlt.
+        if (class_exists(NewsModel::class)) {
+            $containerConfigurator->import('../config/services_news.yaml');
+        }
+        if (class_exists(CalendarEventsModel::class)) {
+            $containerConfigurator->import('../config/services_calendar.yaml');
+        }
+        if (class_exists(FaqModel::class)) {
+            $containerConfigurator->import('../config/services_faq.yaml');
+        }
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

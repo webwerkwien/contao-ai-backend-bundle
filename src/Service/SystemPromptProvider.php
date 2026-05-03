@@ -27,6 +27,8 @@ class SystemPromptProvider
         'article_create', 'article_update', 'article_delete', 'article_read',
         'content_create', 'content_update', 'content_delete', 'content_read',
         'record_list',
+        'record_clone',
+        'record_rewrite',
         'dca_schema', 'listing_config', 'search_query',
     ];
 
@@ -43,6 +45,7 @@ class SystemPromptProvider
         'page'     => ['tl_page'],
         'article'  => ['tl_article', 'tl_content'],
         'calendar' => ['tl_calendar', 'tl_calendar_events'],
+        'faq'      => ['tl_faq', 'tl_faq_category'],
         'files'    => ['tl_files'],
     ];
 

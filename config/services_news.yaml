@@ -1,0 +1,22 @@
+# Geladen von ContaoAiBackendBundle::loadExtension() nur wenn \Contao\NewsModel
+# (contao/news-bundle) installiert ist. Andernfalls bräche autowire am
+# NewsCreate/Read/Update/DeleteCommand-Konstruktor (die ihrerseits via
+# class_exists in ContaoAiCoreBundle ebenfalls nur conditional registriert sind).
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    # Auto-Tag aller Rewriter aus diesem File. _instanceof greift nur per-File-Scope,
+    # daher hier wiederholen (gleiches Muster wie services_*.yaml für Cloner im Core-Bundle).
+    _instanceof:
+        Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
+            tags: ['contao_ai_backend.entity_rewriter']
+
+    Webwerkwien\ContaoAiBackendBundle\Tool\NewsTool:
+        # _instanceof aus services.yaml greift hier nicht (per-File-Scope),
+        # daher die Tag-Bindung explizit setzen.
+        tags: ['contao_ai_backend.tool']
+
+    Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\NewsRewriter: ~

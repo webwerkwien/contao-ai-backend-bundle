@@ -22,6 +22,15 @@ class ToolAccessChecker
         'page_delete',
         'article_delete',
         'content_delete',
+        // Phase 9.2: container-level macro creations (new news archive cascade,
+        // later: calendar / faq-category / page-tree). Admins only — editors
+        // get cloning of individual entries inside their existing scope via
+        // a separate macro in Phase 9.4+.
+        'record_clone',
+        // Phase 9.3: bulk text rewrite via inner LLM call. Admin-only because
+        // each invocation consumes the user's Anthropic credits per editorial
+        // field × N records; operator should be aware of the cost.
+        'record_rewrite',
     ];
 
     /**

@@ -33,6 +33,7 @@ class RecordListTool extends AbstractCoreCommandTool
         'tl_news', 'tl_news_archive',
         'tl_page', 'tl_article', 'tl_content',
         'tl_calendar', 'tl_calendar_events',
+        'tl_faq', 'tl_faq_category',
         'tl_files',
     ];
 
@@ -49,6 +50,8 @@ class RecordListTool extends AbstractCoreCommandTool
         'tl_content'         => 'article',
         'tl_calendar'        => 'calendar',
         'tl_calendar_events' => 'calendar',
+        'tl_faq'             => 'faq',
+        'tl_faq_category'    => 'faq',
         'tl_files'           => 'files',
     ];
 
@@ -97,17 +100,28 @@ class RecordListTool extends AbstractCoreCommandTool
      * @param int                         $limit   Max rows (1–50; default 20)
      * @param int                         $offset  Result offset (default 0)
      * @param string                      $order   ORDER BY clause, e.g. "tstamp DESC" or "id ASC"
-     * @param array<string, scalar|null>  $filter  Equality filter, e.g. {"pid": 5, "published": 1}
-     * @param list<string>                $fields  Columns to return; empty = curated default per table
+     * @param array<string, scalar|null>|string  $filter  Equality filter, e.g. {"pid": 5, "published": 1}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets Claude pick either shape.
+     * @param list<string>|string                $fields  Columns to return; empty = curated default per table. Same array|string-tolerance.
      */
     public function listRecords(
         string $table,
         int $limit = 20,
         int $offset = 0,
         string $order = 'id DESC',
-        array $filter = [],
-        array $fields = [],
+        array|string $filter = [],
+        array|string $fields = [],
     ): string {
+        // Claude sendet `array`-Parameter manchmal als JSON-String (siehe
+        // Fallstricke-Doku Phase 9.2 record_clone modifications). Decode-First,
+        // dann Normalize-Pipeline.
+        if (\is_string($filter)) {
+            $decoded = json_decode($filter, true);
+            $filter = \is_array($decoded) ? $decoded : [];
+        }
+        if (\is_string($fields)) {
+            $decoded = json_decode($fields, true);
+            $fields = \is_array($decoded) ? $decoded : [];
+        }
         if (!\in_array($table, self::ALLOWED_TABLES, true)) {
             throw new ToolAccessDeniedException(
                 \sprintf('Tabelle "%s" ist für record_list nicht freigegeben.', $table)

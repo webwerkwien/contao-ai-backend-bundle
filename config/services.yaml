@@ -6,8 +6,19 @@ services:
 
     Webwerkwien\ContaoAiBackendBundle\:
         resource: '../src/'
+        # NewsTool ist plugin-bedingt (\Contao\NewsModel) und wird in
+        # services_news.yaml registriert, sobald contao/news-bundle installiert
+        # ist (siehe ContaoAiBackendBundle::loadExtension).
         exclude:
             - '../src/{ContaoAiBackendBundle.php,ContaoManager,Exception,Service/AgentInvocation.php,Service/UserAiConfigDto.php,Resources}'
+            - '../src/Tool/NewsTool.php'
+            # Rewriter-Infrastruktur ist plugin-bedingt; pro Plugin in
+            # services_<plugin>.yaml registriert. Das Interface selbst wird
+            # nirgends als Service gebraucht (nur als Type-Hint im Tagged-Iterator).
+            - '../src/Service/Rewriter/EntityRewriterInterface.php'
+            - '../src/Service/Rewriter/News*.php'
+            - '../src/Service/Rewriter/Event*.php'
+            - '../src/Service/Rewriter/Faq*.php'
 
     Webwerkwien\ContaoAiBackendBundle\Controller\:
         resource: '../src/Controller/'
@@ -30,6 +41,17 @@ services:
     Webwerkwien\ContaoAiBackendBundle\Service\ChatViewRenderer:
         autowire: true
         public: true
+
+    # Phase 9.3+9.4: RecordRewriteTool lädt immer (kein plugin-condition), die
+    # Update-Commands kommen optional rein über '@?' — null wenn das jeweilige
+    # contao-bundle nicht installiert ist. Tool refused zur Laufzeit graceful.
+    Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool:
+        autowire: true
+        autoconfigure: true
+        arguments:
+            $newsUpdate:  '@?Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand'
+            $eventUpdate: '@?Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand'
+            $faqUpdate:   '@?Webwerkwien\ContaoAiCoreBundle\Command\FaqUpdateCommand'
 
     _instanceof:
         Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool:
