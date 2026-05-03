@@ -2,25 +2,30 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
 
+use Contao\ContentModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\FaqModel;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\PlatformInterface;
 
 /**
- * Rewrites the editorial text fields of a single tl_faq record.
- * Rewriteable: `question` (plain string), `answer` (HTML rich-text). Identity
- * (alias, author, addImage, singleSRC) stays verbatim.
+ * Rewrites the editorial text fields of a single tl_content record.
  *
- * Note: tl_faq.answer is rich-text HTML in stock Contao. The LLM is told
- * about the form factor so it preserves inline tags. Aggressive markdown
- * conversion would corrupt the field; we trust the system prompt + the
- * isPlausible() length check to catch the worst cases.
+ * Type-aware rewriteable fields:
+ *   - text type: `text` (HTML rich-text)
+ *   - headline type: `headline` (input-unit serialized {unit, value})
+ *
+ * Other content types (image, accordion, gallery, module, …) have
+ * structured payloads that the LLM shouldn't touch — they're skipped
+ * silently with a note. Add per-type handlers when use-cases appear.
+ *
+ * Headline write-back: returns the RAW value (string), NewsUpdateCommand-
+ * style preProcessFields in ContentUpdateCommand wraps it. (Same
+ * fix as Phase 9.3 NewsRewriter — see "Doppel-Serialisierung" Fallstrick.)
  */
-class FaqRewriter implements EntityRewriterInterface
+class ContentRewriter implements EntityRewriterInterface
 {
-    private const MAX_RESULT_BYTES = 20_000;
+    private const MAX_RESULT_BYTES = 50_000;
     private const MIN_LENGTH_RATIO = 0.3;
 
     public function __construct(
@@ -30,41 +35,81 @@ class FaqRewriter implements EntityRewriterInterface
 
     public function supports(string $table): bool
     {
-        return 'tl_faq' === $table;
+        return 'tl_content' === $table;
     }
 
     public function rewrite(int $id, string $instructions, PlatformInterface $platform, string $model): array
     {
         $this->framework->initialize();
 
-        $faq = FaqModel::findById($id);
-        if (null === $faq) {
-            throw new \RuntimeException(\sprintf('FAQ-Eintrag %d nicht gefunden.', $id));
+        $content = ContentModel::findById($id);
+        if (null === $content) {
+            throw new \RuntimeException(\sprintf('Content-Element %d nicht gefunden.', $id));
         }
 
         $fields  = [];
         $skipped = [];
+        $type    = (string) ($content->type ?? '');
 
-        foreach (['question', 'answer'] as $field) {
-            $original = trim((string) ($faq->$field ?? ''));
+        // Headline-Feld: alle Typen, die ein input-unit-Feld haben (text, headline,
+        // hyperlink, …) — wir versuchen es generisch und prüfen Inhalt.
+        $headlineRaw = (string) ($content->headline ?? '');
+        if ('' !== $headlineRaw) {
+            $parts = $this->extractHeadlineParts($headlineRaw);
+            if ('' !== $parts['value']) {
+                $newValue = $this->rewriteField('headline', $parts['value'], $instructions, $platform, $model);
+                if (null !== $newValue) {
+                    $fields['headline'] = $newValue; // Roh-Wert, ContentUpdate wrappt
+                } else {
+                    $skipped['headline'] = 'LLM lieferte ungültiges Ergebnis';
+                }
+            }
+        }
+
+        // Text-Feld: nur bei type='text' (HTML rich-text). Andere Typen (z.B.
+        // accordion, gallery) haben `text` zwar evtl. befüllt, aber strukturell
+        // — Rewrite würde DCA-Inhalte zerstören.
+        if ('text' === $type) {
+            $original = trim((string) ($content->text ?? ''));
             if ('' === $original) {
-                $skipped[$field] = 'leer im Ausgangsdatensatz';
-                continue;
+                $skipped['text'] = 'leer im Ausgangsdatensatz';
+            } else {
+                $newValue = $this->rewriteField('text', $original, $instructions, $platform, $model);
+                if (null === $newValue) {
+                    $skipped['text'] = 'LLM lieferte ungültiges Ergebnis (zu kurz, leer oder zu lang)';
+                } else {
+                    $fields['text'] = $newValue;
+                }
             }
-            $newValue = $this->rewriteField($field, $original, $instructions, $platform, $model);
-            if (null === $newValue) {
-                $skipped[$field] = 'LLM lieferte ungültiges Ergebnis (zu kurz, leer oder zu lang)';
-                continue;
-            }
-            $fields[$field] = $newValue;
+        } elseif ([] === $fields && '' === $headlineRaw) {
+            // Kein einziges rewriteables Feld auf diesem Element-Typ.
+            $skipped['_type'] = \sprintf('Content-Typ "%s" hat keine rewriteable-Felder', $type);
         }
 
         return [
             'id'      => $id,
-            'table'   => 'tl_faq',
+            'table'   => 'tl_content',
             'fields'  => $fields,
             'skipped' => $skipped,
         ];
+    }
+
+    /**
+     * @return array{unit: string, value: string}
+     */
+    private function extractHeadlineParts(string $serialized): array
+    {
+        if ('' === $serialized) {
+            return ['unit' => 'h2', 'value' => ''];
+        }
+        $decoded = @unserialize($serialized, ['allowed_classes' => false]);
+        if (\is_array($decoded)) {
+            return [
+                'unit'  => (string) ($decoded['unit'] ?? 'h2'),
+                'value' => (string) ($decoded['value'] ?? ''),
+            ];
+        }
+        return ['unit' => 'h2', 'value' => $serialized];
     }
 
     private function rewriteField(
@@ -81,8 +126,8 @@ class FaqRewriter implements EntityRewriterInterface
             return $original;
         }
         $shape = match ($field) {
-            'question' => 'a single-line FAQ question (plain text, no markdown, ends with a question mark in the source language)',
-            'answer'   => 'an FAQ answer formatted as HTML rich-text (paragraphs with <p>, optional inline tags like <a> <strong> <em>; preserve existing HTML structure exactly, only transform the human-readable text content)',
+            'headline' => 'a single-line headline (no markdown, no surrounding quotes)',
+            'text'     => 'editorial rich-text content formatted as HTML (paragraphs with <p>, optional inline tags like <a> <strong> <em> <ul> <ol> <li>; preserve existing HTML structure exactly, only transform the visible text inside)',
             default    => 'an editorial text snippet',
         };
 
@@ -93,7 +138,7 @@ Form factor of the input: {$shape}.
 
 Rules:
 - Return ONLY the transformed text, nothing else. No preamble, no commentary, no markdown wrappers, no surrounding quotes.
-- Preserve the same form factor as the input. For HTML inputs: preserve tag structure exactly, only transform the visible text inside.
+- Preserve the same form factor as the input. For HTML inputs: preserve tag structure and attributes exactly, only transform the visible text inside.
 - Keep proper nouns, brand names, dates, numbers, identifiers, URLs and HTML attributes verbatim unless the instructions explicitly say otherwise.
 - If the instructions cannot be applied (e.g. the input is empty or too short), return the input verbatim.
 - Do not add new factual claims. Stick to what the input says.

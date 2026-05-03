@@ -30,7 +30,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
     'record_clone',
     'Clone a Contao container record and its full child cascade in one server-side operation. '
     .'Returns the new root id and the count of cloned children. '
-    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq). '
+    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article and their tl_content elements). '
     .'Children are created as drafts (published=0) so the operator can review/translate before publishing. '
     .'Use this instead of issuing many individual create calls for bulk-copy workflows.',
     method: 'cloneRecord',
@@ -53,6 +53,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         'tl_news_archive' => 'news',
         'tl_calendar'     => 'calendar',
         'tl_faq_category' => 'faq',
+        'tl_page'         => 'page',
     ];
 
     public function __construct(

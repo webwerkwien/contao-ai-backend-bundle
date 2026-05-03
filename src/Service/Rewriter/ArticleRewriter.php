@@ -2,25 +2,20 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
 
+use Contao\ArticleModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\FaqModel;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\PlatformInterface;
 
 /**
- * Rewrites the editorial text fields of a single tl_faq record.
- * Rewriteable: `question` (plain string), `answer` (HTML rich-text). Identity
- * (alias, author, addImage, singleSRC) stays verbatim.
- *
- * Note: tl_faq.answer is rich-text HTML in stock Contao. The LLM is told
- * about the form factor so it preserves inline tags. Aggressive markdown
- * conversion would corrupt the field; we trust the system prompt + the
- * isPlausible() length check to catch the worst cases.
+ * Rewrites the editorial text fields of a single tl_article record.
+ * Rewriteable: title, teaser. Identity (alias, inColumn, pid, author)
+ * stays verbatim.
  */
-class FaqRewriter implements EntityRewriterInterface
+class ArticleRewriter implements EntityRewriterInterface
 {
-    private const MAX_RESULT_BYTES = 20_000;
+    private const MAX_RESULT_BYTES = 5_000;
     private const MIN_LENGTH_RATIO = 0.3;
 
     public function __construct(
@@ -30,23 +25,23 @@ class FaqRewriter implements EntityRewriterInterface
 
     public function supports(string $table): bool
     {
-        return 'tl_faq' === $table;
+        return 'tl_article' === $table;
     }
 
     public function rewrite(int $id, string $instructions, PlatformInterface $platform, string $model): array
     {
         $this->framework->initialize();
 
-        $faq = FaqModel::findById($id);
-        if (null === $faq) {
-            throw new \RuntimeException(\sprintf('FAQ-Eintrag %d nicht gefunden.', $id));
+        $article = ArticleModel::findById($id);
+        if (null === $article) {
+            throw new \RuntimeException(\sprintf('Article %d nicht gefunden.', $id));
         }
 
         $fields  = [];
         $skipped = [];
 
-        foreach (['question', 'answer'] as $field) {
-            $original = trim((string) ($faq->$field ?? ''));
+        foreach (['title', 'teaser'] as $field) {
+            $original = trim((string) ($article->$field ?? ''));
             if ('' === $original) {
                 $skipped[$field] = 'leer im Ausgangsdatensatz';
                 continue;
@@ -61,7 +56,7 @@ class FaqRewriter implements EntityRewriterInterface
 
         return [
             'id'      => $id,
-            'table'   => 'tl_faq',
+            'table'   => 'tl_article',
             'fields'  => $fields,
             'skipped' => $skipped,
         ];
@@ -81,9 +76,9 @@ class FaqRewriter implements EntityRewriterInterface
             return $original;
         }
         $shape = match ($field) {
-            'question' => 'a single-line FAQ question (plain text, no markdown, ends with a question mark in the source language)',
-            'answer'   => 'an FAQ answer formatted as HTML rich-text (paragraphs with <p>, optional inline tags like <a> <strong> <em>; preserve existing HTML structure exactly, only transform the human-readable text content)',
-            default    => 'an editorial text snippet',
+            'title'  => 'a single-line article title (no markdown)',
+            'teaser' => 'an article teaser paragraph (HTML-allowed, preserve any inline tags exactly)',
+            default  => 'an editorial text snippet',
         };
 
         $systemPrompt = <<<SYSTEM

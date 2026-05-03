@@ -43,16 +43,26 @@ services:
         public: true
 
     # Phase 9.3+9.4: RecordRewriteTool lädt immer (kein plugin-condition), die
-    # Update-Commands kommen optional rein über '@?' — null wenn das jeweilige
-    # contao-bundle nicht installiert ist. Tool refused zur Laufzeit graceful.
+    # plugin-bedingten Update-Commands (news/event/faq) kommen optional rein über
+    # '@?' — null wenn das jeweilige contao-bundle nicht installiert ist. Tool
+    # refused zur Laufzeit graceful. Page/Article/Content-Update sind Teil von
+    # contao/core-bundle und immer da.
     Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool:
         autowire: true
         autoconfigure: true
         arguments:
-            $newsUpdate:  '@?Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand'
-            $eventUpdate: '@?Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand'
-            $faqUpdate:   '@?Webwerkwien\ContaoAiCoreBundle\Command\FaqUpdateCommand'
+            $newsUpdate:    '@?Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand'
+            $eventUpdate:   '@?Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand'
+            $faqUpdate:     '@?Webwerkwien\ContaoAiCoreBundle\Command\FaqUpdateCommand'
+            $pageUpdate:    '@?Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand'
+            $articleUpdate: '@?Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand'
+            $contentUpdate: '@?Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand'
 
     _instanceof:
         Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool:
             tags: ['contao_ai_backend.tool']
+        # Page/Article/Content-Rewriter sind nicht plugin-bedingt — auto-tag
+        # zentral hier statt in Plugin-Files. Plugin-bedingte Rewriter haben
+        # ihr eigenes _instanceof in services_news/calendar/faq.yaml.
+        Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
+            tags: ['contao_ai_backend.entity_rewriter']

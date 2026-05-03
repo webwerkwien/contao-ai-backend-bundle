@@ -3,24 +3,21 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
 
 use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\FaqModel;
+use Contao\PageModel;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\PlatformInterface;
 
 /**
- * Rewrites the editorial text fields of a single tl_faq record.
- * Rewriteable: `question` (plain string), `answer` (HTML rich-text). Identity
- * (alias, author, addImage, singleSRC) stays verbatim.
+ * Rewrites the editorial text fields of a single tl_page record.
+ * Rewriteable: title, pageTitle, description. SEO-keywords stay verbatim
+ * (operator-curated; LLM-rewriting often hallucinates new ones).
  *
- * Note: tl_faq.answer is rich-text HTML in stock Contao. The LLM is told
- * about the form factor so it preserves inline tags. Aggressive markdown
- * conversion would corrupt the field; we trust the system prompt + the
- * isPlausible() length check to catch the worst cases.
+ * Identity (alias, type, parent, layout) stays verbatim.
  */
-class FaqRewriter implements EntityRewriterInterface
+class PageRewriter implements EntityRewriterInterface
 {
-    private const MAX_RESULT_BYTES = 20_000;
+    private const MAX_RESULT_BYTES = 5_000;
     private const MIN_LENGTH_RATIO = 0.3;
 
     public function __construct(
@@ -30,23 +27,23 @@ class FaqRewriter implements EntityRewriterInterface
 
     public function supports(string $table): bool
     {
-        return 'tl_faq' === $table;
+        return 'tl_page' === $table;
     }
 
     public function rewrite(int $id, string $instructions, PlatformInterface $platform, string $model): array
     {
         $this->framework->initialize();
 
-        $faq = FaqModel::findById($id);
-        if (null === $faq) {
-            throw new \RuntimeException(\sprintf('FAQ-Eintrag %d nicht gefunden.', $id));
+        $page = PageModel::findById($id);
+        if (null === $page) {
+            throw new \RuntimeException(\sprintf('Page %d nicht gefunden.', $id));
         }
 
         $fields  = [];
         $skipped = [];
 
-        foreach (['question', 'answer'] as $field) {
-            $original = trim((string) ($faq->$field ?? ''));
+        foreach (['title', 'pageTitle', 'description'] as $field) {
+            $original = trim((string) ($page->$field ?? ''));
             if ('' === $original) {
                 $skipped[$field] = 'leer im Ausgangsdatensatz';
                 continue;
@@ -61,7 +58,7 @@ class FaqRewriter implements EntityRewriterInterface
 
         return [
             'id'      => $id,
-            'table'   => 'tl_faq',
+            'table'   => 'tl_page',
             'fields'  => $fields,
             'skipped' => $skipped,
         ];
@@ -81,9 +78,10 @@ class FaqRewriter implements EntityRewriterInterface
             return $original;
         }
         $shape = match ($field) {
-            'question' => 'a single-line FAQ question (plain text, no markdown, ends with a question mark in the source language)',
-            'answer'   => 'an FAQ answer formatted as HTML rich-text (paragraphs with <p>, optional inline tags like <a> <strong> <em>; preserve existing HTML structure exactly, only transform the human-readable text content)',
-            default    => 'an editorial text snippet',
+            'title'       => 'a single-line page navigation title (short, max ~50 chars)',
+            'pageTitle'   => 'a single-line HTML <title>-tag value (SEO-relevant, ~50-60 chars)',
+            'description' => 'a 1-2 sentence meta description (SEO-relevant, ~150-160 chars)',
+            default       => 'an editorial text snippet',
         };
 
         $systemPrompt = <<<SYSTEM
@@ -93,8 +91,8 @@ Form factor of the input: {$shape}.
 
 Rules:
 - Return ONLY the transformed text, nothing else. No preamble, no commentary, no markdown wrappers, no surrounding quotes.
-- Preserve the same form factor as the input. For HTML inputs: preserve tag structure exactly, only transform the visible text inside.
-- Keep proper nouns, brand names, dates, numbers, identifiers, URLs and HTML attributes verbatim unless the instructions explicitly say otherwise.
+- Preserve the same form factor as the input.
+- Keep proper nouns, brand names, dates, numbers, and identifiers verbatim unless the instructions explicitly say otherwise.
 - If the instructions cannot be applied (e.g. the input is empty or too short), return the input verbatim.
 - Do not add new factual claims. Stick to what the input says.
 

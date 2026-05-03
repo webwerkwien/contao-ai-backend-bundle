@@ -15,9 +15,12 @@ use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
+use Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand;
+use Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\FaqUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
+use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 
 /**
  * record_rewrite: Phase-9.3+9.4 macro tool that re-routes editorial text
@@ -40,8 +43,8 @@ use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
     'record_rewrite',
     'Rewrite editorial text fields of a Contao record (or all child records when recursive=true) using the configured LLM platform and the operator-supplied instructions. '
     .'Each field is sent as its own platform request, the LLM never sees more than one editorial unit at a time. '
-    .'Supported single-record tables: tl_news, tl_calendar_events, tl_faq. '
-    .'Supported recursive container tables (use recursive=true): tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq). '
+    .'Supported single-record tables: tl_news, tl_calendar_events, tl_faq, tl_page, tl_article, tl_content. '
+    .'Supported recursive container tables (use recursive=true): tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article), tl_article (cascades to tl_content). '
     .'Updates are written through the regular *_update pipeline so tl_version and --operator audit are stamped exactly like a manual edit. '
     .'Returns a per-record summary listing fields updated and fields skipped (with reason).',
     method: 'rewriteRecord',
@@ -49,12 +52,18 @@ use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
 class RecordRewriteTool extends AbstractCoreCommandTool
 {
     /**
-     * @var array<string, array{child_table: string, pid_column: string}>
+     * Container -> child mapping for recursive=true. The optional `ptable_filter`
+     * narrows the WHERE clause for tables (like tl_content) where pid alone is
+     * ambiguous because they are polymorphically attached via pid+ptable.
+     *
+     * @var array<string, array{child_table: string, pid_column: string, ptable_filter?: string}>
      */
     private const CONTAINER_CHILD_MAP = [
         'tl_news_archive'  => ['child_table' => 'tl_news',             'pid_column' => 'pid'],
         'tl_calendar'      => ['child_table' => 'tl_calendar_events',  'pid_column' => 'pid'],
         'tl_faq_category'  => ['child_table' => 'tl_faq',              'pid_column' => 'pid'],
+        'tl_page'          => ['child_table' => 'tl_article',          'pid_column' => 'pid'],
+        'tl_article'       => ['child_table' => 'tl_content',          'pid_column' => 'pid', 'ptable_filter' => 'tl_article'],
     ];
 
     private const MAX_RECURSIVE_RECORDS = 30;
@@ -76,6 +85,12 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         private readonly ?NewsUpdateCommand $newsUpdate = null,
         private readonly ?EventUpdateCommand $eventUpdate = null,
         private readonly ?FaqUpdateCommand $faqUpdate = null,
+        // Page/Article/Content sind Teil von contao/core-bundle, immer da.
+        // Trotzdem nullable für Robustheit, falls jemand das Bundle ohne
+        // core-bundle (theoretisch) deployt.
+        private readonly ?PageUpdateCommand $pageUpdate = null,
+        private readonly ?ArticleUpdateCommand $articleUpdate = null,
+        private readonly ?ContentUpdateCommand $contentUpdate = null,
     ) {
         parent::__construct($accessChecker, $tokenChecker);
     }
@@ -190,14 +205,19 @@ class RecordRewriteTool extends AbstractCoreCommandTool
                 'Tabelle "%s" hat im record_rewrite-Tool kein recursive-Kind-Mapping.', $table
             ));
         }
-        $childTable = self::CONTAINER_CHILD_MAP[$table]['child_table'];
-        $pidColumn  = self::CONTAINER_CHILD_MAP[$table]['pid_column'];
+        $childTable   = self::CONTAINER_CHILD_MAP[$table]['child_table'];
+        $pidColumn    = self::CONTAINER_CHILD_MAP[$table]['pid_column'];
+        $ptableFilter = self::CONTAINER_CHILD_MAP[$table]['ptable_filter'] ?? null;
 
         $this->framework->initialize();
-        $rows = $this->connection->fetchAllAssociative(
-            \sprintf('SELECT id FROM `%s` WHERE `%s` = ? ORDER BY id ASC', $childTable, $pidColumn),
-            [$id]
-        );
+        $sql    = \sprintf('SELECT id FROM `%s` WHERE `%s` = ?', $childTable, $pidColumn);
+        $params = [$id];
+        if (null !== $ptableFilter) {
+            $sql      .= ' AND `ptable` = ?';
+            $params[]  = $ptableFilter;
+        }
+        $sql .= ' ORDER BY id ASC';
+        $rows = $this->connection->fetchAllAssociative($sql, $params);
         $ids = array_map(static fn(array $r): int => (int) $r['id'], $rows);
 
         $capped = false;
@@ -226,6 +246,9 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             'tl_news'            => $this->newsUpdate,
             'tl_calendar_events' => $this->eventUpdate,
             'tl_faq'             => $this->faqUpdate,
+            'tl_page'            => $this->pageUpdate,
+            'tl_article'         => $this->articleUpdate,
+            'tl_content'         => $this->contentUpdate,
             default              => null,
         };
         if (null === $cmd) {
