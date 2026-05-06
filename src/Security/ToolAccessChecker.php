@@ -22,15 +22,13 @@ class ToolAccessChecker
         'page_delete',
         'article_delete',
         'content_delete',
-        // Phase 9.2: container-level macro creations (new news archive cascade,
-        // later: calendar / faq-category / page-tree). Admins only — editors
-        // get cloning of individual entries inside their existing scope via
-        // a separate macro in Phase 9.4+.
-        'record_clone',
-        // Phase 9.3: bulk text rewrite via inner LLM call. Admin-only because
-        // each invocation consumes the user's Anthropic credits per editorial
-        // field × N records; operator should be aware of the cost.
-        'record_rewrite',
+        // Phase 9.5 (2026-05-06): record_clone und record_rewrite sind nicht
+        // mehr admin-only. Editoren mit Modul-Mount + Container-Anlage-Recht
+        // (newp/calp/faqp 'create' bzw. USER_CAN_EDIT_PAGE_HIERARCHY) dürfen
+        // Macro-Tools nutzen. Source-/Container-Voter kommen aus
+        // RecordPermissionChecker, der zur Laufzeit pro Aufruf prüft. Die
+        // Tools selbst entscheiden via isAccessibleBy(), ob sie überhaupt
+        // im System-Prompt + in der Anthropic-Tool-Liste auftauchen.
     ];
 
     /**
@@ -61,6 +59,20 @@ class ToolAccessChecker
         'content_update' => ['module' => 'article', 'op' => 'edit'],
         'content_delete' => ['module' => 'article', 'op' => 'delete'],
         'content_read'   => ['module' => 'article', 'op' => 'read'],
+        // Phase 9.5: Macro-Tools haben keinen festen Modul-Gate — sie spannen
+        // mehrere Tabellen und müssen pro Aufruf gegen die Source-Tabelle
+        // voten (RecordPermissionChecker). Hier mit `op=any` markiert; die
+        // tatsächliche Modul-Membership wird im Tool selbst geprüft.
+        'record_clone'   => ['module' => '*', 'op' => 'macro'],
+        'record_rewrite' => ['module' => '*', 'op' => 'macro'],
+        // Phase 9.5: gleiches Pattern für die Read-only-Tools, deren
+        // Modul-Gate per-Tabelle im Tool selbst läuft (RecordListTool::
+        // assertModuleAccess, MetaTool::dcaSchema-Allow-List). Ohne diesen
+        // Eintrag warf assertCanUseTool für Non-Admins „requires module
+        // unknown" und brach den Tool-Aufruf ab, obwohl isAccessibleBy()
+        // true zurückgab — der Tool-Layer kam gar nicht erst zum Zug.
+        'record_list'    => ['module' => '*', 'op' => 'read'],
+        'dca_schema'     => ['module' => '*', 'op' => 'read'],
         // Module-gated meta-tools. dca_schema deliberately stays UNMAPPED so
         // any backend user can query field shapes for the tables they already
         // have scope on — the system prompt's accessible_tables list bounds
@@ -98,6 +110,12 @@ class ToolAccessChecker
         }
 
         $requirement = self::TOOL_MAP[$toolName];
+        // Macro-Tools (module='*'): kein zentraler Gate — Source-Voter im Tool
+        // entscheidet. Sichtbarkeit für Editoren wird über das eigene
+        // isAccessibleBy() gesteuert (mind. ein bedienbares Modul vorhanden).
+        if ('*' === $requirement['module']) {
+            return true;
+        }
         $userModules = (array) ($user->modules ?? []);
 
         return \in_array($requirement['module'], $userModules, true);

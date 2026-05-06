@@ -2,6 +2,7 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
+use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Doctrine\DBAL\Connection;
@@ -11,6 +12,7 @@ use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface;
@@ -46,7 +48,8 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
     .'Supported single-record tables: tl_news, tl_calendar_events, tl_faq, tl_page, tl_article, tl_content. '
     .'Supported recursive container tables (use recursive=true): tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article), tl_article (cascades to tl_content). '
     .'Updates are written through the regular *_update pipeline so tl_version and --operator audit are stamped exactly like a manual edit. '
-    .'Returns a per-record summary listing fields updated and fields skipped (with reason).',
+    .'Returns a per-record summary listing fields updated and fields skipped (with reason). '
+    .'When recursive=true, child records the operator may not edit are listed in `refused: [{id, reason}]` and silently skipped — the rest of the batch still runs.',
     method: 'rewriteRecord',
 )]
 class RecordRewriteTool extends AbstractCoreCommandTool
@@ -82,6 +85,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         #[TaggedIterator('contao_ai_backend.platform_bridge')]
         private readonly iterable $platformBridges,
         private readonly UserAiConfig $userConfig,
+        private readonly RecordPermissionChecker $permissionChecker,
         private readonly ?NewsUpdateCommand $newsUpdate = null,
         private readonly ?EventUpdateCommand $eventUpdate = null,
         private readonly ?FaqUpdateCommand $faqUpdate = null,
@@ -93,6 +97,38 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         private readonly ?ContentUpdateCommand $contentUpdate = null,
     ) {
         parent::__construct($accessChecker, $tokenChecker);
+    }
+
+    /**
+     * Phase 9.5: sichtbar wenn der User ein Source-/Container-Modul mounted
+     * hat. Source-Modul-Map (tabellen-übergreifend, deckt single + recursive ab).
+     *
+     * @var array<string, string>
+     */
+    private const SOURCE_TABLE_MODULE = [
+        'tl_news'            => 'news',
+        'tl_news_archive'    => 'news',
+        'tl_calendar'        => 'calendar',
+        'tl_calendar_events' => 'calendar',
+        'tl_faq_category'    => 'faq',
+        'tl_faq'             => 'faq',
+        'tl_page'            => 'page',
+        'tl_article'         => 'article',
+        'tl_content'         => 'article',
+    ];
+
+    public function isAccessibleBy(BackendUser $user): bool
+    {
+        if ($user->isAdmin) {
+            return true;
+        }
+        $userModules = (array) ($user->modules ?? []);
+        foreach (self::SOURCE_TABLE_MODULE as $module) {
+            if (\in_array($module, $userModules, true)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function getToolName(): string
@@ -109,14 +145,22 @@ class RecordRewriteTool extends AbstractCoreCommandTool
     public function rewriteRecord(string $table, int $id, string $instructions, bool $recursive = false): string
     {
         $user = $this->requireBackendUser();
-        if (!$user->isAdmin) {
-            throw new ToolAccessDeniedException('record_rewrite ist nur für Admin-Benutzer zugänglich.');
+
+        if (!isset(self::SOURCE_TABLE_MODULE[$table])) {
+            throw new ToolAccessDeniedException(\sprintf(
+                'Tabelle "%s" wird vom record_rewrite-Tool nicht unterstützt.', $table
+            ));
         }
 
         $instructions = trim($instructions);
         if ('' === $instructions) {
             throw new ToolExecutionException('record_rewrite benötigt nicht-leere Anweisungen.');
         }
+
+        // Phase 9.5: Source-Voter. Single-Record: edit-Recht auf die zu
+        // schreibende Zeile selbst. Recursive: edit-Recht auf den Container
+        // (Lese-Recht reicht nicht, weil wir die Children gleich beschreiben).
+        $this->permissionChecker->assertRecordAccess($user, $table, $id, 'edit');
 
         $config = $this->userConfig->getForUser($user);
         if (!$config->hasApiKey()) {
@@ -126,7 +170,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         $platform = $bridge->createPlatform($config->getApiKey());
         $model    = $bridge->getDefaultModel();
 
-        $targets   = $this->resolveTargetIds($table, $id, $recursive);
+        $targets   = $this->resolveTargetIds($table, $id, $recursive, $user);
         $rewriter  = $this->resolveRewriter($targets['rewriter_table']);
         $writeCmd  = $this->resolveWriteCommand($targets['rewriter_table']);
 
@@ -182,6 +226,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             'recursive' => $recursive,
             'count'     => \count($results),
             'capped'    => $targets['capped'],
+            'refused'   => $targets['refused'],
             'results'   => $results,
         ];
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -192,12 +237,14 @@ class RecordRewriteTool extends AbstractCoreCommandTool
     }
 
     /**
-     * @return array{ids: list<int>, rewriter_table: string, capped: bool}
+     * @return array{ids: list<int>, rewriter_table: string, capped: bool, refused: list<array{id: int, reason: string}>}
      */
-    private function resolveTargetIds(string $table, int $id, bool $recursive): array
+    private function resolveTargetIds(string $table, int $id, bool $recursive, BackendUser $user): array
     {
         if (!$recursive) {
-            return ['ids' => [$id], 'rewriter_table' => $table, 'capped' => false];
+            // Source-Voter ist im Aufrufer schon gelaufen — Single-Record-Pfad
+            // hat keine weiteren Children, refused bleibt leer.
+            return ['ids' => [$id], 'rewriter_table' => $table, 'capped' => false, 'refused' => []];
         }
 
         if (!isset(self::CONTAINER_CHILD_MAP[$table])) {
@@ -250,7 +297,27 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             $ids = \array_slice($ids, 0, self::MAX_RECURSIVE_RECORDS);
             $capped = true;
         }
-        return ['ids' => $ids, 'rewriter_table' => $childTable, 'capped' => $capped];
+
+        // Phase 9.5.3: Per-Child-Voter. Editor mit news-Modul + Zugriff auf
+        // Archiv 1 darf z.B. trotzdem nicht über recursive in Archiv 7
+        // schreiben, das nur transitiv per Container-Lookup auftaucht. Skip
+        // mit Note statt Hart-Abbruch — Caller bekommt `refused: [...]` und
+        // führt die erlaubten Children aus.
+        $refused = [];
+        if (!$user->isAdmin) {
+            $kept = [];
+            foreach ($ids as $childId) {
+                $reason = $this->permissionChecker->recordAccessDenialReason($user, $childTable, $childId, 'edit');
+                if (null === $reason) {
+                    $kept[] = $childId;
+                } else {
+                    $refused[] = ['id' => $childId, 'reason' => $reason];
+                }
+            }
+            $ids = $kept;
+        }
+
+        return ['ids' => $ids, 'rewriter_table' => $childTable, 'capped' => $capped, 'refused' => $refused];
     }
 
     private function resolveRewriter(string $table): EntityRewriterInterface
