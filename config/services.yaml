@@ -33,6 +33,33 @@ services:
             $csrfTokenName: '%contao.csrf_token_name%'
             $projectDir: '%kernel.project_dir%'
 
+    # Phase 10.1: HTTP-Bridge für den Python-CLI-Agent. Bearer-Token-Auth,
+    # kein CSRF, stateless. Re-Use existierender Macro-Tools via direkten
+    # Service-Call mit programmatisch gesetztem Security-Token.
+    Webwerkwien\ContaoAiBackendBundle\Controller\CliBridgeController:
+        autowire: true
+        public: true
+        tags: ['controller.service_arguments']
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+
+    # Phase 10.2: Token-Generierung im Backend-Profil. Backend-Session-Auth
+    # (Contao-Standardfirewall), CSRF via REQUEST_TOKEN.
+    Webwerkwien\ContaoAiBackendBundle\Controller\AiCliTokenController:
+        autowire: true
+        public: true
+        tags: ['controller.service_arguments']
+        arguments:
+            $csrfTokenName: '%contao.csrf_token_name%'
+
+    # Phase 10.2: DCA input_field_callback. Public, weil Contaos Legacy-Callback
+    # Resolver den Service per ID instanziiert und nicht-public nicht erreicht.
+    Webwerkwien\ContaoAiBackendBundle\Dca\TlUserCallback:
+        autowire: true
+        public: true
+        arguments:
+            $csrfTokenName: '%contao.csrf_token_name%'
+
     Webwerkwien\ContaoAiBackendBundle\Service\SystemPromptProvider:
         arguments:
             $promptFile: '%kernel.project_dir%/vendor/webwerkwien/contao-ai-backend-bundle/src/Resources/prompts/system.md'

@@ -490,8 +490,27 @@ abstract class AbstractCoreCommandTool
         $this->accessChecker->assertCanUseTool($user, $toolName);
     }
 
+    /**
+     * Phase 10.1: optional acting-user override for stateless bridge calls.
+     * The CLI-Bridge controller authenticates via Bearer token outside the
+     * contao_backend firewall, so TokenChecker::hasBackendUser() returns
+     * false (firewall-context mismatch). The bridge sets the resolved user
+     * here directly; getCurrentBackendUser() prefers it over the session
+     * lookup. Cleared after the tool call (try/finally in the controller).
+     */
+    protected ?BackendUser $actingUserOverride = null;
+
+    public function setActingUserOverride(?BackendUser $user): void
+    {
+        $this->actingUserOverride = $user;
+    }
+
     protected function getCurrentBackendUser(): ?BackendUser
     {
+        if (null !== $this->actingUserOverride) {
+            return $this->actingUserOverride;
+        }
+
         if (!$this->tokenChecker->hasBackendUser()) {
             return null;
         }
