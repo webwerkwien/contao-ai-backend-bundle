@@ -19,7 +19,7 @@
     "require": {
         "php": "^8.2",
         "contao/core-bundle": "^5.3",
-        "webwerkwien/contao-ai-core-bundle": "^0.1",
+        "webwerkwien/contao-ai-core-bundle": "^0.2",
         "symfony/ai-bundle": "^0.7",
         "symfony/ai-agent": "^0.7",
         "symfony/ai-anthropic-platform": "^0.7",

@@ -19,7 +19,7 @@ This bundle is the **browser client** for the agent. Authentication, session, CS
 
 - PHP 8.2+
 - Contao 5.3+
-- [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerkwien/contao-ai-core-bundle) `^0.1`
+- [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerkwien/contao-ai-core-bundle) `^0.2`
 - `symfony/ai-bundle` `^0.7`
 
 ## Installation
@@ -43,7 +43,7 @@ In **System → Users → (user)** two new fields appear in the *AI agent* legen
 
 Grant the **`AI Chat`** module under "Allowed modules" to enable the entry.
 
-## Available tools (20)
+## Available tools
 
 | Group | Tool names |
 |---|---|
@@ -51,9 +51,30 @@ Grant the **`AI Chat`** module under "Allowed modules" to enable the entry.
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
 | Article | `article_create`, `article_update`, `article_delete`, `article_read` |
 | Content | `content_create`, `content_update`, `content_delete`, `content_read` |
-| Meta    | `dca_schema`, `listing_config`, `search_query` |
+| Meta    | `dca_schema`, `listing_config`, `search_query`, `record_list` |
+| Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 
-Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use, and **delete** sub-tools are admin-only regardless of module membership. Per-record checks (page hierarchy, news-archive access, article parent-page) run via `BackendUser::isAllowed()`/`hasAccess()` before each call.
+Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use, and **delete** sub-tools are admin-only regardless of module membership. Per-record checks (page hierarchy, news-archive access, article parent-page, FAQ category access) run via Symfony voters (`ContaoCorePermissions::USER_CAN_*`) before each call.
+
+## CLI bridge — terminal access for admins / agents
+
+Editors use the chat module above. Developers and admins live in the terminal — and switching to a browser for bulk LLM jobs ("translate all news in archive 5", "clone this page tree with all children") is a workflow break.
+
+The bundle exposes a HTTPS endpoint at `POST /_ai_cli/macro` that the [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) Python client (`contao-ai-cli bridge ...`) calls with a Bearer token. The macro tools (`record_clone`, `record_rewrite`) execute server-side with the full voter pipeline + atomic `tl_version` audit — same code path as the chat module, just a different transport.
+
+### Token setup
+
+Per backend user, in **System → Users → (user) → AI agent**:
+
+1. Click **Generate / Rotate** in the *CLI bridge token* section.
+2. Cleartext token is shown once in the same panel with a **Copy token** button.
+3. Paste it into the CLI: `contao-ai-cli bridge configure --url https://your-site.example.com --token 5.abc... --test`.
+
+Only the `password_hash` is stored in `tl_user.ai_cli_token`. Click **Delete** to revoke.
+
+### Why `/_ai_cli/macro` and not `/contao/...`?
+
+The `contao_backend` firewall would 302-redirect any unauthenticated request to `/contao/login` before our Bearer auth runs. Routing the bridge outside `/contao/*` lets it fall through to the frontend (anonymous) firewall, where the controller does its own auth.
 
 ## Security model
 
