@@ -27,6 +27,7 @@ use Symfony\Component\Security\Csrf\CsrfToken;
 class AiCliTokenController extends AbstractController
 {
     private const FLASH_TYPE = 'contao.BE.info';
+    public  const ONE_SHOT_KEY_PREFIX = 'contao_ai_backend.cli_token_oneshot.';
 
     public function __construct(
         private readonly ContaoFramework $framework,
@@ -55,13 +56,14 @@ class AiCliTokenController extends AbstractController
         $hash = password_hash($token, PASSWORD_DEFAULT);
         $this->connection->update('tl_user', ['ai_cli_token' => $hash], ['id' => $userId]);
 
+        // One-shot stash: the widget reads this on the next render and clears it.
+        // Lives in the session bag (NOT flash bag) because the flash bag is
+        // consumed by Message::generate() before our widget runs.
+        $request->getSession()->set(self::ONE_SHOT_KEY_PREFIX . $userId, $userId . '.' . $token);
+
         $request->getSession()->getFlashBag()->add(
             self::FLASH_TYPE,
-            \sprintf(
-                'Bridge-Token (NUR JETZT sichtbar — bitte kopieren): %d.%s',
-                $userId,
-                $token,
-            ),
+            'Neuer CLI-Bridge-Token generiert — Klartext ist unten im Profil-Block einmalig sichtbar (siehe „Token kopieren"-Button).',
         );
 
         return new RedirectResponse($this->backUrl($userId));

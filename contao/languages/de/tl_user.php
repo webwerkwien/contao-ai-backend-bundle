@@ -13,6 +13,9 @@ $GLOBALS['TL_LANG']['tl_user']['ai_cli_token_status_set']   = 'Token gesetzt (Ha
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token_status_empty'] = 'Kein Token gesetzt';
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token_rotate']       = 'Generieren / Rotieren';
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token_clear']        = 'Löschen';
+$GLOBALS['TL_LANG']['tl_user']['ai_cli_token_copy']         = 'Token kopieren';
+$GLOBALS['TL_LANG']['tl_user']['ai_cli_token_copied']       = 'Kopiert!';
+$GLOBALS['TL_LANG']['tl_user']['ai_cli_token_oneshot_warning'] = 'Klartext-Token (NUR JETZT sichtbar — bitte kopieren):';
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token_confirm']      = 'Token wirklich löschen? Der CLI-Agent kann sich danach nicht mehr authentifizieren.';
 
 $GLOBALS['TL_LANG']['tl_user']['ai_platform_ref'] = [
