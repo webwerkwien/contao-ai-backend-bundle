@@ -137,7 +137,7 @@ SYSTEM;
         // manche Modelle mit Klärungs-Phrasen. Output >= 1.5x länger UND mit typischen
         // Refusal-Phrasen anfangend = nicht akzeptieren.
         if (\strlen($rewritten) >= \strlen($original) * 1.5 && preg_match(
-            '/^(I (need|require|don\'t see|do not see|cannot|am unable|notice|see that)|Please (provide|share|give|specify)|Could you (provide|share|give|specify|please)|It (seems|appears|looks)\\s+(like|that)|The (input|text|content)\\s+(is|appears|seems)|Ich (brauche|benötige|kann|sehe)|Bitte (geben|stellen|teilen|liefern))/i',
+            '/^(I (need|require|don\'t see|do not see|cannot|am unable|am ready|am happy|am glad|notice|see that|will need)|I\'m (ready|happy|glad|sorry|going to)|I\'d (be (happy|glad)|like|love)|I\'ll (need|gladly|happily|be happy)|Ready to|Happy to|Sure[,!.]|Of course[,!.]?|Please (provide|share|give|specify|clarify)|Could you (provide|share|give|specify|please|clarify)|It (seems|appears|looks)\s+(like|that)|The (input|text|content|headline|teaser)\s+(is|appears|seems)|Ich (brauche|benötige|kann|sehe|bin (bereit|gerne|froh))|Bitte (geben|stellen|teilen|liefern|senden|nennen))/i',
             $rewritten
         )) {
             return false;
