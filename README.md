@@ -2,7 +2,9 @@
 
 In-browser AI agent for the Contao 5 backend. Editors and admins chat with a Claude (or GPT) agent that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
-> **Beta software.** API may shift; `symfony/ai-bundle` is itself pre-1.0. Use at your own risk. Not recommended for production environments without thorough testing.
+> **Beta software.** Bundle interfaces (tool signatures, bridge JSON, DCA fields) may change between minor versions. Underlying `symfony/ai-bundle` is pre-1.0. Use at your own risk in production.
+
+> **You bring your own LLM API key.** Each backend user must provide an Anthropic or OpenAI key in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
 
 ## The contao-ai ecosystem
 
