@@ -24,6 +24,8 @@ use Symfony\AI\Platform\PlatformInterface;
  */
 class NewsRewriter implements EntityRewriterInterface
 {
+    use UntrustedInputTrait;
+
     /**
      * Hard cap on the LLM result length, in bytes. Anything beyond is
      * treated as a hallucination (the LLM ignored "transform, don't
@@ -144,7 +146,7 @@ class NewsRewriter implements EntityRewriterInterface
 
         $messages = new MessageBag(
             Message::forSystem($systemPrompt),
-            Message::ofUser($original),
+            Message::ofUser($this->wrapUntrustedInput($original)),
         );
 
         try {
@@ -162,7 +164,7 @@ class NewsRewriter implements EntityRewriterInterface
             return null;
         }
 
-        $rewritten = trim($this->resultToText($result));
+        $rewritten = $this->stripInputWrapper(trim($this->resultToText($result)));
         if (!$this->isPlausible($rewritten, $original)) {
             return null;
         }
@@ -194,6 +196,8 @@ Rules:
 - Keep proper nouns, brand names, dates, numbers, and identifiers verbatim unless the instructions explicitly say otherwise.
 - If the instructions cannot be applied (e.g. the input is empty or too short), return the input verbatim.
 - Do not add new factual claims. Stick to what the input says.
+
+{$this->untrustedInputRule()}
 
 Operator's instructions: {$instructions}
 SYSTEM;

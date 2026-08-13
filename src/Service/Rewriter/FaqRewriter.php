@@ -20,6 +20,8 @@ use Symfony\AI\Platform\PlatformInterface;
  */
 class FaqRewriter implements EntityRewriterInterface
 {
+    use UntrustedInputTrait;
+
     private const MAX_RESULT_BYTES = 20_000;
     private const MIN_LENGTH_RATIO = 0.3;
 
@@ -98,13 +100,15 @@ Rules:
 - If the instructions cannot be applied (e.g. the input is empty or too short), return the input verbatim.
 - Do not add new factual claims. Stick to what the input says.
 
+{$this->untrustedInputRule()}
+
 Operator's instructions: {$instructions}
 SYSTEM;
 
         try {
             $result = $platform->invoke($model, new MessageBag(
                 Message::forSystem($systemPrompt),
-                Message::ofUser($original),
+                Message::ofUser($this->wrapUntrustedInput($original)),
             ), [
                 'temperature' => 0.3,
             ]);
@@ -112,7 +116,7 @@ SYSTEM;
             return null;
         }
 
-        $rewritten = trim($this->resultToText($result));
+        $rewritten = $this->stripInputWrapper(trim($this->resultToText($result)));
         if (!$this->isPlausible($rewritten, $original)) {
             return null;
         }
