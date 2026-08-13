@@ -1,4 +1,9 @@
-# Enforce LF line endings for all text files (prevents CRLF/BOM issues on Windows)
+# Enforce LF line endings for all text files.
+# NOTE: this normalises line endings only — it does NOT strip a UTF-8 BOM.
+# A BOM makes a PHP file unparsable ("strict_types declaration must be the very
+# first statement") and survived unnoticed in the core bundle for months. On
+# Windows, write PHP files BOM-free explicitly; PowerShell's
+# Set-Content -Encoding utf8 adds one.
 * text=auto eol=lf
 
 # PHP files always LF
@@ -27,3 +32,10 @@
 *.ico binary
 *.zip binary
 *.gz binary
+
+# Keep development-only files out of the distributed package. Without these,
+# every `composer require` pulls the test suite into the consumer's vendor/.
+/tests           export-ignore
+/phpunit.xml.dist export-ignore
+/.gitattributes  export-ignore
+/.gitignore      export-ignore
