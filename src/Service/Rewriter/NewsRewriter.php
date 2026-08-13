@@ -63,19 +63,21 @@ class NewsRewriter implements EntityRewriterInterface
         $fields   = [];
         $skipped  = [];
 
-        // headline is a serialized {unit, value} payload. We only rewrite the
-        // value; the unit (h1/h2/…) is structural and stays. The serialized
-        // form is reconstructed for the *_update payload so news_update can
-        // write it back without further coercion.
+        // tl_news.headline is a PLAIN TEXT field — it is the news title
+        // (Contao DCA: inputType 'text', varchar(255)). Legacy records may
+        // still hold a serialized {unit, value} payload written by
+        // NewsCreateCommand up to core-bundle v0.2.3; extractHeadlineParts()
+        // unwraps those and passes plain strings through unchanged. Repair
+        // legacy rows with `contao:news:repair-headlines`.
         $headlineRaw   = (string) ($news->headline ?? '');
         $headlineParts = $this->extractHeadlineParts($headlineRaw);
         if ('' !== $headlineParts['value']) {
             $newValue = $this->rewriteField('headline', $headlineParts['value'], $instructions, $platform, $model);
             if (null !== $newValue) {
-                // Roh-Wert zurückgeben — NewsUpdateCommand::preProcessFields()
-                // wrappt String-Headlines in den input-unit-serialize-Container.
-                // Hier zusätzlich zu serialisieren würde das Wrapping doppeln
-                // (live beobachtet 2026-05-03: `a:2:{value:"a:2:{value:'…'}"}`).
+                // Plain string — news_update writes tl_news.headline verbatim,
+                // which is what Contao expects for this column. (Historically
+                // NewsUpdateCommand wrapped it into an input-unit container;
+                // that wrapping was wrong for tl_news and is gone.)
                 $fields['headline'] = $newValue;
             } else {
                 $skipped['headline'] = 'LLM lieferte ungültiges Ergebnis (zu kurz, leer oder zu lang)';
@@ -121,7 +123,7 @@ class NewsRewriter implements EntityRewriterInterface
                 'value' => (string) ($decoded['value'] ?? ''),
             ];
         }
-        // Plain string headline (legacy or not yet input-unit-wrapped).
+        // Plain string headline — the correct form for tl_news.
         return ['unit' => 'h1', 'value' => $serialized];
     }
 
