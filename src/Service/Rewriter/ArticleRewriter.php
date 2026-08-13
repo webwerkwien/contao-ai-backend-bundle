@@ -16,6 +16,7 @@ use Symfony\AI\Platform\PlatformInterface;
 class ArticleRewriter implements EntityRewriterInterface
 {
     use UntrustedInputTrait;
+    use RefusalDetectionTrait;
 
     private const MAX_RESULT_BYTES = 5_000;
     private const MIN_LENGTH_RATIO = 0.3;
@@ -137,13 +138,9 @@ SYSTEM;
         if (\strlen($rewritten) > self::MAX_RESULT_BYTES) {
             return false;
         }
-        // Phase-9.4-Fix: Refusal-Detection. Bei kurzen Source-Inputs antworten
-        // manche Modelle mit Klärungs-Phrasen. Output >= 1.5x länger UND mit typischen
-        // Refusal-Phrasen anfangend = nicht akzeptieren.
-        if (\strlen($rewritten) >= \strlen($original) * 1.5 && preg_match(
-            '/^(I (need|require|don\'t see|do not see|cannot|am unable|notice|see that)|Please (provide|share|give|specify)|Could you (provide|share|give|specify|please)|It (seems|appears|looks)\\s+(like|that)|The (input|text|content)\\s+(is|appears|seems)|Ich (brauche|benötige|kann|sehe)|Bitte (geben|stellen|teilen|liefern))/i',
-            $rewritten
-        )) {
+        // Refusal-Detection: siehe RefusalDetectionTrait (Pattern zentral,
+        // weil es zwischen den Rewritern bereits auseinandergelaufen war).
+        if ($this->looksLikeRefusal($rewritten, $original)) {
             return false;
         }
         $sourceLen = \strlen($original);
