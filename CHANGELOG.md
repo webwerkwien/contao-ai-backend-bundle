@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.1.3 — 2026-08-13
+
+### Changed
+
+- **`AbstractEntityRewriter` replaces six copies of the same machinery.** `rewriteField()`, `resultToText()` and `isPlausible()` lived once per rewriter, differing only in a byte cap and per-field wording. That is how the refusal-pattern fix could reach three of six copies unnoticed (issue #1). Subclasses now supply `maxResultBytes()`, `fieldShape()`, and optionally `preservesHtml()` / `formFactorHint()`; `supports()` and `rewrite()` stay per-entity. 1085 lines across the six classes drop to 535 plus a 177-line base, and both traits are inherited by construction rather than by remembering to add them.
+- The three HTML-carrying rewriters now share one wording (*"tag structure and attributes"*); `ArticleRewriter` and `FaqRewriter` previously said only *"tag structure"*.
+
+### Fixed
+
+- `resultToText()` returns an empty string for a result object exposing neither `asText()` nor `__toString()`, instead of raising *"Object of class … could not be converted to string"*.
+
+### Added
+
+- 15 unit tests for the shared machinery — provider result shapes, the plausibility thresholds (byte cap, refusal, truncation ratio, short-source exemption) and prompt assembly. Suite now at 36 tests.
+
 ## v0.1.2 — 2026-08-13
 
 ### Changed
