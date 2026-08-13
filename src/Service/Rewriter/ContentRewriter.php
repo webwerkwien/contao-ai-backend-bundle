@@ -3,9 +3,6 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
 
 use Contao\ContentModel;
-use Contao\CoreBundle\Framework\ContaoFramework;
-use Symfony\AI\Platform\Message\Message;
-use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\PlatformInterface;
 
 /**
@@ -13,29 +10,18 @@ use Symfony\AI\Platform\PlatformInterface;
  *
  * Type-aware rewriteable fields:
  *   - text type: `text` (HTML rich-text)
- *   - headline type: `headline` (input-unit serialized {unit, value})
+ *   - headline: `headline` (input-unit serialized {unit, value})
  *
- * Other content types (image, accordion, gallery, module, …) have
- * structured payloads that the LLM shouldn't touch — they're skipped
- * silently with a note. Add per-type handlers when use-cases appear.
+ * Other content types (image, accordion, gallery, module, …) have structured
+ * payloads that the LLM shouldn't touch — they're skipped with a note. Add
+ * per-type handlers when use-cases appear.
  *
- * Headline write-back: returns the RAW value (string), NewsUpdateCommand-
- * style preProcessFields in ContentUpdateCommand wraps it. (Same
- * fix as Phase 9.3 NewsRewriter — see "Doppel-Serialisierung" Fallstrick.)
+ * Headline write-back returns the RAW value; ContentUpdateCommand wraps it into
+ * the input-unit container. Unlike tl_news, tl_content.headline genuinely is an
+ * `inputUnit` field, so the wrapping belongs there.
  */
-class ContentRewriter implements EntityRewriterInterface
+class ContentRewriter extends AbstractEntityRewriter
 {
-    use UntrustedInputTrait;
-    use RefusalDetectionTrait;
-
-    private const MAX_RESULT_BYTES = 50_000;
-    private const MIN_LENGTH_RATIO = 0.3;
-
-    public function __construct(
-        private readonly ContaoFramework $framework,
-    ) {
-    }
-
     public function supports(string $table): bool
     {
         return 'tl_content' === $table;
@@ -54,24 +40,24 @@ class ContentRewriter implements EntityRewriterInterface
         $skipped = [];
         $type    = (string) ($content->type ?? '');
 
-        // Headline-Feld: alle Typen, die ein input-unit-Feld haben (text, headline,
-        // hyperlink, …) — wir versuchen es generisch und prüfen Inhalt.
+        // Headline: every type that has an input-unit field (text, headline,
+        // hyperlink, …) — attempted generically, guarded by the content check.
         $headlineRaw = (string) ($content->headline ?? '');
         if ('' !== $headlineRaw) {
             $parts = $this->extractHeadlineParts($headlineRaw);
             if ('' !== $parts['value']) {
                 $newValue = $this->rewriteField('headline', $parts['value'], $instructions, $platform, $model);
                 if (null !== $newValue) {
-                    $fields['headline'] = $newValue; // Roh-Wert, ContentUpdate wrappt
+                    $fields['headline'] = $newValue; // raw value, ContentUpdate wraps it
                 } else {
                     $skipped['headline'] = 'LLM lieferte ungültiges Ergebnis';
                 }
             }
         }
 
-        // Text-Feld: nur bei type='text' (HTML rich-text). Andere Typen (z.B.
-        // accordion, gallery) haben `text` zwar evtl. befüllt, aber strukturell
-        // — Rewrite würde DCA-Inhalte zerstören.
+        // Text field: only for type='text' (HTML rich-text). Other types (e.g.
+        // accordion, gallery) may have `text` populated too, but structurally —
+        // rewriting it would destroy DCA content.
         if ('text' === $type) {
             $original = trim((string) ($content->text ?? ''));
             if ('' === $original) {
@@ -85,7 +71,6 @@ class ContentRewriter implements EntityRewriterInterface
                 }
             }
         } elseif ([] === $fields && '' === $headlineRaw) {
-            // Kein einziges rewriteables Feld auf diesem Element-Typ.
             $skipped['_type'] = \sprintf('Content-Typ "%s" hat keine rewriteable-Felder', $type);
         }
 
@@ -105,6 +90,7 @@ class ContentRewriter implements EntityRewriterInterface
         if ('' === $serialized) {
             return ['unit' => 'h2', 'value' => ''];
         }
+
         $decoded = @unserialize($serialized, ['allowed_classes' => false]);
         if (\is_array($decoded)) {
             return [
@@ -112,91 +98,26 @@ class ContentRewriter implements EntityRewriterInterface
                 'value' => (string) ($decoded['value'] ?? ''),
             ];
         }
+
         return ['unit' => 'h2', 'value' => $serialized];
     }
 
-    private function rewriteField(
-        string $field,
-        string $original,
-        string $instructions,
-        PlatformInterface $platform,
-        string $model,
-    ): ?string {
-        // Phase-9.4-Fix: sehr kurze Inputs verleiten manche Modelle zu
-        // Klärungs-Antworten ('I need a headline to transform...'). Pass-through
-        // verbatim für <4 Zeichen, Refusal-Detection für längere Outputs siehe isPlausible().
-        if (mb_strlen($original) < 4) {
-            return $original;
-        }
-        $shape = match ($field) {
+    protected function maxResultBytes(): int
+    {
+        return 50_000;
+    }
+
+    protected function preservesHtml(): bool
+    {
+        return true;
+    }
+
+    protected function fieldShape(string $field): string
+    {
+        return match ($field) {
             'headline' => 'a single-line headline (no markdown, no surrounding quotes)',
             'text'     => 'editorial rich-text content formatted as HTML (paragraphs with <p>, optional inline tags like <a> <strong> <em> <ul> <ol> <li>; preserve existing HTML structure exactly, only transform the visible text inside)',
             default    => 'an editorial text snippet',
         };
-
-        $systemPrompt = <<<SYSTEM
-You transform a single piece of editorial text according to the operator's instructions.
-
-Form factor of the input: {$shape}.
-
-Rules:
-- Return ONLY the transformed text, nothing else. No preamble, no commentary, no markdown wrappers, no surrounding quotes.
-- Preserve the same form factor as the input. For HTML inputs: preserve tag structure and attributes exactly, only transform the visible text inside.
-- Keep proper nouns, brand names, dates, numbers, identifiers, URLs and HTML attributes verbatim unless the instructions explicitly say otherwise.
-- If the instructions cannot be applied (e.g. the input is empty or too short), return the input verbatim.
-- Do not add new factual claims. Stick to what the input says.
-
-{$this->untrustedInputRule()}
-
-Operator's instructions: {$instructions}
-SYSTEM;
-
-        try {
-            $result = $platform->invoke($model, new MessageBag(
-                Message::forSystem($systemPrompt),
-                Message::ofUser($this->wrapUntrustedInput($original)),
-            ), [
-                'temperature' => 0.3,
-            ]);
-        } catch (\Throwable $e) {
-            return null;
-        }
-
-        $rewritten = $this->stripInputWrapper(trim($this->resultToText($result)));
-        if (!$this->isPlausible($rewritten, $original)) {
-            return null;
-        }
-        return $rewritten;
-    }
-
-    private function resultToText(mixed $result): string
-    {
-        if (\is_object($result) && method_exists($result, 'asText')) {
-            return (string) $result->asText();
-        }
-        if (\is_object($result) && method_exists($result, '__toString')) {
-            return (string) $result;
-        }
-        return (string) $result;
-    }
-
-    private function isPlausible(string $rewritten, string $original): bool
-    {
-        if ('' === $rewritten) {
-            return false;
-        }
-        if (\strlen($rewritten) > self::MAX_RESULT_BYTES) {
-            return false;
-        }
-        // Refusal-Detection: siehe RefusalDetectionTrait (Pattern zentral,
-        // weil es zwischen den Rewritern bereits auseinandergelaufen war).
-        if ($this->looksLikeRefusal($rewritten, $original)) {
-            return false;
-        }
-        $sourceLen = \strlen($original);
-        if ($sourceLen >= 30 && \strlen($rewritten) < $sourceLen * self::MIN_LENGTH_RATIO) {
-            return false;
-        }
-        return true;
     }
 }
