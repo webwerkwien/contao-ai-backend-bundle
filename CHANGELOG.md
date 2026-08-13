@@ -2,20 +2,23 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## Unreleased
-
-### Added
-
-- `UntrustedInputTrait` marks the editorial value handed to the rewriters' inner LLM loop as data rather than instructions: the value is wrapped in `<editorial_input>` markers, every rewriter system prompt states that the marked span is content and never an instruction, and `stripInputWrapper()` defensively removes the markers again should the model echo them back. Applied to all six rewriters (News, Event, Faq, Content, Page, Article).
-- `phpunit.xml.dist` and the first unit test (`UntrustedInputTraitTest`, 7 cases) — the bundle had test dependencies declared but no configuration and no tests.
-
-### Notes
-
-This is hardening, not a fix for an open privilege hole. The rewriters' inner loop is a bare `PlatformInterface::invoke()` with no toolbox, so injected text cannot call tools or escalate rights; the result is written back only to the field it came from, through allow-listed `*_update` commands. Reaching the path at all requires write access to the affected tables, which already permits setting those fields directly, and no front end source (comments, form data) is processed by a rewriter. The realistic failure mode addressed here is garbled output on imported third-party content during a bulk rewrite.
+## v0.1.1 — 2026-08-13
 
 ### Fixed
 
+- **Refusal detection was only half rolled out.** The Phase-10.4 extension covering Anthropic-style openings (`I'm ready to`, `Happy to`, `Sure,`) had been applied to `NewsRewriter`, `EventRewriter` and `FaqRewriter` but never to `ContentRewriter`, `PageRewriter` and `ArticleRewriter`. Those three kept the older pattern, so `record_rewrite` on `tl_content`, `tl_page` and `tl_article` could still persist a clarification reply as editorial content — the failure mode that put *"I'm ready to transform editorial text according to your instructions…"* into a news headline on 2026-05-08. The pattern now lives in `RefusalDetectionTrait`: one definition, six users, so it cannot drift again.
 - `NewsRewriter` comments no longer claim `tl_news.headline` is an inputUnit field — it is plain text (the news title). No behaviour change; see `contao:news:repair-headlines` in contao-ai-core-bundle v0.2.4 for repairing legacy rows.
+
+### Added
+
+- `UntrustedInputTrait` marks the editorial value handed to the rewriters' inner LLM loop as data rather than instructions: the value is wrapped in `<editorial_input>` markers, every rewriter system prompt states that the marked span is content and never an instruction, and `stripInputWrapper()` defensively removes the markers again should the model echo them back. Applied to all six rewriters.
+- `phpunit.xml.dist` and the bundle's first tests (21 cases) — test dependencies were declared in `composer.json`, but there was no configuration and not a single test. That is why the refusal-pattern drift went unnoticed for months.
+
+### Notes
+
+The input marking is hardening, not a fix for an open privilege hole. The rewriters' inner loop is a bare `PlatformInterface::invoke()` with no toolbox, so injected text cannot call tools or escalate rights; the result is written back only to the field it came from, through allow-listed `*_update` commands. Reaching the path at all requires write access to the affected tables, which already permits setting those fields directly, and no front end source (comments, form data) is processed by a rewriter. The realistic failure mode addressed here is garbled output on imported third-party content during a bulk rewrite.
+
+Verified live against c5.axeltest.at (Contao 5.7.11) through the CLI bridge: a record whose teaser carried an injection attempt was translated correctly, the injected instruction was not followed, no `<editorial_input>` markers leaked into the stored value, and the operator audit trail in `tl_version` stayed intact.
 
 ## v0.1.0 — 2026-04-26 (Beta)
 
