@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.1.2 — 2026-08-13
+
+### Changed
+
+- `export-ignore` keeps development-only files out of the distributed package — `composer require` no longer pulls the test suite and PHPUnit configuration into the consumer's `vendor/`.
+- Corrected the `.gitattributes` header comment: `text=auto eol=lf` normalises line endings but does **not** strip a UTF-8 BOM, which the previous wording implied.
+
+*(This entry was added right after the tag was pushed; the tagged tree carries the change itself, only this note came a moment later.)*
+
 ## v0.1.1 — 2026-08-13
 
 ### Fixed
