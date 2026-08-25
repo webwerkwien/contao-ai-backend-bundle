@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.1.4 — 2026-08-25
+
+### Fixed
+
+- **The system-log entry for a tool call did not say which tool.** `ToolCallLogger` put the tool name in the Monolog context, which is fine for `var/logs` but useless in `tl_log`: Contao's `ContaoTableHandler` formats with `LineFormatter('%message%')` and drops the context entirely, so the back end showed nothing but *"contao-ai-backend tool requested"* — three near-identical rows per chat turn, none of them answering what happened. The tool name is now part of the message, and a failed call also names the exception class.
+
+  Surfaced while adding `tl_log` support to [contao-ai-core-bundle v0.2.11](https://github.com/webwerkwien/contao-ai-core-bundle/releases/tag/v0.2.11), which is where the `%message%` formatter was first read carefully.
+
+### Added
+
+- 4 unit tests for `ToolCallLogger` — the three event messages and that `getToolNames()` still tracks the request. Suite now at 40 tests.
+
 ## v0.1.3 — 2026-08-13
 
 ### Changed

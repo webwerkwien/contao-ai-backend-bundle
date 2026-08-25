@@ -23,6 +23,11 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * lower (INFO/NOTICE) gets buffered in memory and discarded once the request
  * ends without triggering an actual warning. Promoting these audit lines to
  * WARNING ensures they always reach disk.
+ *
+ * The tool name belongs in the message, not only in the context: these entries
+ * also reach tl_log, and ContaoTableHandler formats with LineFormatter('%message%')
+ * -- the context is dropped there. Without the name in the message the back end
+ * showed nothing but "tool requested", which answers no question at all.
  */
 class ToolCallLogger implements EventSubscriberInterface
 {
@@ -75,7 +80,7 @@ class ToolCallLogger implements EventSubscriberInterface
     {
         $call = $event->getToolCall();
         $this->toolsCalledThisRequest[] = $call->getName();
-        $this->logger->warning('contao-ai-backend tool requested', [
+        $this->logger->warning(sprintf('contao-ai-backend tool requested: %s', $call->getName()), [
             'tool'      => $call->getName(),
             'arguments' => $call->getArguments(),
             'call_id'   => $call->getId(),
@@ -84,7 +89,7 @@ class ToolCallLogger implements EventSubscriberInterface
 
     public function onSucceeded(ToolCallSucceeded $event): void
     {
-        $this->logger->warning('contao-ai-backend tool succeeded', [
+        $this->logger->warning(sprintf('contao-ai-backend tool succeeded: %s', $event->getMetadata()->getName()), [
             'tool'    => $event->getMetadata()->getName(),
             'call_id' => $event->getResult()->getToolCall()->getId(),
         ]);
@@ -92,7 +97,11 @@ class ToolCallLogger implements EventSubscriberInterface
 
     public function onFailed(ToolCallFailed $event): void
     {
-        $this->logger->warning('contao-ai-backend tool failed', [
+        $this->logger->warning(sprintf(
+            'contao-ai-backend tool failed: %s (%s)',
+            $event->getMetadata()->getName(),
+            $event->getException()::class,
+        ), [
             'tool'      => $event->getMetadata()->getName(),
             'arguments' => $event->getArguments(),
             'exception' => $event->getException()::class,
