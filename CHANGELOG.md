@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## Unreleased
+
+### Fixed
+
+- **The `record_clone` tool description told the model the opposite of what the server does.** It read *"unknown fields are silently dropped"*, which stopped being true with [contao-ai-core-bundle v0.2.15](https://github.com/webwerkwien/contao-ai-core-bundle/releases/tag/v0.2.15): refused overrides are now listed back under `ignored_modifications`. A tool description is what the model reasons from, so it was actively teaching Claude not to check a key that had just been added for exactly this purpose.
+
+  The description now names the accepted fields per table, points at `ignored_modifications`, mentions that `alias` is never taken from the payload, and states how to clone without publishing. `published` and `hide` became available for `tl_page` in the same core release; the description had no way of knowing.
+
+  Nothing else was needed on this side: `runCommand()` decodes the payload without filtering keys and `postProcessDecoded()` only reads `id`, so the new field already reached the model — it was just being contradicted.
+
 ## v0.1.4 — 2026-08-25
 
 ### Fixed
