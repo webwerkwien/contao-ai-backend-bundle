@@ -38,6 +38,8 @@ class ConfirmationGateTest extends TestCase
     private const MUST_ASK = [
         'ArticleTool.php'  => ['delete'],
         'ContentTool.php'  => ['delete'],
+        'EventTool.php'    => ['delete'],
+        'FaqTool.php'      => ['delete'],
         'NewsTool.php'     => ['delete'],
         'PageTool.php'     => ['delete', 'publish'],
     ];

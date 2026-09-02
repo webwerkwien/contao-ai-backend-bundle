@@ -307,7 +307,7 @@ class RecordListTool extends AbstractCoreCommandTool
         if (0 === $archiveId) {
             return false;
         }
-        return $user->hasAccess($archiveId, 'news');
+        return $this->authorizationChecker->isGranted('contao_user.news', [$archiveId]);
     }
 
     /**

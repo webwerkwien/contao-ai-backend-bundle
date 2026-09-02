@@ -17,6 +17,7 @@ use Contao\PageModel;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 
 /**
  * Phase 9.5: zentraler Voter-Helper für die Macro-Tools (record_clone /
@@ -26,9 +27,22 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
  * Code-Duplikate.
  *
  * Tabellen-Matrix:
- *   tl_news_archive    → hasAccess($id, 'news')
- *   tl_calendar        → hasAccess($id, 'calendar')
- *   tl_faq_category    → hasAccess($id, 'faq')
+ *   tl_news_archive    → isGranted('contao_user.news',      [$id])
+ *   tl_calendar        → isGranted('contao_user.calendars', [$id])
+ *   tl_faq_category    → isGranted('contao_user.faqs',      [$id])
+ *
+ * 🔴 Bis 2026-09-02 stand hier `hasAccess($id, 'calendar')` bzw. `'faq'` —
+ * im Singular. `hasAccess($feld, $array)` liest `$this->$array` am Benutzer,
+ * und die Eigenschaften heißen `calendars` und `faqs`: die DCA von Contao sagt
+ * `'userRoot' => 'calendars'`. `$this->calendar` gibt es nicht, also fiel die
+ * Prüfung durch und **jeder Nicht-Admin wurde abgewiesen**, auch mit legitimen
+ * Rechten. Es scheiterte geschlossen, war also kein Loch — aber Kalender und
+ * FAQ waren für Redakteure schlicht unbenutzbar.
+ *
+ * Gleich mit erledigt: `hasAccess()` ist seit Contao 5.2 deprecated und laut
+ * eigener Meldung *"will no longer work in Contao 6"*. Der Voter-Weg ist der,
+ * den `RecordListTool` ohnehin schon ging — und dort mit den richtigen
+ * Feldnamen.
  *   tl_news            → archive-access via news.pid
  *   tl_calendar_events → calendar-access via event.pid
  *   tl_faq             → faq-access via faq.pid
@@ -144,7 +158,7 @@ class RecordPermissionChecker
         if (!\in_array('news', (array) ($user->modules ?? []), true)) {
             return 'Backend-Modul "news" fehlt.';
         }
-        if (!$user->hasAccess($id, 'news')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.news', [$id])) {
             return \sprintf('Kein Zugriff auf News-Archiv %d.', $id);
         }
         return null;
@@ -162,7 +176,7 @@ class RecordPermissionChecker
         if (null === $news) {
             return \sprintf('News-Eintrag %d nicht gefunden.', $id);
         }
-        if (!$user->hasAccess((int) $news->pid, 'news')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.news', [(int) $news->pid])) {
             return \sprintf('Kein Zugriff auf News-Archiv %d.', (int) $news->pid);
         }
         return null;
@@ -176,7 +190,7 @@ class RecordPermissionChecker
         if (!\in_array('calendar', (array) ($user->modules ?? []), true)) {
             return 'Backend-Modul "calendar" fehlt.';
         }
-        if (!$user->hasAccess($id, 'calendar')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.calendars', [$id])) {
             return \sprintf('Kein Zugriff auf Kalender %d.', $id);
         }
         return null;
@@ -194,7 +208,7 @@ class RecordPermissionChecker
         if (null === $event) {
             return \sprintf('Kalender-Eintrag %d nicht gefunden.', $id);
         }
-        if (!$user->hasAccess((int) $event->pid, 'calendar')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.calendars', [(int) $event->pid])) {
             return \sprintf('Kein Zugriff auf Kalender %d.', (int) $event->pid);
         }
         return null;
@@ -208,7 +222,7 @@ class RecordPermissionChecker
         if (!\in_array('faq', (array) ($user->modules ?? []), true)) {
             return 'Backend-Modul "faq" fehlt.';
         }
-        if (!$user->hasAccess($id, 'faq')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.faqs', [$id])) {
             return \sprintf('Kein Zugriff auf FAQ-Kategorie %d.', $id);
         }
         return null;
@@ -226,7 +240,7 @@ class RecordPermissionChecker
         if (null === $faq) {
             return \sprintf('FAQ-Eintrag %d nicht gefunden.', $id);
         }
-        if (!$user->hasAccess((int) $faq->pid, 'faq')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.faqs', [(int) $faq->pid])) {
             return \sprintf('Kein Zugriff auf FAQ-Kategorie %d.', (int) $faq->pid);
         }
         return null;
@@ -350,7 +364,7 @@ class RecordPermissionChecker
         $this->framework->initialize();
         $source = PageModel::findById($sourceId);
         if (null === $source) {
-            throw new ToolExecutionException(\sprintf('Quell-Seite %d nicht gefunden.', $sourceId));
+            throw new ToolRefusedException(\sprintf('Quell-Seite %d nicht gefunden.', $sourceId));
         }
         $parentId = (int) $source->pid;
         if (0 === $parentId) {
@@ -360,7 +374,7 @@ class RecordPermissionChecker
         }
         $parent = PageModel::findById($parentId);
         if (null === $parent) {
-            throw new ToolExecutionException(\sprintf('Eltern-Seite %d nicht gefunden.', $parentId));
+            throw new ToolRefusedException(\sprintf('Eltern-Seite %d nicht gefunden.', $parentId));
         }
         if (!$this->authorizationChecker->isGranted(
             ContaoCorePermissions::USER_CAN_EDIT_PAGE_HIERARCHY,

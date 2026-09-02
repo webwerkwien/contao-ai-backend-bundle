@@ -10,4 +10,9 @@ services:
         Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
             tags: ['contao_ai_backend.entity_rewriter']
 
+    # _instanceof aus services.yaml greift hier nicht (per-File-Scope),
+    # daher die Tag-Bindung explizit setzen — wie bei NewsTool.
+    Webwerkwien\ContaoAiBackendBundle\Tool\EventTool:
+        tags: ['contao_ai_backend.tool']
+
     Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EventRewriter: ~

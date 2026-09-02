@@ -11,6 +11,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
@@ -149,7 +150,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
 
         $instructions = trim($instructions);
         if ('' === $instructions) {
-            throw new ToolExecutionException('record_rewrite benötigt nicht-leere Anweisungen.');
+            throw new ToolRefusedException('record_rewrite benötigt nicht-leere Anweisungen.');
         }
 
         // Phase 9.5: Source-Voter. Single-Record: edit-Recht auf die zu
@@ -257,7 +258,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         }
 
         if (!isset(self::CONTAINER_CHILD_MAP[$table])) {
-            throw new ToolExecutionException(\sprintf(
+            throw new ToolRefusedException(\sprintf(
                 'Tabelle "%s" hat im record_rewrite-Tool kein recursive-Kind-Mapping.', $table
             ));
         }
@@ -336,7 +337,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
                 return $rewriter;
             }
         }
-        throw new ToolExecutionException(\sprintf(
+        throw new ToolRefusedException(\sprintf(
             'Kein Rewriter für Tabelle "%s" registriert.', $table
         ));
     }
@@ -353,7 +354,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             default              => null,
         };
         if (null === $cmd) {
-            throw new ToolExecutionException(\sprintf(
+            throw new ToolRefusedException(\sprintf(
                 'Kein Update-Command für Tabelle "%s" registriert (zugehöriges Contao-Bundle nicht installiert).',
                 $table
             ));

@@ -2,6 +2,70 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.6.0 — 2026-09-02
+
+### Added
+
+- **CRUD tools for calendar events and FAQ entries** — `event_create`,
+  `event_update`, `event_delete`, `event_read` and the same four for `faq_*`.
+
+  The gap was never a decision. CRUD tools shipped with v0.1.0 for page,
+  article, content and news; calendars and FAQs only ever arrived through the
+  cloner and the rewriter in phase 9. So the agent could *clone* a calendar and
+  *rewrite* an event, but not create or update one.
+
+  Cheap to close because the expensive half was already there: the console
+  commands exist in contao-ai-core-bundle, and `RecordPermissionChecker` and
+  `TABLE_MODULE` have covered both table pairs since the cloner was built. The
+  allow-listed fields were read from the live DCA rather than copied from the
+  news list — `recurring`/`repeatEach` are deliberately excluded, being
+  serialized structures that a plain `--set` would fill with a string.
+
+### Fixed
+
+- **Calendar and FAQ permissions denied every non-admin.** `hasAccess($field,
+  $array)` reads `$this->$array` on the user, and the property is named by the
+  DCA's `userRoot`: `calendars` and `faqs`, in the plural. The checker asked for
+  `'calendar'` and `'faq'` — properties that do not exist — so the check fell
+  through and refused. It failed closed, so nothing leaked; but an editor with
+  legitimate rights could not reach calendars or FAQs at all.
+
+  Found while building the new tools, by reading Contao's own DCA instead of
+  copying the existing call.
+
+  All six checks now go through the `contao_user.*` voters, which is the route
+  `RecordListTool` already took — and the one that survives: `hasAccess()` is
+  deprecated since Contao 5.2 and says of itself that it *"will no longer work
+  in Contao 6"*.
+
+- **Fifteen more places answered HTTP 500 for a missing record.** v0.5.0 changed
+  the branch that evaluates a console command's *result* and reported the finding
+  closed. But the tools throw "nicht gefunden" **directly**, before any command
+  runs — six files, still 500 after the release meant to end exactly that.
+
+  A fix verified at one call site and generalised into a claim. A test now checks
+  the shape instead: a message telling the caller their record does not exist can
+  never be an execution failure, wherever it is thrown.
+
+### Changed
+
+- **A `null` argument to `runCommand()` now means "not passed".** It used to
+  reach `ArrayInput` as an option without a value, so every `create` assembled
+  its optional argument in a variable first:
+
+      $args = ['--headline' => $headline];
+      if (null !== $date) { $args['--date'] = $date; }
+
+  🎯 That is precisely how they escaped `ToolArgumentsMatchCommandTest`, whose
+  scan reads the array literal **inside** the call — so `news_create` had never
+  been checked against `NewsCreateCommand` since the day it was written, in the
+  very test built after `page_publish` shipped broken for want of that check.
+
+  Found by mutation while adding `EventTool`: `--title` was renamed to `--titel`
+  and the suite stayed green. Dropping nulls lets the keys stay inline, which
+  puts them back in front of the checker — 26 checked calls became 29, and the
+  mutation now fails as it should.
+
 ## v0.5.0 — 2026-09-02
 
 A minor rather than a patch: an HTTP status code is a return contract, and one

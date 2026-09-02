@@ -11,6 +11,7 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageDeleteCommand;
@@ -185,7 +186,7 @@ class PageTool extends AbstractCoreCommandTool
         $this->framework->initialize();
         $page = PageModel::findById($recordId);
         if (null === $page) {
-            throw new ToolExecutionException(\sprintf('Seite %d nicht gefunden.', $recordId));
+            throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $recordId));
         }
 
         // ContaoCorePermissions strings — Contao 5 voter-based permission system.
@@ -207,7 +208,7 @@ class PageTool extends AbstractCoreCommandTool
         $this->framework->initialize();
         $page = PageModel::findById($pageId);
         if (null === $page) {
-            throw new ToolExecutionException(\sprintf('Seite %d nicht gefunden.', $pageId));
+            throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $pageId));
         }
         if (!$this->authorizationChecker->isGranted($permission, $page->row())) {
             throw new ToolAccessDeniedException(

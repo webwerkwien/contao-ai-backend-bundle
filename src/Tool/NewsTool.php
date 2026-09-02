@@ -9,6 +9,7 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\NewsCreateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\NewsDeleteCommand;
@@ -66,14 +67,16 @@ class NewsTool extends AbstractCoreCommandTool
         // For create, the record doesn't exist yet — check archive access directly.
         $this->assertArchiveAccess($pid);
 
-        $args = [
+        // 🔴 Inline since 2026-09-02. The variable form was invisible to
+        // ToolArgumentsMatchCommandTest, so `news_create` had never been checked
+        // against `NewsCreateCommand` — not a defect in itself, but the same
+        // blind spot that let `page_publish` ship broken. A null is dropped in
+        // runCommand().
+        return $this->runCommand($this->createCommand, [
             '--headline' => $headline,
             '--pid'      => (string) $pid,
-        ];
-        if (null !== $date) {
-            $args['--date'] = $date;
-        }
-        return $this->runCommand($this->createCommand, $args, 'news_create');
+            '--date'     => $date,
+        ], 'news_create');
     }
 
     /**
@@ -146,7 +149,7 @@ class NewsTool extends AbstractCoreCommandTool
 
     /**
      * Per-record permission: news belongs to a news archive (pid). Editor must
-     * have backend access to that archive (BackendUser::hasAccess($pid, 'news')).
+     * have backend access to that archive (`contao_user.news`-Voter).
      */
     protected function assertRecordAccess(int $recordId, string $operation): void
     {
@@ -158,7 +161,7 @@ class NewsTool extends AbstractCoreCommandTool
         $this->framework->initialize();
         $news = NewsModel::findById($recordId);
         if (null === $news) {
-            throw new ToolExecutionException(\sprintf('News-Eintrag %d nicht gefunden.', $recordId));
+            throw new ToolRefusedException(\sprintf('News-Eintrag %d nicht gefunden.', $recordId));
         }
         $this->assertArchiveAccess((int) $news->pid);
     }
@@ -169,7 +172,7 @@ class NewsTool extends AbstractCoreCommandTool
         if ($user->isAdmin) {
             return;
         }
-        if (!$user->hasAccess($archiveId, 'news')) {
+        if (!$this->authorizationChecker->isGranted('contao_user.news', [$archiveId])) {
             throw new ToolAccessDeniedException(
                 \sprintf('Kein Zugriff auf News-Archiv %d.', $archiveId)
             );

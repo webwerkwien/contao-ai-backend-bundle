@@ -241,6 +241,26 @@ abstract class AbstractCoreCommandTool
         // CLI runs the same command, the option stays empty and it falls back to
         // $_SERVER['USER']. We only set it when (a) the command declares the option
         // and (b) the caller did not already pass one.
+        // A null value means "not passed". Without this, an optional argument
+        // has to be assembled in a variable before the call:
+        //
+        //     $args = ['--title' => $title];
+        //     if (null !== $date) { $args['--date'] = $date; }
+        //     return $this->runCommand($this->createCommand, $args, 'news_create');
+        //
+        // 🎯 Every `create` was written that way, and that is how they escaped
+        // {@see ToolArgumentsMatchCommandTest}: its scan reads the array literal
+        // *inside* the call, so `news_create` had never been checked since the
+        // day it was written — in the very test built after `page_publish`
+        // shipped broken for exactly this reason. Found by mutation on
+        // 2026-09-02 while adding EventTool: `--title` was renamed to `--titel`
+        // and the suite stayed green.
+        //
+        // Making null mean absence lets the keys stay inline, which puts them
+        // back in front of the checker. Nothing passed a deliberate null before:
+        // it would have meant "option without a value", which no caller wants.
+        $arguments = array_filter($arguments, static fn ($value): bool => null !== $value);
+
         $definition = $command->getDefinition();
         if ($definition->hasOption('operator') && !\array_key_exists('--operator', $arguments)) {
             $user = $this->getCurrentBackendUser();
@@ -407,7 +427,7 @@ abstract class AbstractCoreCommandTool
             }
             $stringValue = (string) $value;
             if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $stringValue)) {
-                throw new ToolExecutionException(
+                throw new ToolRefusedException(
                     \sprintf('Feld "%s" enthält ungültige Steuerzeichen.', $key)
                 );
             }

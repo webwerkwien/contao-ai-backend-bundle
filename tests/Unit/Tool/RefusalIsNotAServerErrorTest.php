@@ -111,6 +111,58 @@ class RefusalIsNotAServerErrorTest extends TestCase
         );
     }
 
+    /**
+     * 🔴 The v0.5.0 fix was incomplete, and this is what found it.
+     *
+     * That release changed the branch where a console command's *result* is
+     * evaluated — and reported the finding as closed. But the tools throw
+     * "nicht gefunden" **directly**, before any command runs:
+     *
+     *     throw new ToolExecutionException(sprintf('News-Eintrag %d nicht gefunden.', $id));
+     *
+     * Fifteen such sites across six files still answered HTTP 500 after the
+     * release that was supposed to end exactly that. Noticed only while reading
+     * `NewsTool` as the template for two new tools — a fix verified at one call
+     * site and generalised to a claim.
+     *
+     * So this checks the *shape*: a message that tells the caller their record
+     * does not exist can never be an execution failure, wherever it is thrown.
+     */
+    public function testNoServerErrorClaimsSomethingWasNotFound(): void
+    {
+        $offenders = [];
+        $scanned   = 0;
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(__DIR__ . '/../../../src')
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || 'php' !== $file->getExtension()) {
+                continue;
+            }
+
+            ++$scanned;
+            $source = (string) file_get_contents($file->getPathname());
+
+            // Each throw statement up to its terminating `);`
+            preg_match_all('/throw new ToolExecutionException\((?:[^;]|\n)*?\);/', $source, $matches);
+
+            foreach ($matches[0] as $block) {
+                if (str_contains($block, 'nicht gefunden')) {
+                    $offenders[] = $file->getFilename();
+                }
+            }
+        }
+
+        self::assertGreaterThan(40, $scanned, "the scan only saw $scanned files of src/");
+        self::assertSame(
+            [],
+            $offenders,
+            'a "not found" is thrown as a server error again in: ' . implode(', ', array_unique($offenders)),
+        );
+    }
+
     public function testEveryCatcherOfExecutionErrorsAlsoCatchesRefusals(): void
     {
         // Derived rather than listed: a third catcher added later is exactly the

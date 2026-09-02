@@ -13,6 +13,7 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentCreateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentDeleteCommand;
@@ -132,7 +133,7 @@ class ContentTool extends AbstractCoreCommandTool
         $this->framework->initialize();
         $content = ContentModel::findById($recordId);
         if (null === $content) {
-            throw new ToolExecutionException(\sprintf('Inhaltselement %d nicht gefunden.', $recordId));
+            throw new ToolRefusedException(\sprintf('Inhaltselement %d nicht gefunden.', $recordId));
         }
         $this->assertParentAccess((int) $content->pid, (string) $content->ptable);
     }
@@ -155,11 +156,11 @@ class ContentTool extends AbstractCoreCommandTool
         $this->framework->initialize();
         $article = ArticleModel::findById($pid);
         if (null === $article) {
-            throw new ToolExecutionException(\sprintf('Artikel %d nicht gefunden.', $pid));
+            throw new ToolRefusedException(\sprintf('Artikel %d nicht gefunden.', $pid));
         }
         $page = PageModel::findById((int) $article->pid);
         if (null === $page) {
-            throw new ToolExecutionException(\sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $pid));
+            throw new ToolRefusedException(\sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $pid));
         }
         if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
             throw new ToolAccessDeniedException(
