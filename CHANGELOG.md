@@ -2,6 +2,55 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.3.0 — 2026-09-02
+
+> **Run `contao:migrate` after updating.** Two nullable columns are added to
+> `tl_user` (`ai_base_url`, `ai_model`). No existing data is touched or moved.
+
+### Added
+
+- **The provider list is derived from what is installed, not maintained.** Until
+  now the DCA carried `'options' => ['anthropic', 'openai']` while symfony/ai
+  shipped 37 bridges — the two-provider limit was ours, not the library's.
+  Installing a package is now the whole procedure:
+
+  ```bash
+  composer require "symfony/ai-mistral-platform:^0.13"
+  ```
+
+  and Mistral is in the select. The registry reads the installed
+  `symfony/ai-*-platform` packages through `Composer\InstalledVersions`, takes
+  each one's namespace from its own `composer.json`, and reflects over
+  `Factory::createPlatform()` to learn what it needs. Nothing to register.
+
+- **Five providers ship with the bundle:** Anthropic, OpenAI, OpenRouter
+  (~538 models through one key), Ollama and Generic. The last two are the point
+  of the exercise — a self-hosted model means no customer content leaves the
+  machine, and the previous interface could not express a provider that wants a
+  host and no API key. Further bridges are listed under `composer suggests`.
+
+- **`ai_base_url` and `ai_model`** on `tl_user`. Whether either is required is
+  read from the chosen provider's signature rather than hard-coded: Anthropic
+  demands a key, Ollama does not, Generic demands an endpoint.
+
+### Changed
+
+- An API key is only demanded from providers that actually take one. A
+  self-hosted provider previously failed the check that was meant to protect it.
+- `ai_platform` values are validated against the registry instead of a literal
+  pair, so a provider whose package was removed stops validating the same day
+  rather than failing later inside the factory.
+- Dropped `ai_platform_ref` from both language files — a second list of provider
+  names would have left every newly installed one unlabelled.
+
+### Notes
+
+Two details a hand-written list would have got silently wrong, both found by
+measuring rather than assuming: Ollama calls the parameter `endpoint` where
+every other bridge calls it `baseUrl`, and `name` in a factory signature is not
+a model but the bridge's own canonical key — the value already stored in
+`tl_user.ai_platform`, which is why none of this needs a data migration.
+
 ## v0.2.0 — 2026-09-02
 
 > **Behaviourally identical to v0.1.6 — the number is the fix.** v0.1.6 carried the

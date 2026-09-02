@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiCliTokenController;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
  * Phase 10.2: DCA input_field_callback für tl_user.ai_cli_token.
@@ -27,7 +28,24 @@ class TlUserCallback
         private readonly Connection $connection,
         private readonly RequestStack $requestStack,
         private readonly string $csrfTokenName,
+        private readonly PlatformRegistry $platforms,
     ) {
+    }
+
+    /**
+     * options_callback for tl_user.ai_platform.
+     *
+     * The list used to be a literal `['anthropic', 'openai']` in the DCA. It is
+     * now whatever `symfony/ai-*-platform` packages are installed, read from
+     * each bridge's own factory signature. `composer require
+     * symfony/ai-mistral-platform` puts Mistral in this select with no code
+     * change here.
+     *
+     * @return array<string, string>
+     */
+    public function platformOptions(): array
+    {
+        return $this->platforms->options();
     }
 
     /**

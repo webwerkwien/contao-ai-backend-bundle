@@ -37,13 +37,37 @@ The Contao Manager auto-discovers the bundle via the `contao-manager-plugin` ent
 
 ## Per-user setup
 
-In **System → Users → (user)**, three new fields appear in the *AI agent* legend:
+In **System → Users → (user)**, these fields appear in the *AI agent* legend:
 
 | Field | Required | Notes |
 |---|---|---|
-| Platform | yes | `anthropic` or `openai` |
-| API key | yes | Stored encrypted (Contao DCA `encrypt` flag). Empty key = chat module disabled for that user. |
+| Platform | yes | See *Providers* below. |
+| API key | depends | Stored encrypted (Contao DCA `encrypt` flag). Cloud providers need one; a self-hosted provider takes an endpoint instead. |
+| Endpoint URL | depends | Only for providers without a fixed endpoint — Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
+| Model | depends | Optional for Anthropic and OpenAI, which ship a default. Required elsewhere. |
 | CLI bridge token | optional | Click *Generate / Rotate* to mint a token for the [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) `bridge` workflow. Cleartext is shown once with a *Copy token* button; only the `password_hash` is stored in the database. *Delete* revokes. |
+
+## Providers
+
+Installed with the bundle:
+
+| Provider | Credentials | Covers |
+|---|---|---|
+| Anthropic (Claude) | API key | 27 models |
+| OpenAI (GPT) | API key | 66 models |
+| OpenRouter | API key | ~538 models across many vendors, one key |
+| Ollama | endpoint, no key | models running on your own machine |
+| Generic (OpenAI-compatible) | endpoint, key optional | any service speaking `/v1/chat/completions` |
+
+**To add another,** install its package — that is the whole procedure:
+
+```bash
+composer require "symfony/ai-mistral-platform:^0.13"
+```
+
+The list in the Platform select is derived from the installed
+`symfony/ai-*-platform` packages, read from each bridge's own factory signature.
+Nothing to register, no code to change. `composer suggests` lists further ones.
 
 Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry. The CLI bridge does not require the module mount but still respects the same per-record permission voters.
 

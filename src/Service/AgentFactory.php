@@ -10,20 +10,18 @@ use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
-use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
 
 class AgentFactory
 {
     /**
-     * @param iterable<AbstractCoreCommandTool>     $tools
-     * @param iterable<PlatformBridgeInterface>     $platformBridges
+     * @param iterable<AbstractCoreCommandTool> $tools
      */
     public function __construct(
         #[TaggedIterator('contao_ai_backend.tool')]
         private readonly iterable $tools,
-        #[TaggedIterator('contao_ai_backend.platform_bridge')]
-        private readonly iterable $platformBridges,
+        private readonly PlatformRegistry $platforms,
         private readonly UserAiConfig $userConfig,
         private readonly SystemPromptProvider $promptProvider,
         private readonly ToolAccessChecker $accessChecker,
@@ -34,15 +32,34 @@ class AgentFactory
 
     public function createForUser(BackendUser $user, ?string $modelOverride = null): AgentInvocation
     {
-        $config = $this->userConfig->getForUser($user);
+        $config     = $this->userConfig->getForUser($user);
+        $descriptor = $this->platforms->get($config->platform);
 
-        if (!$config->hasApiKey()) {
-            throw new AiConfigException('Im Benutzerprofil ist kein KI-API-Key hinterlegt.');
+        // Only providers that actually want a key are refused without one.
+        // Ollama and LM Studio take a host instead, and rejecting them here
+        // would make the self-hosted case — the reason the registry exists —
+        // unreachable through the very check meant to protect it.
+        if ($descriptor->apiKeyRequired && !$config->hasApiKey()) {
+            throw new AiConfigException(\sprintf(
+                'Im Benutzerprofil ist kein KI-API-Key für "%s" hinterlegt.',
+                $descriptor->label,
+            ));
         }
 
-        $bridge = $this->resolveBridge($config->platform);
-        $platform = $bridge->createPlatform($config->getApiKey());
-        $model = $modelOverride ?? $bridge->getDefaultModel();
+        $platform = $this->platforms->createPlatform(
+            $config->platform,
+            $config->getApiKey(),
+            $config->baseUrl ?? $descriptor->baseUrlDefault,
+        );
+
+        $model = $modelOverride ?? $config->model ?? $descriptor->defaultModel;
+
+        if (null === $model || '' === $model) {
+            throw new AiConfigException(\sprintf(
+                'Für "%s" ist kein Modell hinterlegt. Trage im Benutzerprofil unter "Modell" eines ein.',
+                $descriptor->label,
+            ));
+        }
 
         $allowedTools = [];
         foreach ($this->tools as $tool) {
@@ -76,13 +93,4 @@ class AgentFactory
         );
     }
 
-    private function resolveBridge(string $platform): PlatformBridgeInterface
-    {
-        foreach ($this->platformBridges as $bridge) {
-            if ($bridge->getName() === $platform) {
-                return $bridge;
-            }
-        }
-        throw new AiConfigException(\sprintf('Unbekannte KI-Plattform "%s".', $platform));
-    }
 }
