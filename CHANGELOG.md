@@ -2,6 +2,55 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.5.0 — 2026-09-02
+
+A minor rather than a patch: an HTTP status code is a return contract, and one
+of them changed.
+
+### Fixed
+
+- **A record that does not exist answered HTTP 500.** Every failure of an
+  underlying console command became `ToolExecutionException` and therefore a
+  server error, so a typo in an id was indistinguishable from a crash:
+
+      bridge clone --table tl_faq_category --source-id 1
+      -> HTTP 500: Tool "record_clone" fehlgeschlagen: FAQ-Kategorie 1 nicht gefunden.
+
+  Refusals now raise `ToolRefusedException` and answer **422**, joining the
+  existing `\InvalidArgumentException` branch. The line is drawn at *whether the
+  command answered at all*, which needs no matching on error text: a structured
+  `{"status":"error","message":…}` means it ran, understood the request and
+  declined; no JSON, an unusable shape or an exception means it could not
+  answer, and stays 500.
+
+  🎯 **This mattered because something had just started reading that code.**
+  contao-ai-cli v0.15.0 stopped treating a 500 from `bridge configure --test` as
+  "auth OK" and began reporting `auth_ok_server_error` — *"your token works, the
+  bridge is broken"*. With a mistyped id producing the same 500, that message
+  would have accused a healthy bridge. One status number carrying two meanings
+  is harmless until it is used.
+
+  ⚠️ The trade-off, stated rather than hidden: a genuine server-side failure
+  (database gone, disk full) can also arrive as a structured error and will now
+  be reported as 422. The alternative was matching on German error text, which
+  fails silently the first time a message is reworded. The message travels
+  either way.
+
+  In the back end chat the same refusals now carry `kind: "tool_refused"`
+  instead of `tool_failed`. **Two controllers caught the old exception** — a fix
+  that only touched the bridge would have made chat refusals fall through to
+  `agent_failed`, a missing record reading as a crashed agent. A test derives the
+  set of catchers rather than listing them, so a third one cannot be forgotten.
+
+### Changed
+
+- **German keywords for the Contao extension index.** Both bundles are listed at
+  `extensions.contao.org` (`discoverable: true`), but were findable only through
+  English terms: `agent`, `automation`, `claude` and `crud` matched, while `KI`,
+  `Redakteur`, `ssh` and even `contao-ai` — the product's own name — returned
+  nothing. Other extensions in the index are found through their German
+  descriptions; these were not.
+
 ## v0.4.0 — 2026-09-02
 
 Security and correctness fixes. Every item below was reproduced before it was

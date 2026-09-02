@@ -18,7 +18,13 @@
         "chat",
         "anthropic",
         "claude",
-        "automation"
+        "automation",
+        "contao-ai",
+        "ki",
+        "ki-agent",
+        "redakteur",
+        "automatisierung",
+        "assistent"
     ],
     "homepage": "https://github.com/webwerkwien/contao-ai-backend-bundle",
     "support": {

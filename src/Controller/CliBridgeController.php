@@ -19,6 +19,7 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordCloneTool;
 use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
 use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 
 /**
@@ -119,6 +120,16 @@ class CliBridgeController extends AbstractController
             );
         } catch (ToolAccessDeniedException $e) {
             return $this->error(403, $e->getMessage());
+        } catch (ToolRefusedException $e) {
+            // 🔴 2026-09-02: this used to be 500. A record that does not exist is
+            // not a server error, and contao-ai-cli v0.15.0 now reads a 500 from
+            // the probe call as "your token works, the bridge is broken" — so a
+            // mistyped id would have accused a healthy bridge.
+            //
+            // 422 joins the \InvalidArgumentException branch below on purpose:
+            // both mean "the request was understood and cannot be carried out",
+            // which is exactly what `bridge configure --test` expects to see.
+            return $this->error(422, $e->getMessage());
         } catch (ToolExecutionException $e) {
             return $this->error(500, $this->safeMessage($e, ...$secrets));
         } catch (\InvalidArgumentException $e) {

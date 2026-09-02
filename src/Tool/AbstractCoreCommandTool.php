@@ -12,6 +12,7 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
 
@@ -277,7 +278,19 @@ abstract class AbstractCoreCommandTool
 
         if (Command::SUCCESS !== $exitCode || ($decoded['status'] ?? null) === 'error') {
             $message = $decoded['message'] ?? 'unbekannter Fehler';
-            throw new ToolExecutionException(\sprintf('Tool "%s" fehlgeschlagen: %s', $toolName, $message));
+
+            // 🔴 Gefunden am 2026-09-02: hier stand `ToolExecutionException`, und
+            // damit wurde eine falsche ID zu HTTP 500. Ein nicht vorhandener
+            // Datensatz ist kein Serverfehler — und seit contao-ai-cli v0.15.0
+            // bedeutet 500 in `bridge configure --test` ausdrücklich „Token gut,
+            // Bridge kaputt". Ein Tippfehler hätte damit eine gesunde Bridge
+            // angeklagt.
+            //
+            // Wir sind an dieser Stelle, weil der Befehl ein wohlgeformtes
+            // Fehlerobjekt geliefert hat: er lief, verstand die Anfrage und hat
+            // sie abgelehnt. Das ist eine Aussage an den Aufrufer, kein Defekt.
+            // Siehe ToolRefusedException für die Grenze und ihren Preis.
+            throw new ToolRefusedException(\sprintf('Tool "%s" abgelehnt: %s', $toolName, $message));
         }
 
         $decoded = $this->truncateStrings($decoded);

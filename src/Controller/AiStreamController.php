@@ -21,6 +21,7 @@ use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\AiAccessVoter;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
 use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
@@ -157,6 +158,18 @@ class AiStreamController extends AbstractController
             // Access-denied messages are written by us and stay user-facing — log for audit.
             $this->logger->info('contao_ai_backend tool access denied', CredentialMasker::context($e, $apiKey));
             $emit('error', ['kind' => 'access_denied', 'message' => $e->getMessage()]);
+        } catch (ToolRefusedException $e) {
+            // 🔴 2026-09-02. Refusals used to arrive as ToolExecutionException and
+            // were labelled `tool_failed`. Splitting them off for the bridge's
+            // sake would have made them fall through to `agent_failed` here —
+            // a missing record reading as a crashed agent, which is worse than
+            // what we started with. Two catchers, one exception: changing the
+            // type is only half the change.
+            //
+            // The message is written by our own commands ("News-Eintrag 42 nicht
+            // gefunden") and is meant for the reader, so it stays unsanitised
+            // like the access-denied branch above.
+            $emit('error', ['kind' => 'tool_refused', 'message' => $e->getMessage()]);
         } catch (ToolExecutionException $e) {
             // M-11: tool errors may carry PDO output, file paths or upstream library text.
             // Log original; emit a sanitized variant.
