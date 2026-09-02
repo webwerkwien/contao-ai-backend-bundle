@@ -22,13 +22,13 @@ contao-ai-backend-bundle is the **browser client** for AI-powered Contao content
 
 - PHP ^8.2
 - Contao ^5.3
-- [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerkwien/contao-ai-core-bundle) `^0.2`
-- `symfony/ai-bundle` `^0.7`
+
+Also installed: [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerkwien/contao-ai-core-bundle) and `symfony/ai-*`.
 
 ## Installation
 
 ```bash
-composer require webwerkwien/contao-ai-backend-bundle
+composer require "webwerkwien/contao-ai-backend-bundle:>=0.1 <1.0"
 vendor/bin/contao-console contao:migrate           # adds ai_api_key, ai_platform, ai_cli_token to tl_user
 vendor/bin/contao-console assets:install            # publishes the Stimulus controller + CSS
 ```

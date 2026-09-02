@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.2.0 — 2026-09-02
+
+> **Behaviourally identical to v0.1.6 — the number is the fix.** v0.1.6 carried the
+> `symfony/ai` 0.7 → 0.13 move under a *patch* number, which would have handed a
+> six-minor pre-1.0 dependency jump to every site constrained to `^0.1.x` — the very
+> constraint those sites use in order *not* to receive that. v0.1.6 stays published;
+> this is the release the change belongs to.
+>
+> **If you are on `^0.1.x`:** widen to `>=0.1 <1.0` (or `>=0.2 <1.0`) to receive this
+> and later releases. Nothing breaks if you don't — you simply stay on 0.1.6.
+
+### Changed
+
+- **`contao-ai-core-bundle` is now required as `>=0.2.38 <1.0`**, not `^0.2.38`. In the
+  0.x series Composer's caret caps at the *next minor*, so a core `0.3.0` would have been
+  unreachable from here — the two bundles could only ever move in lockstep, and a release
+  that did not arrive would have raised no error anywhere.
+
+- **Installation instructions give an explicit constraint.** A plain `composer require`
+  pins a 0.x package to its current minor. The Contao Manager applies the same default,
+  but does show newer versions and lets you edit the constraint by hand.
+
+- **README: removed what duplicated `composer.json`.** The dependency versions listed
+  there had gone stale — `symfony/ai-bundle` still read `^0.7`, five months after the
+  fact — and the frozen test counts (`151 tests, 252 assertions`) described a suite that
+  has since grown past 450. A second place for the same information does not get
+  maintained, only quoted.
+
 ## v0.1.6 — 2026-09-02
 
 > **Needs contao-ai-core-bundle v0.2.38.** Upgrades `symfony/ai` from 0.7 to 0.13 —
