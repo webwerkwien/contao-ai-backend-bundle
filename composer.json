@@ -10,7 +10,16 @@
             "role": "Developer"
         }
     ],
-    "keywords": ["contao", "ai", "agent", "backend", "chat", "anthropic", "claude", "automation"],
+    "keywords": [
+        "contao",
+        "ai",
+        "agent",
+        "backend",
+        "chat",
+        "anthropic",
+        "claude",
+        "automation"
+    ],
     "homepage": "https://github.com/webwerkwien/contao-ai-backend-bundle",
     "support": {
         "issues": "https://github.com/webwerkwien/contao-ai-backend-bundle/issues",
@@ -19,11 +28,11 @@
     "require": {
         "php": "^8.2",
         "contao/core-bundle": "^5.3",
-        "webwerkwien/contao-ai-core-bundle": "^0.2",
-        "symfony/ai-bundle": "^0.7",
-        "symfony/ai-agent": "^0.7",
-        "symfony/ai-anthropic-platform": "^0.7",
-        "symfony/ai-open-ai-platform": "^0.7",
+        "webwerkwien/contao-ai-core-bundle": "^0.2.38",
+        "symfony/ai-bundle": "^0.13",
+        "symfony/ai-agent": "^0.13",
+        "symfony/ai-anthropic-platform": "^0.13",
+        "symfony/ai-open-ai-platform": "^0.13",
         "symfony/console": "^6.4 || ^7.0",
         "symfony/framework-bundle": "^6.4 || ^7.0",
         "symfony/http-foundation": "^6.4 || ^7.0",
@@ -51,6 +60,9 @@
     "scripts": {
         "phpstan": "phpstan analyse src tests --level=6",
         "phpunit": "phpunit",
-        "ci": ["@phpstan", "@phpunit"]
+        "ci": [
+            "@phpstan",
+            "@phpunit"
+        ]
     }
 }

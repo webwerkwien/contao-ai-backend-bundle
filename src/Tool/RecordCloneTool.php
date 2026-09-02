@@ -10,6 +10,7 @@ use Contao\StringUtil;
 use Contao\UserModel;
 use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -126,6 +127,11 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * @param array<string, scalar|null>|string   $modifications  Field overrides for the cloned root record, e.g. {"title": "Pressemitteilungen 2026"}. Each table accepts a fixed set of fields: tl_page = title, pageTitle, description, published, hide; tl_faq_category = title, headline; tl_news_archive and tl_calendar = title. Anything else is refused and listed back under "ignored_modifications" in the result — check that key rather than assuming an override was applied. Note that "alias" is never taken from here; it is always regenerated from the title. To clone without publishing, pass {"published": ""}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets Claude pick either.
      * @param bool                                $recursive      For container-of-container tables (currently only tl_page), also clone the entire descendant tree (subpages with their articles+content) under the new root. Capped at depth 10 / 50 total pages. Ignored for tables without subtree semantics. Default: false (only direct cascade).
      */
+    #[AiContract(
+        // Die Tabelle bestimmt der Aufrufer — nichts behaupten, was hier nicht feststeht.
+        writes: true, trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: true, answerShape: ['status', 'id', 'count'],
+    )]
     public function cloneRecord(string $sourceTable, int $sourceId, array|string $modifications = [], bool $recursive = false): string
     {
         $user = $this->requireBackendUser();

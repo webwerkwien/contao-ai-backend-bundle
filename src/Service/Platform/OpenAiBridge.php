@@ -2,7 +2,7 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Platform;
 
-use Symfony\AI\Platform\Bridge\OpenAi\PlatformFactory;
+use Symfony\AI\Platform\Bridge\OpenAi\Factory;
 use Symfony\AI\Platform\PlatformInterface;
 
 class OpenAiBridge implements PlatformBridgeInterface
@@ -24,6 +24,10 @@ class OpenAiBridge implements PlatformBridgeInterface
 
     public function createPlatform(#[\SensitiveParameter] string $apiKey): PlatformInterface
     {
-        return PlatformFactory::create($apiKey);
+        // symfony/ai 0.13: one `Factory` per bridge replaced `PlatformFactory`.
+        // `createPlatform()` is the standalone case; `createProvider()` exists for
+        // composing several providers into one Platform — that is the door to
+        // offering more than two providers without a second bridge class each.
+        return Factory::createPlatform($apiKey);
     }
 }

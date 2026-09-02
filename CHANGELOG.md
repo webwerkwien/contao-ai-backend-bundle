@@ -2,6 +2,65 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.1.6 — 2026-09-02
+
+> **Needs contao-ai-core-bundle v0.2.38.** Upgrades `symfony/ai` from 0.7 to 0.13 —
+> if you pin that stack yourself, check before updating.
+
+### Fixed
+
+- 🔴 **`page_publish` had never worked, in either direction.** The tool sent
+  `--published=1|0`, and `contao:page:publish` takes two positional arguments — `id` and
+  `publish`/`unpublish`. Every call failed with *The "--published" option does not exist*.
+
+  It went unnoticed because nothing had ever reached it: no test covered the tool, and the
+  first person to try unpublishing from the chat was the first person to find it.
+
+  A new test now reads both sides from source — the argument arrays in the tools, the
+  `addArgument`/`addOption` names in the command classes — and fails on a mismatch here
+  instead of in somebody's chat window. `runCommand()` already asked `hasOption()` before
+  adding `--operator`; that check existed for exactly one key and for no other.
+
+- 🔴 **Unpublishing a page ran without confirmation**, while `AbstractCoreCommandTool`
+  stated in its own docblock that the gate covers *"delete, unpublish"*. The promise was
+  there, the call was not, and forty tests covered everything except this.
+
+  `page_publish` now asks before taking a page offline. Publishing is not gated: it adds
+  something the owner can see and undo in the same breath.
+
+  A guard test keeps the list honest — anything that reads like a removal must be either
+  gated or excused with a reason. The gate is deliberately *not* derived from
+  `#[AiContract]`: by that vocabulary `irreversible` means an effect outside the database,
+  and a page delete lands in `tl_undo`. Confirmation is this bundle's UX policy, not a
+  statement about the operation, and putting it in the contract would tailor the contract
+  to one consumer.
+
+### Changed
+
+- **`symfony/ai` 0.7 → 0.13.** Three call sites: `PlatformFactory::create()` became
+  `Factory::createPlatform()` in both bridges, and `Toolbox\AgentProcessor` is gone — the
+  Agent drives the tool-calling loop itself and takes the toolbox directly. Tool calls are
+  bounded by default now (`maxToolCalls: 50`).
+
+  A fourth change the class-level check could not see: `ToolCallSucceeded::getMetadata()`
+  became `getDefinition()`. Every imported class survived the jump; one method did not.
+  **Class existence is not API compatibility** — the tests caught it.
+
+  Verified live on the test server: an agent built, both platforms instantiated, a real
+  tool call executed from the chat with confirmation, and `tl_log` carrying both the
+  command and the tool entry.
+
+### Added
+
+- **All 22 tools declare an `#[AiContract]`** — what they write, which tables, what trail
+  and when. Read per method through `ContractReader`, which is why the core bundle now
+  allows the attribute on methods: `#[AsTool]` sits above the class here and names its
+  method by argument, so a class-level contract would make a read claim to write.
+
+  Our own write commands honestly declare `traceWhen: 'on-success'`: `logSuccess()` runs
+  from `outputSuccess()`, so a run that fails halfway leaves no trace of having started.
+  The weaker assurance, stated rather than glossed.
+
 ## v0.1.5 — 2026-08-29
 
 ### Fixed

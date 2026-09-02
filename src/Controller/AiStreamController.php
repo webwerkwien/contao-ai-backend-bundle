@@ -121,7 +121,10 @@ class AiStreamController extends AbstractController
         $emit('start', ['model' => $invocation->model]);
 
         try {
-            // Pass per-tool allow-list to AgentProcessor's processInput so
+            // Pass the per-tool allow-list along with the call. Since
+            // symfony/ai 0.13 the Agent drives the loop itself and the option is
+            // consumed in Execution\Runner, which filters the tool map by name —
+            // verified in the vendored 0.13 source, not assumed. So
             // admin-only sub-tools (e.g. news_delete for an editor with the
             // news module) are NOT advertised in the JSON-schema sent to the
             // LLM. Runtime ToolAccessChecker still rejects on attempt — this

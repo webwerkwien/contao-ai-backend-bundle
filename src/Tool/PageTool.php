@@ -8,6 +8,7 @@ use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -56,6 +57,10 @@ class PageTool extends AbstractCoreCommandTool
         ];
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id'],
+    )]
     public function create(string $title, string $alias, string $type, int $pid): string
     {
         // For create, the new page does not exist yet — verify the user is
@@ -78,6 +83,10 @@ class PageTool extends AbstractCoreCommandTool
         ], 'page_create');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: true, answerShape: ['status', 'id'],
+    )]
     public function update(int $id, array $fields): string
     {
         $this->assertRecordAccess($id, 'update');
@@ -87,6 +96,10 @@ class PageTool extends AbstractCoreCommandTool
         ], 'page_update');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_page'], trace: ['tl_undo', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id', 'deleted'],
+    )]
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
@@ -108,18 +121,50 @@ class PageTool extends AbstractCoreCommandTool
         return $this->runCommand($this->deleteCommand, ['id' => (string) $id], 'page_delete');
     }
 
+    #[AiContract(writes: false, tables: ['tl_page'], trace: [])]
     public function read(int $id): string
     {
         $this->assertRecordAccess($id, 'read');
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'page_read');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: true, answerShape: ['status', 'id'],
+    )]
     public function publish(int $id, bool $published): string
     {
         $this->assertRecordAccess($id, 'publish');
+
+        // Only when taking the page offline. Publishing adds something the
+        // owner can see and undo in the same breath; unpublishing removes a
+        // live page from every visitor at once — and until 2026-09-02 it ran
+        // without asking, while AbstractCoreCommandTool's own docblock said the
+        // gate covered "delete, unpublish". The promise was there, the call was
+        // not, and nothing failed because nothing tested it.
+        if (!$published) {
+            $staged = $this->requireConfirmation(
+                'page_publish',
+                (string) $id,
+                \sprintf('Seite %d wirklich offline nehmen? Sie ist danach für Besucher nicht mehr erreichbar.', $id),
+                ['id' => $id, 'action' => 'unpublish'],
+            );
+
+            if (null !== $staged) {
+                return $staged;
+            }
+        }
+
+        // `contao:page:publish` takes two positional arguments — id and
+        // "publish"/"unpublish" — and has never had a `--published` option.
+        // This tool sent one anyway, so page_publish failed in *both*
+        // directions with *The "--published" option does not exist*. It went
+        // unnoticed until 2026-09-02 because nothing had ever reached it: no
+        // test covered the tool, and the first live attempt in the chat was the
+        // one that finally ran into it.
         return $this->runCommand($this->publishCommand, [
-            'id'          => (string) $id,
-            '--published' => $published ? '1' : '0',
+            'id'     => (string) $id,
+            'action' => $published ? 'publish' : 'unpublish',
         ], 'page_publish');
     }
 

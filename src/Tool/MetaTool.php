@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\DcaSchemaCommand;
@@ -64,6 +65,7 @@ class MetaTool extends AbstractCoreCommandTool
     /**
      * @param string $table Contao table name, e.g. tl_news, tl_page
      */
+    #[AiContract(writes: false, trace: [])]
     public function dcaSchema(string $table): string
     {
         if (!\in_array($table, self::ALLOWED_DCA_TABLES, true)) {
@@ -77,6 +79,7 @@ class MetaTool extends AbstractCoreCommandTool
     /**
      * @param int $moduleId Module ID (tl_module)
      */
+    #[AiContract(writes: false, trace: [])]
     public function listingConfig(int $moduleId): string
     {
         return $this->runCommand($this->listingCommand, ['id' => (string) $moduleId], 'listing_config');
@@ -89,6 +92,7 @@ class MetaTool extends AbstractCoreCommandTool
      *
      * @param string $query Search query string
      */
+    #[AiContract(writes: false, trace: [])]
     public function searchQuery(string $query): string
     {
         $user = $this->requireBackendUser();

@@ -8,6 +8,7 @@ use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordListCommand;
@@ -103,6 +104,7 @@ class RecordListTool extends AbstractCoreCommandTool
      * @param array<string, scalar|null>|string  $filter  Equality filter, e.g. {"pid": 5, "published": 1}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets Claude pick either shape.
      * @param list<string>|string                $fields  Columns to return; empty = curated default per table. Same array|string-tolerance.
      */
+    #[AiContract(writes: false, trace: [])]
     public function listRecords(
         string $table,
         int $limit = 20,

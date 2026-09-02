@@ -10,6 +10,7 @@ use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -55,6 +56,10 @@ class ContentTool extends AbstractCoreCommandTool
         ];
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id'],
+    )]
     public function create(string $type, int $pid, string $ptable = 'tl_article'): string
     {
         // For create, the content element doesn't exist yet — verify access via parent.
@@ -67,6 +72,10 @@ class ContentTool extends AbstractCoreCommandTool
         ], 'content_create');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: true, answerShape: ['status', 'id'],
+    )]
     public function update(int $id, array $fields): string
     {
         $this->assertRecordAccess($id, 'update');
@@ -76,6 +85,10 @@ class ContentTool extends AbstractCoreCommandTool
         ], 'content_update');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_content'], trace: ['tl_undo', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id', 'deleted'],
+    )]
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
@@ -97,6 +110,7 @@ class ContentTool extends AbstractCoreCommandTool
         return $this->runCommand($this->deleteCommand, ['id' => (string) $id], 'content_delete');
     }
 
+    #[AiContract(writes: false, tables: ['tl_content'], trace: [])]
     public function read(int $id): string
     {
         $this->assertRecordAccess($id, 'read');

@@ -87,10 +87,19 @@ class ToolCallLogger implements EventSubscriberInterface
         ]);
     }
 
+    /*
+     * symfony/ai 0.13 renamed the tool description on these events from
+     * `getMetadata()` to `getDefinition()`; it returns a `Tool` and still
+     * answers `getName()`.
+     *
+     * Worth noting how this was found: a check that every imported class still
+     * exists said everything was fine — the classes did survive, one method did
+     * not. The tests caught it. Class-level existence is not API compatibility.
+     */
     public function onSucceeded(ToolCallSucceeded $event): void
     {
-        $this->logger->warning(sprintf('contao-ai-backend tool succeeded: %s', $event->getMetadata()->getName()), [
-            'tool'    => $event->getMetadata()->getName(),
+        $this->logger->warning(sprintf('contao-ai-backend tool succeeded: %s', $event->getDefinition()->getName()), [
+            'tool'    => $event->getDefinition()->getName(),
             'call_id' => $event->getResult()->getToolCall()->getId(),
         ]);
     }
@@ -99,10 +108,10 @@ class ToolCallLogger implements EventSubscriberInterface
     {
         $this->logger->warning(sprintf(
             'contao-ai-backend tool failed: %s (%s)',
-            $event->getMetadata()->getName(),
+            $event->getDefinition()->getName(),
             $event->getException()::class,
         ), [
-            'tool'      => $event->getMetadata()->getName(),
+            'tool'      => $event->getDefinition()->getName(),
             'arguments' => $event->getArguments(),
             'exception' => $event->getException()::class,
             'message'   => $event->getException()->getMessage(),

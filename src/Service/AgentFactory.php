@@ -5,7 +5,6 @@ namespace Webwerkwien\ContaoAiBackendBundle\Service;
 use Contao\BackendUser;
 use Psr\Log\LoggerInterface;
 use Symfony\AI\Agent\Agent;
-use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -61,8 +60,11 @@ class AgentFactory
             logger: $this->logger,
             eventDispatcher: $this->eventDispatcher,
         );
-        $processor = new AgentProcessor($toolbox);
-        $agent    = new Agent($platform, $model, [$processor], [$processor]);
+        // symfony/ai 0.13 removed Toolbox\AgentProcessor: tool calling is no
+        // longer wired as an input/output processor pair, the Agent drives the
+        // loop itself and takes the toolbox directly. maxToolCalls defaults to
+        // 50 since 0.10 — bounded by default, which it was not before.
+        $agent = new Agent($platform, $model, toolbox: $toolbox);
 
         $allowedToolNames = $this->accessChecker->listAllowedTools($user);
 

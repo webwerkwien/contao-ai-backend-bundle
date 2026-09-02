@@ -6,6 +6,7 @@ use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\NewsModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -56,6 +57,10 @@ class NewsTool extends AbstractCoreCommandTool
      * @param string $headline  Headline for the news entry
      * @param string|null $date Publication date in Y-m-d, defaults to today
      */
+    #[AiContract(
+        writes: true, tables: ['tl_news'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id'],
+    )]
     public function create(int $pid, string $headline, ?string $date = null): string
     {
         // For create, the record doesn't exist yet — check archive access directly.
@@ -75,6 +80,10 @@ class NewsTool extends AbstractCoreCommandTool
      * @param int $id News entry ID
      * @param array<string, scalar|null> $fields Object mapping field name to new value, e.g. {"headline": "New title", "published": true, "teaser": "Lead text"}. Allowed field names: headline, subheadline, teaser, date, time, published, start, stop. Pass exactly the fields that should change.
      */
+    #[AiContract(
+        writes: true, tables: ['tl_news'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
+        repeatable: true, answerShape: ['status', 'id'],
+    )]
     public function update(int $id, array $fields): string
     {
         $this->assertRecordAccess($id, 'update');
@@ -84,6 +93,10 @@ class NewsTool extends AbstractCoreCommandTool
         ], 'news_update');
     }
 
+    #[AiContract(
+        writes: true, tables: ['tl_news'], trace: ['tl_undo', 'tl_log'], traceWhen: 'on-success',
+        repeatable: false, answerShape: ['status', 'id', 'deleted'],
+    )]
     public function delete(int $id): string
     {
         $this->assertRecordAccess($id, 'delete');
@@ -122,6 +135,7 @@ class NewsTool extends AbstractCoreCommandTool
         ], 'news_delete');
     }
 
+    #[AiContract(writes: false, tables: ['tl_news'], trace: [])]
     public function read(int $id): string
     {
         $this->assertRecordAccess($id, 'read');

@@ -8,7 +8,7 @@ final readonly class AgentInvocation
 {
     /**
      * @param list<string> $allowedToolNames Per-tool-name filter applied via
-     *   AgentProcessor's `tools` option. The Toolbox itself receives all tool
+     *   the `tools` option the Agent passes on to Execution\Runner. The Toolbox itself receives all tool
      *   classes the user can use (class-level isAccessibleBy), but admin-only
      *   sub-tools must not appear in the JSON-schema sent to the LLM — only
      *   the names returned here are advertised. Without this filter, Claude
