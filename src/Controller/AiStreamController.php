@@ -23,6 +23,8 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\AiAccessVoter;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
+use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 
 class AiStreamController extends AbstractController
 {
@@ -65,6 +67,7 @@ class AiStreamController extends AbstractController
         private readonly string $csrfTokenName,
         private readonly string $projectDir,
         private readonly ToolCallLogger $toolCallLogger,
+        private readonly UserAiConfig $userConfig,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -118,6 +121,10 @@ class AiStreamController extends AbstractController
             $body .= 'data: ' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) . "\n\n";
         };
 
+        // The user's own key, held so the masker can strike the literal value.
+        // A pattern list cannot cover an opaque key; this can.
+        $apiKey = $this->userConfig->getForUser($user)->getApiKey();
+
         $emit('start', ['model' => $invocation->model]);
 
         try {
@@ -148,14 +155,14 @@ class AiStreamController extends AbstractController
             $this->appendHistory($request, $user, $userInput, $persistedAssistant);
         } catch (ToolAccessDeniedException $e) {
             // Access-denied messages are written by us and stay user-facing — log for audit.
-            $this->logger->info('contao_ai_backend tool access denied', ['exception' => $e]);
+            $this->logger->info('contao_ai_backend tool access denied', CredentialMasker::context($e, $apiKey));
             $emit('error', ['kind' => 'access_denied', 'message' => $e->getMessage()]);
         } catch (ToolExecutionException $e) {
             // M-11: tool errors may carry PDO output, file paths or upstream library text.
             // Log original; emit a sanitized variant.
-            $emit('error', ['kind' => 'tool_failed', 'message' => $this->safeMessage($e)]);
+            $emit('error', ['kind' => 'tool_failed', 'message' => $this->safeMessage($e, $apiKey)]);
         } catch (\Throwable $e) {
-            $emit('error', ['kind' => 'agent_failed', 'message' => $this->safeMessage($e)]);
+            $emit('error', ['kind' => 'agent_failed', 'message' => $this->safeMessage($e, $apiKey)]);
         }
 
         return new Response($body, 200, [
@@ -255,37 +262,21 @@ class AiStreamController extends AbstractController
      * `getMessage()` from underlying HTTP/Anthropic libraries. Original goes to
      * the configured logger; client gets a scrubbed, masked, truncated string.
      */
-    private function safeMessage(\Throwable $e): string
+    private function safeMessage(\Throwable $e, #[\SensitiveParameter] string $apiKey = ''): string
     {
-        $this->logger->error('contao_ai_backend agent error', ['exception' => $e]);
+        // Until 2026-09-02 this logged `['exception' => $e]` — the full message,
+        // unmasked, into the log file, while only the browser got a scrubbed
+        // string. The masking protected the wrong side.
+        $this->logger->error('contao_ai_backend agent error', CredentialMasker::context($e, $apiKey));
 
         $message = str_replace($this->projectDir, '…', $e->getMessage());
-        $message = self::maskSecrets($message);
+        $message = CredentialMasker::mask($message, $apiKey);
         if (\strlen($message) > 200) {
             $message = mb_strcut($message, 0, 200) . '…';
         }
         return $message ?: 'Interner Fehler — siehe Logfile';
     }
 
-    /**
-     * Mask common API-key shapes so a stray exception that quotes the key does
-     * not surface it to the SSE consumer. Patterns cover Anthropic (`sk-ant-…`)
-     * and OpenAI (`sk-…`) plus generic Bearer-Tokens. Belt-and-suspenders — keys
-     * should never be in `getMessage()` to begin with, but we have no contract
-     * with the upstream libraries.
-     */
-    private static function maskSecrets(string $message): string
-    {
-        return (string) preg_replace(
-            [
-                '/sk-ant-[A-Za-z0-9_-]{6,}/',
-                '/\bsk-[A-Za-z0-9]{20,}/',
-                '/Bearer\s+[A-Za-z0-9._\-]{20,}/i',
-            ],
-            ['sk-ant-***', 'sk-***', 'Bearer ***'],
-            $message,
-        );
-    }
 
     /**
      * @return list<array{role: string, content: string}>

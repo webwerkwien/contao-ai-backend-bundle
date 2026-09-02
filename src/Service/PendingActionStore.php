@@ -29,11 +29,36 @@ use Symfony\Component\HttpFoundation\RequestStack;
  *   collide (e.g. the same user staging news_delete and page_delete).
  * - HTTP-only: when no request session is available (CLI, tests), peek()
  *   returns null and the caller falls back to immediate execution.
+ * - **Turn-bound**: an entry staged in one HTTP request cannot be consumed in
+ *   that same request. See below.
+ *
+ * ## 🔴 C-1 (Audit 2026-09-02): warum die Turn-Bindung dazukam
+ *
+ * Bis dahin war die einzige Instanz, die einen Menschen zwischen Frage und
+ * Ausführung schaltete, ein Satz im JSON an das Modell: *„Frage den User
+ * wörtlich. Bei klarem Ja denselben Tool-Aufruf erneut absetzen."*
+ *
+ * Seit symfony/ai 0.13 treibt der Agent die Werkzeugschleife selbst
+ * (`maxToolCalls` 50). Das Modell konnte also `page_delete` rufen, die Antwort
+ * *„pending_confirmation"* lesen und **im selben Durchlauf sofort erneut
+ * rufen** — `consume()` griff, die Löschung lief, der Benutzer sah die Frage
+ * nie.
+ *
+ * 🎯 **Das Gate war eine Bitte an das Modell, keine Kontrolle** — und das
+ * Modell ist genau die Instanz, die sich über untrusted Datensatz-Inhalte
+ * steuern lässt. Eine Zusicherung, deren Durchsetzung beim potenziellen
+ * Angreifer liegt, ist keine.
+ *
+ * Ein HTTP-Request ist genau ein Chat-Turn. Die Bindung an die Request-Kennung
+ * erzwingt damit, was der Text nur erbeten hat: **zwischen Frage und
+ * Ausführung muss der Mensch etwas gesendet haben.** Sie beweist kein „Ja" —
+ * sie beweist, dass die Frage sichtbar war und ein Mensch danach gehandelt hat.
  */
 class PendingActionStore
 {
-    private const SESSION_PREFIX = 'contao_ai_backend.pending_action.';
-    private const DEFAULT_TTL    = 300;
+    private const SESSION_PREFIX  = 'contao_ai_backend.pending_action.';
+    private const DEFAULT_TTL     = 300;
+    private const TURN_ATTRIBUTE  = '_contao_ai_backend.turn';
 
     public function __construct(
         private readonly RequestStack $requestStack,
@@ -52,6 +77,7 @@ class PendingActionStore
         $session->set($this->sessionKey($userId, $tool, $key), [
             'payload'    => $payload,
             'expires_at' => time() + $ttl,
+            'turn'       => $this->currentTurnId(),
         ]);
     }
 
@@ -82,6 +108,12 @@ class PendingActionStore
      */
     public function consume(int $userId, string $tool, string $key): ?array
     {
+        // C-1: nicht im selben Request einlösbar. Der Eintrag bleibt bewusst
+        // stehen — der nächste Turn soll ihn noch bestätigen können.
+        if ($this->stagedInCurrentTurn($userId, $tool, $key)) {
+            return null;
+        }
+
         $payload = $this->peek($userId, $tool, $key);
         if (null === $payload) {
             return null;
@@ -89,6 +121,47 @@ class PendingActionStore
         $session = $this->session();
         $session?->remove($this->sessionKey($userId, $tool, $key));
         return $payload;
+    }
+
+    /**
+     * True when the pending entry was staged by the request currently running.
+     */
+    public function stagedInCurrentTurn(int $userId, string $tool, string $key): bool
+    {
+        $session = $this->session();
+        if (null === $session) {
+            return false;
+        }
+
+        $entry = $session->get($this->sessionKey($userId, $tool, $key));
+
+        if (!\is_array($entry) || !isset($entry['turn'])) {
+            return false;
+        }
+
+        return $entry['turn'] === $this->currentTurnId();
+    }
+
+    /**
+     * A value that is stable within one HTTP request and different in the next.
+     *
+     * Stored on the Request's attribute bag rather than derived from anything
+     * the client sends — a turn id a caller could choose would let the same
+     * caller pretend to be a new turn.
+     */
+    private function currentTurnId(): ?string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        if (null === $request) {
+            return null;
+        }
+
+        if (!$request->attributes->has(self::TURN_ATTRIBUTE)) {
+            $request->attributes->set(self::TURN_ATTRIBUTE, bin2hex(random_bytes(8)));
+        }
+
+        return (string) $request->attributes->get(self::TURN_ATTRIBUTE);
     }
 
     public function clear(int $userId, string $tool, string $key): void

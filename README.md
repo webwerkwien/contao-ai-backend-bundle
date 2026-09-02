@@ -2,7 +2,9 @@
 
 In-browser AI agent for the Contao 5 backend. Editors and admins chat with a Claude (or GPT) agent that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
-> **Beta software.** Bundle interfaces (tool signatures, bridge JSON, DCA fields) may change between minor versions. Underlying `symfony/ai-bundle` is pre-1.0. Use at your own risk in production.
+> **Pre-1.0.** Runs in production on the author's own installations. Interfaces — tool
+> signatures, bridge JSON, DCA fields — still change between minor versions, and
+> `symfony/ai` is itself pre-1.0. Read the changelog before updating.
 
 > **You bring your own LLM API key.** Each backend user must provide an Anthropic or OpenAI key in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
 
@@ -42,8 +44,8 @@ In **System → Users → (user)**, these fields appear in the *AI agent* legend
 | Field | Required | Notes |
 |---|---|---|
 | Platform | yes | See *Providers* below. |
-| API key | depends | Stored encrypted (Contao DCA `encrypt` flag). Cloud providers need one; a self-hosted provider takes an endpoint instead. |
-| Endpoint URL | depends | Only for providers without a fixed endpoint — Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
+| API key | depends | Stored in plain text — see *Security model*. Cloud providers need one; a self-hosted provider takes an endpoint instead. |
+| Endpoint URL | depends | **Administrators only** — not editable under *Personal data*, because it decides where the server sends requests. Only for providers without a fixed endpoint: Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
 | Model | depends | Optional for Anthropic and OpenAI, which ship a default. Required elsewhere. |
 | CLI bridge token | optional | Click *Generate / Rotate* to mint a token for the [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) `bridge` workflow. Cleartext is shown once with a *Copy token* button; only the `password_hash` is stored in the database. *Delete* revokes. |
 
@@ -96,43 +98,26 @@ The `contao_backend` firewall would 302-redirect any unauthenticated request to 
 
 ## Security model
 
-The bundle was hardened in a four-sprint security pass against findings from two independent reviewers (Opus + Codex). Full breakdown in [CHANGELOG.md](CHANGELOG.md).
+Two things decide how you deploy this. Everything else is implementation detail
+and lives in the changelog.
 
-### Authentication and authorization
+⚠️ **API keys are stored in plain text** in `tl_user.ai_api_key` — Contao 5 has no
+field encryption. Treat read access to the database as equivalent to holding every
+key in it, and grant it accordingly.
 
-- **Auth (chat)** rides on the existing Contao backend session (passkey, password, 2FA — whatever the install uses).
-- **Auth (bridge)** uses Bearer tokens stored as `password_hash` in `tl_user.ai_cli_token`; constant-time `password_verify` comparison.
-- **Module gate**: Symfony voter `AI_CHAT_USE` requires `ai_chat` in `BackendUser->modules` for the chat module.
-- **Tool gate**: `ToolAccessChecker` validates the underlying module per tool. Delete tools require `BackendUser::isAdmin === true`.
-- **Per-record gate**: every tool that touches a content row asserts `ContaoCorePermissions::USER_CAN_*` against the record's parent (news archive, page hierarchy, article parent-page) before delegating to the core command.
+⚠️ **Content the agent reads can try to instruct it.** Tool output is wrapped,
+truncated and declared as untrusted data, destructive operations need a real user
+turn, and an injected instruction can never exceed the rights of the user whose
+session is running — but none of that is isolation. A change made this way stays
+within that user's rights and is versioned in `tl_version` under their name, so it
+is visible and revertible. Be deliberate about pointing the agent at tables that
+take input from outside the editorial team: form submissions, comments, imported
+feeds.
 
-### Field allow-lists
-
-Each `*_update` tool defines a strict `allowedFields()` allow-list. The agent cannot set protected DCA columns (`pid`, `tstamp`, `chmod`, `cuser`, …) even if it asks. Values containing control chars or NULs are rejected.
-
-### Prompt-injection mitigation
-
-- Tool outputs are wrapped in `<tool_output_data tool="…">…</tool_output_data>` sentinels. The system prompt instructs the model to treat anything inside as untrusted data.
-- Free-text fields larger than 500 bytes are truncated with `…[truncated]`.
-- Chat history lives **server-side** in the Symfony session keyed by user ID. Client-supplied history is ignored — fabricated `assistant` turns cannot be smuggled in.
-- `username` / `language` template substitutions are regex-validated before flowing into the system prompt.
-
-### Information disclosure
-
-- API keys are stored with the Contao DCA `encrypt` flag, never logged, never returned to the browser. The `UserAiConfigDto` wraps the key behind a private property + getter; `__debugInfo()` redacts to `***<last4>` so casual `dump()` cannot leak it.
-- Exception messages are masked (`sk-ant-…`, `sk-…`, `Bearer …` patterns), scrubbed of `kernel.project_dir`, truncated to 200 chars, and logged as `LogLevel::error` for diagnostics.
-- `dca_schema` is restricted to a table allow-list and strips canonical credential/session column names.
-
-### Audit trail
-
-Backend invocations stamp `tl_version.username` and the audit log with the actual Contao username via the `--operator` option on the underlying core commands. CLI invocations still attribute to `$_SERVER['USER']`.
-
-### Transport hardening
-
-- `Cache-Control: no-store, private, max-age=0` + `Vary: Cookie` + `X-Robots-Tag: noindex, nofollow`. `charset=utf-8` is explicit.
-- CSRF: every chat POST requires the Contao backend CSRF token. Bridge POSTs use Bearer auth instead.
-- Same-origin verified via `Sec-Fetch-Site` and `Origin` request headers.
-- Rate limit: 30 requests/minute and 500/day per user — sliding window backed by the session.
+Beyond that: the agent acts as the logged-in backend user and re-checks that
+user's permissions per record, `*_delete` tools are admin-only, write tools accept
+only an explicit allow-list of fields, and every write is attributed to the acting
+user in `tl_version` and the system log.
 
 ## Streaming
 

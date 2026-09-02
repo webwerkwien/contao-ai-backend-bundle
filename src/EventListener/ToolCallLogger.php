@@ -8,6 +8,7 @@ use Symfony\AI\Agent\Toolbox\Event\ToolCallRequested;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallSucceeded;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
 
 /**
  * Logs every tool invocation requested by the agent (and its outcome) to the
@@ -76,13 +77,45 @@ class ToolCallLogger implements EventSubscriberInterface
         ];
     }
 
+    /**
+     * 🔴 M-4 (Audit 2026-09-02): `getArguments()` ging vollständig und ungemaskt
+     * ins Log. Ein Redakteur, der über ein Update-Werkzeug einen Text mit
+     * `sk-proj-…` oder einem Bearer-Token schreibt, hatte den vollständigen Wert
+     * dauerhaft im Logfile — auf WARNING-Ebene. Die Maskierung schützte bis
+     * dahin nur Fehlermeldungen, nicht die Argumente auf dem Weg dorthin.
+     *
+     * Ohne bekannten Geheimniswert greift hier nur das Muster-Netz: Der Logger
+     * sieht den Werkzeugaufruf, nicht das Benutzerprofil. Das ist eine
+     * schwächere Zusicherung als in den Controllern — und soll es sein, denn ein
+     * Argument ist Text, den ein Benutzer getippt hat, kein Schlüssel, den wir
+     * halten.
+     *
+     * @param  array<mixed> $arguments
+     * @return array<mixed>
+     */
+    private static function maskArguments(array $arguments): array
+    {
+        foreach ($arguments as $key => $value) {
+            if (\is_array($value)) {
+                $arguments[$key] = self::maskArguments($value);
+                continue;
+            }
+
+            if (\is_string($value)) {
+                $arguments[$key] = CredentialMasker::mask($value);
+            }
+        }
+
+        return $arguments;
+    }
+
     public function onRequested(ToolCallRequested $event): void
     {
         $call = $event->getToolCall();
         $this->toolsCalledThisRequest[] = $call->getName();
         $this->logger->warning(sprintf('contao-ai-backend tool requested: %s', $call->getName()), [
             'tool'      => $call->getName(),
-            'arguments' => $call->getArguments(),
+            'arguments' => self::maskArguments($call->getArguments()),
             'call_id'   => $call->getId(),
         ]);
     }

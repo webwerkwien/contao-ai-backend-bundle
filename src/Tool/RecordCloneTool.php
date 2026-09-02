@@ -53,11 +53,23 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * the registry come back as a structured "no cloner registered" error
      * from RecordCloneCommand.
      *
-     * Mirrors the Per-Table-Module map in RecordListTool::TABLE_MODULE.
+     * (Die allgemeine Tabellen-Modul-Zuordnung liegt seit 2026-09-02 in
+     * AbstractCoreCommandTool::TABLE_MODULE — siehe Hinweis unten, warum das
+     * hier bewusst eine eigene, engere Liste ist.)
      *
      * @var array<string, string> table => required backend module
      */
-    private const TABLE_MODULE = [
+    /**
+     * Container-Tabellen, die geklont werden können, und ihr Backend-Modul.
+     *
+     * ⚠️ Absichtlich NICHT `AbstractCoreCommandTool::TABLE_MODULE`. Die hieß bis
+     * zum 2026-09-02 hier genauso, ist aber ein anderes Konzept: die Basisliste
+     * bildet ALLE überblickbaren Tabellen ab (10 Einträge, inkl. tl_news,
+     * tl_content, tl_files), diese hier nur die vier Container, für die ein Klon
+     * überhaupt definiert ist. Die Werte stimmen überein, der Zweck nicht —
+     * deshalb umbenannt statt zusammengelegt.
+     */
+    private const CONTAINER_MODULE = [
         'tl_news_archive' => 'news',
         'tl_calendar'     => 'calendar',
         'tl_faq_category' => 'faq',
@@ -113,7 +125,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
             return true;
         }
         $userModules = (array) ($user->modules ?? []);
-        foreach (self::TABLE_MODULE as $module) {
+        foreach (self::CONTAINER_MODULE as $module) {
             if (\in_array($module, $userModules, true)) {
                 return true;
             }
@@ -136,7 +148,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
     {
         $user = $this->requireBackendUser();
 
-        if (!isset(self::TABLE_MODULE[$sourceTable])) {
+        if (!isset(self::CONTAINER_MODULE[$sourceTable])) {
             throw new ToolAccessDeniedException(
                 \sprintf('Tabelle "%s" wird vom record_clone-Tool nicht unterstützt.', $sourceTable)
             );

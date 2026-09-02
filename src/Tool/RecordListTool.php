@@ -43,19 +43,6 @@ class RecordListTool extends AbstractCoreCommandTool
      * the module mounted to list records of that table — mirrors how the regular
      * backend hides sections a user has no access to.
      */
-    private const TABLE_MODULE = [
-        'tl_news'            => 'news',
-        'tl_news_archive'    => 'news',
-        'tl_page'            => 'page',
-        'tl_article'         => 'article',
-        'tl_content'         => 'article',
-        'tl_calendar'        => 'calendar',
-        'tl_calendar_events' => 'calendar',
-        'tl_faq'             => 'faq',
-        'tl_faq_category'    => 'faq',
-        'tl_files'           => 'files',
-    ];
-
     /**
      * Hard cap on rows returned per call. Lower than the Core max (100) so a
      * stray "give me everything" request can't blow the context budget.
@@ -243,9 +230,68 @@ class RecordListTool extends AbstractCoreCommandTool
                 $results,
                 fn ($row) => $this->canSeeContentRow($row, $user),
             ),
-            // tl_calendar / tl_files: module check (above) already enforced.
-            default => $results,
+
+            // 🔴 M-1 (Audit 2026-09-02): hier stand
+            //   `// tl_calendar / tl_files: module check (above) already enforced.`
+            //   `default => $results,`
+            // Das war eine niedergeschriebene Annahme, die nicht trägt. Das
+            // Backend-Modul `calendar` erlaubt in Contao NICHT jeden Kalender —
+            // `tl_user.calendars` entscheidet je Kalender, genau wie
+            // `tl_user.news` je Archiv. `record_list` zeigte damit Datensätze,
+            // die derselbe Benutzer im Backend nicht zu sehen bekommt.
+            'tl_calendar', 'tl_calendar_events' => array_filter(
+                $results,
+                fn ($row) => $this->canSeeMountedRow($row, 'tl_calendar' === $table ? 'id' : 'pid', 'contao_user.calendars'),
+            ),
+            'tl_faq_category', 'tl_faq' => array_filter(
+                $results,
+                fn ($row) => $this->canSeeMountedRow($row, 'tl_faq_category' === $table ? 'id' : 'pid', 'contao_user.faqs'),
+            ),
+            // Dateien hängen an einem Pfad, nicht an einer ID. Contao prüft dabei
+            // auch Unterordner eines Mounts (Präfix-Vergleich im Voter), deshalb
+            // wird der Pfad unverändert übergeben.
+            'tl_files' => array_filter(
+                $results,
+                fn ($row) => \is_array($row)
+                    && '' !== (string) ($row['path'] ?? '')
+                    && $this->authorizationChecker->isGranted(
+                        ContaoCorePermissions::USER_CAN_ACCESS_PATH,
+                        (string) $row['path'],
+                    ),
+            ),
+
+            // 🎯 Default-deny statt Durchreichen. Eine Tabelle, die jemand
+            // künftig in ALLOWED_TABLES aufnimmt, ohne hier einen Filter zu
+            // ergänzen, liefert dann nichts — statt alles. Genau dieser Zweig
+            // war der Fehler: er sah harmlos aus und war die Lücke.
+            default => [],
         };
+    }
+
+    /**
+     * Row visible when the referenced container is mounted for this user.
+     *
+     * Uses the generic `contao_user.<feld>`-Voter statt `BackendUser::hasAccess()`,
+     * das seit Contao 5.2 deprecated ist und in Contao 6 entfällt. Der Voter
+     * beantwortet jedes Attribut mit diesem Präfix gegen `tl_user.<feld>`, also
+     * auch `calendars` und `faqs` — ohne dass die zugehörigen Bundles installiert
+     * sein müssen.
+     *
+     * @param array<string, mixed>|mixed $row
+     */
+    private function canSeeMountedRow(mixed $row, string $idField, string $permission): bool
+    {
+        if (!\is_array($row)) {
+            return false;
+        }
+
+        $containerId = (int) ($row[$idField] ?? 0);
+
+        if (0 === $containerId) {
+            return false;
+        }
+
+        return $this->authorizationChecker->isGranted($permission, [$containerId]);
     }
 
     /**

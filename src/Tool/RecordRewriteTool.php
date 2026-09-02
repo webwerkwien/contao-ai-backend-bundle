@@ -9,14 +9,12 @@ use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
-use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
-use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformBridgeInterface;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface;
-use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 use Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand;
@@ -73,7 +71,6 @@ class RecordRewriteTool extends AbstractCoreCommandTool
 
     /**
      * @param iterable<EntityRewriterInterface>  $rewriters
-     * @param iterable<PlatformBridgeInterface>  $platformBridges
      */
     public function __construct(
         ToolAccessChecker $accessChecker,
@@ -82,9 +79,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         private readonly Connection $connection,
         #[TaggedIterator('contao_ai_backend.entity_rewriter')]
         private readonly iterable $rewriters,
-        #[TaggedIterator('contao_ai_backend.platform_bridge')]
-        private readonly iterable $platformBridges,
-        private readonly UserAiConfig $userConfig,
+        private readonly PlatformResolver $platformResolver,
         private readonly RecordPermissionChecker $permissionChecker,
         private readonly ?NewsUpdateCommand $newsUpdate = null,
         private readonly ?EventUpdateCommand $eventUpdate = null,
@@ -160,15 +155,29 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         // Phase 9.5: Source-Voter. Single-Record: edit-Recht auf die zu
         // schreibende Zeile selbst. Recursive: edit-Recht auf den Container
         // (Lese-Recht reicht nicht, weil wir die Children gleich beschreiben).
+        // 🔴 M-2 (Audit 2026-09-02): Die Werkzeug-Berechtigung lief bisher erst in
+        // runCommand() — also NACH dem LLM-Aufruf. Ein Benutzer, der den Datensatz
+        // zwar bearbeiten darf, `record_rewrite` aber nicht benutzen darf, hatte
+        // dessen Inhalt damit bereits an den Anbieter geschickt, bevor er die
+        // Ablehnung sah.
+        //
+        // 🎯 Berechtigung vor jeder Nebenwirkung — und ein Request an einen
+        // fremden Endpunkt ist eine. Bei allen anderen Werkzeugen fällt das nicht
+        // auf, weil dort `runCommand()` die erste Nebenwirkung IST; dieses hier
+        // ist das einzige mit einer davor.
+        $this->assertAccess('record_rewrite');
+
         $this->permissionChecker->assertRecordAccess($user, $table, $id, 'edit');
 
-        $config = $this->userConfig->getForUser($user);
-        if (!$config->hasApiKey()) {
-            throw new AiConfigException('Im Benutzerprofil ist kein KI-API-Key hinterlegt.');
-        }
-        $bridge   = $this->resolveBridge($config->platform);
-        $platform = $bridge->createPlatform($config->getApiKey());
-        $model    = $bridge->getDefaultModel();
+        // 🔴 H-1 (Fable review, 2026-09-02): these three lines used to demand an
+        // API key unconditionally and resolve the platform through the two
+        // hand-written bridge classes. Result: `record_rewrite` answered
+        // "Unbekannte KI-Plattform" for every derived provider, refused Ollama
+        // for lacking a key it does not need, and ignored both `ai_model` and
+        // `ai_base_url`. The dropdown offered six providers; this tool served two.
+        $resolved = $this->platformResolver->resolve($user);
+        $platform = $resolved->platform;
+        $model    = $resolved->model;
 
         $targets   = $this->resolveTargetIds($table, $id, $recursive, $user);
         $rewriter  = $this->resolveRewriter($targets['rewriter_table']);
@@ -352,15 +361,6 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         return $cmd;
     }
 
-    private function resolveBridge(string $platform): PlatformBridgeInterface
-    {
-        foreach ($this->platformBridges as $bridge) {
-            if ($bridge->getName() === $platform) {
-                return $bridge;
-            }
-        }
-        throw new AiConfigException(\sprintf('Unbekannte KI-Plattform "%s".', $platform));
-    }
 
     /**
      * @param array<string, string> $fields

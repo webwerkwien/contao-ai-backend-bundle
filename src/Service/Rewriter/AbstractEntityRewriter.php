@@ -2,7 +2,9 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
 
+use Contao\Config;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\Input;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\PlatformInterface;
@@ -99,8 +101,77 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
         }
 
         $rewritten = $this->stripInputWrapper(trim($this->resultToText($result)));
+        $rewritten = $this->sanitiseForField($field, $rewritten);
+
+        if (null === $rewritten) {
+            return null;
+        }
 
         return $this->isPlausible($rewritten, $original) ? $rewritten : null;
+    }
+
+    /**
+     * Fields whose stored value may legitimately contain HTML.
+     *
+     * Everything not listed here is plain text — `tl_news.headline` is a
+     * `varchar`, a `<script>` in it is not "unusual formatting", it is a model
+     * that did something it was not asked to do.
+     *
+     * @return list<string>
+     */
+    protected function htmlFields(): array
+    {
+        return [];
+    }
+
+    /**
+     * 🔴 M-3 (Audit 2026-09-02): LLM-Ausgabe ging bis dahin ungeprüft in die
+     * Datenbank — validiert wurden nur Leerwert, Länge, Längenverhältnis und
+     * einige Verweigerungsphrasen. Für ein HTML-Feld wie `tl_content.text` oder
+     * `tl_faq.answer` heißt das: was der Anbieter zurückgibt, wird gespeichert.
+     *
+     * Zwei verschiedene Antworten, mit Absicht:
+     *
+     * - **Klartext-Feld mit Tags → abgelehnt**, nicht stillschweigend bereinigt.
+     *   Ein `<script>` in einer Überschrift ist kein Formatierungsfehler, den man
+     *   wegputzt — es ist ein Signal, und das gehört dem Operator gemeldet
+     *   (`skipped`) statt weggeräumt. Stilles Reparieren verbirgt genau die
+     *   Fälle, für die man hinsieht.
+     * - **HTML-Feld → über Contaos eigene Regeln gefiltert.** `Input::stripTags()`
+     *   mit `allowedTags`/`allowedAttributes` aus der Konfiguration ist exakt das,
+     *   was Contao auf Backend-Eingaben anwendet. Eine eigene Liste hier wäre
+     *   eine zweite Wahrheit, die von der Installation abweicht.
+     */
+    private function sanitiseForField(string $field, string $value): ?string
+    {
+        if ('' === $value) {
+            return $value;
+        }
+
+        if (!\in_array($field, $this->htmlFields(), true)) {
+            // strip_tags() entfernt nur Tag-artige Konstrukte; ein "5 < 6" im
+            // Fließtext überlebt. Weicht das Ergebnis ab, war ein Tag drin.
+            //
+            // Bewusst VOR framework->initialize(): der Klartext-Pfad braucht
+            // Contao nicht. Aufgefallen, weil ein Prüfskript die Methode ohne
+            // gebootetes Framework rief und daran scheiterte — die Abhängigkeit
+            // war echt und unnötig.
+            return strip_tags($value) === $value ? $value : null;
+        }
+
+        $this->framework->initialize();
+
+        /** @var Config $config */
+        $config = $this->framework->getAdapter(Config::class);
+
+        /** @var Input $input */
+        $input = $this->framework->getAdapter(Input::class);
+
+        return $input->stripTags(
+            $value,
+            (string) $config->get('allowedTags'),
+            (string) $config->get('allowedAttributes'),
+        );
     }
 
     protected function buildSystemPrompt(string $field, string $instructions): string

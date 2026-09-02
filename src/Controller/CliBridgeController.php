@@ -17,6 +17,8 @@ use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordCloneTool;
+use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 
 /**
@@ -43,6 +45,7 @@ class CliBridgeController extends AbstractController
         private readonly RecordCloneTool $cloneTool,
         private readonly RecordRewriteTool $rewriteTool,
         private readonly string $projectDir,
+        private readonly UserAiConfig $userConfig,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -102,6 +105,10 @@ class CliBridgeController extends AbstractController
         $this->cloneTool->setActingUserOverride($user);
         $this->rewriteTool->setActingUserOverride($user);
 
+        // Both secrets this request can surface: the bearer token it arrived
+        // with, and the LLM key the rewrite tool spends downstream.
+        $secrets = [$tokenHeader, $this->userConfig->getForUser($user)->getApiKey()];
+
         try {
             $resultJson = $this->dispatchTool($tool, $payload);
             return new JsonResponse(
@@ -113,11 +120,11 @@ class CliBridgeController extends AbstractController
         } catch (ToolAccessDeniedException $e) {
             return $this->error(403, $e->getMessage());
         } catch (ToolExecutionException $e) {
-            return $this->error(500, $this->safeMessage($e));
+            return $this->error(500, $this->safeMessage($e, ...$secrets));
         } catch (\InvalidArgumentException $e) {
             return $this->error(422, $e->getMessage());
         } catch (\Throwable $e) {
-            return $this->error(500, $this->safeMessage($e));
+            return $this->error(500, $this->safeMessage($e, ...$secrets));
         } finally {
             $this->cloneTool->setActingUserOverride(null);
             $this->rewriteTool->setActingUserOverride(null);
@@ -246,19 +253,14 @@ class CliBridgeController extends AbstractController
         ];
     }
 
-    private function safeMessage(\Throwable $e): string
+    private function safeMessage(\Throwable $e, #[\SensitiveParameter] string ...$secrets): string
     {
-        $this->logger->error('contao_ai_backend cli bridge error', ['exception' => $e]);
+        // This was the second, hand-copied pattern list. Two places with the
+        // same three regexes and no test — so both aged together and neither
+        // was noticed. Now one service, one set of tests.
+        $this->logger->error('contao_ai_backend cli bridge error', CredentialMasker::context($e, ...$secrets));
         $message = str_replace($this->projectDir, '…', $e->getMessage());
-        $message = (string) preg_replace(
-            [
-                '/sk-ant-[A-Za-z0-9_-]{6,}/',
-                '/\bsk-[A-Za-z0-9]{20,}/',
-                '/Bearer\s+[A-Za-z0-9._\-]{20,}/i',
-            ],
-            ['sk-ant-***', 'sk-***', 'Bearer ***'],
-            $message,
-        );
+        $message = CredentialMasker::mask($message, ...$secrets);
         if (\strlen($message) > 200) {
             $message = mb_strcut($message, 0, 200) . '…';
         }

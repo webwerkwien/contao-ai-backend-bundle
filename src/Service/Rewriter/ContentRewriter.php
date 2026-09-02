@@ -102,6 +102,18 @@ class ContentRewriter extends AbstractEntityRewriter
         return ['unit' => 'h2', 'value' => $serialized];
     }
 
+    /**
+     * `tl_content.text` ist ein Rich-Text-Feld (DCA `allowHtml`). Ohne diesen
+     * Eintrag wuerde die Antwort des Modells wegen ihrer `<p>`-Tags als
+     * Klartext-Verstoss abgelehnt.
+     *
+     * @return list<string>
+     */
+    protected function htmlFields(): array
+    {
+        return ['text'];
+    }
+
     protected function maxResultBytes(): int
     {
         return 50_000;

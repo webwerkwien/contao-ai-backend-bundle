@@ -165,6 +165,22 @@ abstract class AbstractCoreCommandTool
         if (0 === $userId) {
             return null;
         }
+        // 🔴 C-1 (Audit 2026-09-02): Ein zweiter Aufruf im SELBEN Turn löst nichts
+        // mehr aus. Vorher konnte das Modell hier zweimal hintereinander rufen —
+        // die Frage an den Benutzer war nur ein Satz in der `note`, und die
+        // Werkzeugschleife treibt seit symfony/ai 0.13 das Modell selbst.
+        if ($this->pendingActionStore->stagedInCurrentTurn($userId, $tool, $key)) {
+            $payload = [
+                'status'   => 'awaiting_user',
+                'tool'     => $tool,
+                'question' => $humanQuestion,
+                'note'     => 'Diese Aktion wurde in diesem Turn bereits zur Bestätigung vorgemerkt. Rufe das Werkzeug JETZT NICHT ERNEUT auf. Stelle dem Benutzer die Frage wörtlich und warte auf seine Antwort. Der Server führt frühestens nach einer neuen Nachricht des Benutzers aus.',
+            ];
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG);
+
+            return "<tool_output_data tool=\"{$tool}\">\n{$json}\n</tool_output_data>";
+        }
+
         if (null !== $this->pendingActionStore->consume($userId, $tool, $key)) {
             return null; // confirmed -> caller proceeds
         }
@@ -174,9 +190,9 @@ abstract class AbstractCoreCommandTool
             'tool'     => $tool,
             'question' => $humanQuestion,
             'stage'    => $stagePayload,
-            'note'     => 'Frage den User wörtlich. Bei klarem Ja innerhalb 5 Minuten denselben Tool-Aufruf erneut absetzen — dann führt der Server aus. Bei Nein nicht erneut aufrufen.',
+            'note'     => 'Frage den User wörtlich und warte auf seine Antwort. Bei klarem Ja in einer SPÄTEREN Nachricht denselben Tool-Aufruf erneut absetzen — dann führt der Server aus. Ein erneuter Aufruf in diesem Turn bewirkt nichts. Bei Nein nicht erneut aufrufen.',
         ];
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG);
         return "<tool_output_data tool=\"{$tool}\">\n{$json}\n</tool_output_data>";
     }
 
@@ -186,6 +202,27 @@ abstract class AbstractCoreCommandTool
      * context budget — and an embedded prompt-injection payload runs out of room.
      */
     protected const FIELD_TRUNCATION_BYTES = 500;
+
+    /**
+     * 🔴 H-1 (Audit 2026-09-02): `JSON_HEX_TAG` kam dazu, und zwar aus einem
+     * Grund, der ohne Messung nicht sichtbar ist.
+     *
+     * Der Vorwurf lautete: Datensatz-Inhalt könne den Sentinel schließen
+     * (`</tool_output_data>`) und danach als Anweisung erscheinen. Gemessen war
+     * das **nicht** der Fall — `json_encode()` escaped den Schrägstrich zu
+     * `<\/tool_output_data>`, der Angriff trug nicht.
+     *
+     * 🎯 Aber das war **zufälliger Schutz**. Niemand hatte `json_encode` deswegen
+     * gewählt, ein später ergänztes `JSON_UNESCAPED_SLASHES` — eine plausible
+     * Lesbarkeits-Änderung — hätte ihn lautlos entfernt, und der ÖFFNENDE Tag
+     * ging ohnehin durch, weil er keinen Schrägstrich enthält.
+     *
+     * `JSON_HEX_TAG` macht aus der Zufälligkeit eine Zusage: `<` und `>` werden
+     * zu `<`/`>`, im Datenbereich kann also überhaupt kein Tag mehr
+     * entstehen. Der Rückweg über `json_decode()` liefert den Originalwert —
+     * für das Modell ändert sich nichts, für einen Angreifer alles.
+     */
+    protected const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG;
 
     /**
      * H-1: tool outputs are returned as a JSON-encoded string wrapped in a sentinel
@@ -246,7 +283,7 @@ abstract class AbstractCoreCommandTool
         $decoded = $this->truncateStrings($decoded);
         $this->postProcessDecoded($decoded, $toolName);
 
-        $json = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $json = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG);
         if (false === $json) {
             throw new ToolExecutionException(\sprintf('Tool "%s" Ausgabe konnte nicht serialisiert werden.', $toolName));
         }
@@ -481,6 +518,64 @@ abstract class AbstractCoreCommandTool
     /**
      * @throws ToolAccessDeniedException
      */
+    /**
+     * Tabellen, die ein Redakteur überblicken darf, und das Backend-Modul, das
+     * dafür nötig ist.
+     *
+     * 🎯 Stand bis zum 2026-09-02 an ZWEI Stellen: `RecordListTool::ALLOWED_TABLES`
+     * plus `TABLE_MODULE`, und `MetaTool::ALLOWED_DCA_TABLES`. Der Kommentar dort
+     * lautete wörtlich *"same allow-list as MetaTool::ALLOWED_DCA_TABLES"* — eine
+     * Dublette, die sich selbst kannte und trotzdem eine blieb. Sie sind
+     * zusammengelegt, weil zwei Listen sich früher oder später unterscheiden und
+     * niemand merkt, welche die richtige ist.
+     *
+     * @var array<string, string>
+     */
+    protected const TABLE_MODULE = [
+        'tl_news'            => 'news',
+        'tl_news_archive'    => 'news',
+        'tl_page'            => 'page',
+        'tl_article'         => 'article',
+        'tl_content'         => 'article',
+        'tl_calendar'        => 'calendar',
+        'tl_calendar_events' => 'calendar',
+        'tl_faq'             => 'faq',
+        'tl_faq_category'    => 'faq',
+        'tl_files'           => 'files',
+    ];
+
+    /**
+     * Modul-Prüfung für eine Tabelle. Admins passieren.
+     *
+     * 🔴 L-1 (Audit 2026-09-02): `dca_schema` versprach in seiner eigenen
+     * Werkzeug-Beschreibung *"a Contao table the current user has module access
+     * to"* und prüfte nur die Tabellen-Allow-Liste. Dritter Fall desselben
+     * Musters an einem Tag — eine Beschreibung, die einen Schutz zusagt, den der
+     * Code nicht leistet.
+     */
+    protected function assertModuleAccessForTable(string $table): void
+    {
+        $user = $this->requireBackendUser();
+
+        if ($user->isAdmin) {
+            return;
+        }
+
+        $module = self::TABLE_MODULE[$table] ?? null;
+
+        if (null === $module) {
+            throw new ToolAccessDeniedException(
+                \sprintf('Tabelle "%s" hat kein zugeordnetes Backend-Modul.', $table)
+            );
+        }
+
+        if (!\in_array($module, (array) ($user->modules ?? []), true)) {
+            throw new ToolAccessDeniedException(
+                \sprintf('Kein Zugriff auf das Backend-Modul "%s".', $module)
+            );
+        }
+    }
+
     protected function assertAccess(string $toolName): void
     {
         $user = $this->getCurrentBackendUser();

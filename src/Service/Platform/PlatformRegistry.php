@@ -3,6 +3,8 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Service\Platform;
 
 use Composer\InstalledVersions;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\AI\Platform\PlatformInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
@@ -69,7 +71,27 @@ class PlatformRegistry
     public function __construct(
         #[TaggedIterator('contao_ai_backend.platform_bridge')]
         private readonly iterable $explicitBridges = [],
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
+    }
+
+    /**
+     * Why a package that looks like a bridge did not become one.
+     *
+     * M-1: every rejection below used to be a bare `return null`. A rename
+     * upstream — `PlatformFactory` became `Factory` in symfony/ai 0.13 — would
+     * therefore empty the dropdown in production without a single log line. That
+     * exact rename already cost an hour this morning, and only a counter in a
+     * throwaway script revealed it. On a customer install there is no counter.
+     */
+    private function skip(string $package, string $reason): null
+    {
+        $this->logger->warning('contao-ai-backend: platform package skipped', [
+            'package' => $package,
+            'reason'  => $reason,
+        ]);
+
+        return null;
     }
 
     /**
@@ -167,6 +189,30 @@ class PlatformRegistry
             ));
         }
 
+        // 🔴 H-3 (Fable review, 2026-09-02). Both branches below used to *skip*
+        // silently when the provider had no such parameter. Concretely: OpenAI's
+        // factory takes no `baseUrl`, so a user could enter a gateway address,
+        // save without error, and have every request — key included — go to
+        // api.openai.com anyway.
+        //
+        // That is verbatim the failure this class already guards against a few
+        // lines up for bridge classes, where the comment reads *"A field that
+        // accepts input and changes nothing is worse than a field that is not
+        // there."* I wrote that sentence and then left the derived path open.
+        if ('' !== $apiKey && !$descriptor->acceptsApiKey()) {
+            throw new AiConfigException(\sprintf(
+                'Die Plattform "%s" nimmt keinen API-Schlüssel. Leere das Feld, sonst bleibt es wirkungslos.',
+                $descriptor->label,
+            ));
+        }
+
+        if (null !== $baseUrl && '' !== $baseUrl && !$descriptor->acceptsBaseUrl()) {
+            throw new AiConfigException(\sprintf(
+                'Die Plattform "%s" hat einen festen Endpunkt und nimmt keine eigene Adresse. Leere das Feld, sonst bleibt es wirkungslos.',
+                $descriptor->label,
+            ));
+        }
+
         $args = [];
 
         if ($descriptor->acceptsApiKey() && '' !== $apiKey) {
@@ -187,7 +233,21 @@ class PlatformRegistry
         /** @var callable $factory */
         $factory = [$descriptor->factoryClass, 'createPlatform'];
 
-        return $factory(...$args);
+        // Calling foreign code by reflection with named arguments. `describe()`
+        // filters out signatures we cannot satisfy, but that check reads today's
+        // upstream; a future release can add a required parameter at any time.
+        // Without this, such a change surfaces as an uncaught ArgumentCountError
+        // — an HTTP 500 with a stack trace instead of a sentence.
+        try {
+            return $factory(...$args);
+        } catch (\Throwable $e) {
+            throw new AiConfigException(\sprintf(
+                'Die Plattform "%s" ließ sich nicht aufbauen (%s: %s).',
+                $descriptor->label,
+                $e::class,
+                $e->getMessage(),
+            ), 0, $e);
+        }
     }
 
     /**
@@ -275,13 +335,17 @@ class PlatformRegistry
         $namespace = $this->namespaceOf($package);
 
         if (null === $namespace) {
-            return null;
+            return $this->skip($package, 'no PSR-4 namespace in the package composer.json');
         }
 
         $class = $namespace.'Factory';
 
-        if (!class_exists($class) || !method_exists($class, 'createPlatform')) {
-            return null;
+        if (!class_exists($class)) {
+            return $this->skip($package, \sprintf('%s does not exist', $class));
+        }
+
+        if (!method_exists($class, 'createPlatform')) {
+            return $this->skip($package, \sprintf('%s has no createPlatform()', $class));
         }
 
         $key            = null;
@@ -301,8 +365,21 @@ class PlatformRegistry
 
             $name     = $parameter->getName();
             $lowered  = strtolower($name);
-            $hasValue = $parameter->isDefaultValueAvailable();
-            $default  = $hasValue ? $parameter->getDefaultValue() : null;
+            $hasValue = $parameter->isDefaultValueAvailable() || $parameter->allowsNull();
+            $default  = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null;
+
+            // H-4: a scalar we neither recognise nor can fill. Cartesia's factory
+            // wants `string $version` next to the key; offering it would put a
+            // provider in the dropdown that ends in ArgumentCountError — an
+            // HTTP 500, because the controller only catches AiConfigException.
+            if (!$hasValue && 'name' !== $lowered && !str_contains($lowered, 'apikey')
+                && 'endpoint' !== $lowered && !str_contains($lowered, 'baseurl')
+            ) {
+                return $this->skip($package, \sprintf(
+                    'createPlatform() requires "%s", which this bundle cannot supply',
+                    $name,
+                ));
+            }
 
             if ('name' === $lowered) {
                 // The bridge's own canonical key — the value already stored in
@@ -327,7 +404,16 @@ class PlatformRegistry
         }
 
         if (null === $key) {
-            return null;
+            return $this->skip($package, 'createPlatform() has no `name` default to use as the platform key');
+        }
+
+        // M-2: a bridge with neither a key nor an endpoint has nothing a user
+        // could fill in. Bedrock takes its credentials from the AWS environment
+        // and TransformersPHP runs in-process — both are application settings,
+        // not per-user ones, and this bundle stores per user. Showing them means
+        // offering a choice that cannot be configured.
+        if (null === $apiKeyParam && null === $baseUrlParam) {
+            return $this->skip($package, 'nothing to configure per user (neither an API key nor an endpoint)');
         }
 
         return new PlatformDescriptor(

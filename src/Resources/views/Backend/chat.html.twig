@@ -1,6 +1,11 @@
+{# `hasKey` used to mean "an API key is stored", which hid the chat from every
+   self-hosted provider — Ollama needs a host, not a key. It now means "this
+   profile can actually run", answered by PlatformResolver, and `blocker` carries
+   the reason so the message names the missing field instead of always blaming a
+   key that may not be required. #}
 {% if not hasKey %}
     <div class="tl_message">
-        <p class="tl_error">{{ 'tl_user.ai_api_key.1'|trans({}, 'contao_tl_user') }}</p>
+        <p class="tl_error">{{ blocker|default('tl_user.ai_api_key.1'|trans({}, 'contao_tl_user')) }}</p>
     </div>
 {% else %}
     <style{% if csp_nonce('style-src') is defined %} nonce="{{ csp_nonce('style-src') }}"{% endif %}>

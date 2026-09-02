@@ -73,6 +73,11 @@ class MetaTool extends AbstractCoreCommandTool
                 \sprintf('Tabelle "%s" ist für dca_schema nicht freigegeben.', $table)
             );
         }
+
+        // L-1: Die Werkzeug-Beschreibung sagt "a table the current user has
+        // module access to" — bis 2026-09-02 stand dem nichts im Code gegenüber.
+        $this->assertModuleAccessForTable($table);
+
         return $this->runCommand($this->dcaCommand, ['table' => $table], 'dca_schema');
     }
 

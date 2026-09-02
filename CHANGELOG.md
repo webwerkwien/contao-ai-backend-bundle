@@ -2,10 +2,151 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.4.0 — 2026-09-02
+
+Security and correctness fixes. Every item below was reproduced before it was
+fixed. Released together with contao-ai-core-bundle v0.4.0, which carries the
+findings from the same audit on the write path and the cloners.
+
+**Requires contao-ai-core-bundle >= 0.4.0.** `record_clone` injects that bundle's
+`RecordCloneCommand` directly, so on an older core the tool still drops the
+content elements under cloned news and events and still writes duplicate
+aliases — silently, and answering `ok`. The constraint was raised from
+`>=0.2.38` for that reason and not as housekeeping.
+
+### Fixed
+
+- 🔴 **A stored API key could be sent to a provider the user never chose.** When
+  the selected platform was not installed, the configuration silently fell back
+  to `anthropic` **and kept the key** — so `composer remove
+  symfony/ai-mistral-platform` was enough to make the next chat hand a Mistral
+  key to api.anthropic.com, with one log warning and no error for the user. The
+  provider is never substituted now: an unknown value is passed through and
+  refused by name. Introduced in v0.3.0, where deriving the list made the path
+  reachable through ordinary package management.
+
+- 🔴 **`record_rewrite` served two providers while the dropdown offered six.** It
+  still resolved platforms through the two hand-written bridge classes and
+  demanded an API key unconditionally, so it refused Ollama for lacking a key it
+  does not need, answered *"unknown platform"* for every derived provider, and
+  ignored `ai_model` and `ai_base_url` entirely.
+
+- 🔴 **The chat UI hid itself from every self-hosted provider.** It gated on "an
+  API key is stored", which is the wrong question for Ollama or LM Studio — the
+  case the derived registry exists for. It now asks whether the profile can run
+  and names what is missing.
+
+- 🔴 **A stored endpoint was discarded without a word** for providers whose
+  factory has no such parameter (OpenAI among them). A user could enter a
+  gateway address, save without error, and have every request — key included —
+  go to the provider's own endpoint anyway. Both directions are now refused with
+  a message instead of ignored.
+
+- **The credential mask covered three key shapes out of seven**, missing OpenAI's
+  current `sk-proj-…` form among others, and existed as two hand-copied lists
+  with no test. It is now one service that strikes the literal key value —
+  which also covers opaque keys no pattern can anchor on — with patterns kept as
+  a net for secrets the bundle does not hold. The full exception no longer
+  reaches the log unmasked.
+
+- **A bridge whose factory needs a parameter this bundle cannot supply is no
+  longer offered**, and the reflected call is wrapped: an upstream signature
+  change surfaces as a sentence rather than an HTTP 500. Bridges with nothing to
+  configure per user (Bedrock, TransformersPHP) are skipped for the same reason.
+
+- **The endpoint field is no longer editable by a user on their own profile.**
+  `ai_base_url` decides where the server sends HTTP requests, and it sat in the
+  palette every backend user reaches through *Personal data* — so any editor
+  could point it at an internal address. It is now only in the palettes an
+  administrator uses to edit a user.
+
+  Contao's own field permissions (`exclude` + *allowed fields*) do not help
+  here: on the own-profile page Contao sets `exclude = false` for every field in
+  the palette, deliberately, so nobody needs an administrator to change their
+  own name. The palette is the only lever — and the right one, since an endpoint
+  is an infrastructure decision, not a personal preference. Personal API keys
+  stay where they were.
+
+- 🔴 **A destructive action could execute without the user ever seeing the
+  question.** The confirmation gate's entire enforcement was a sentence
+  addressed to the model — *"ask the user, then call the same tool again"* — and
+  since `symfony/ai` 0.13 the agent drives the tool loop itself. Two calls in one
+  request were enough: the first staged the deletion, the second consumed it. A
+  staged action is now bound to the HTTP request that created it and cannot be
+  consumed before a new one, so a human must have sent something in between.
+
+- **`record_list` returned records the same user cannot see in the back end.**
+  For calendars, calendar events, FAQs, FAQ categories and files only the
+  *module* was checked, on the assumption — written in a comment — that this was
+  enough. It is not: Contao gates individual calendars and categories through
+  `tl_user.calendars` / `tl_user.faqs`, the way it gates news archives. Those
+  tables are filtered per record now, and an unknown table returns nothing
+  instead of everything.
+
+- **`record_rewrite` sent record content to the AI provider before checking
+  whether the user may use the tool at all.** The record permission was checked
+  up front, the tool permission only inside the write command — after the
+  request had gone out. Permission now precedes the side effect, and an outbound
+  request to a third party is one.
+
+- **`dca_schema` did not check the backend module** its own tool description
+  promised (*"a table the current user has module access to"*).
+
+- **Tool call arguments were written to the log unmasked**, so a value a user
+  typed into a field — an API key pasted into a text field, for instance — was
+  stored in full at warning level.
+
+- **Rewriter output went into the database unvalidated.** Plain-text fields now
+  reject a result containing tags rather than quietly stripping them: markup in a
+  headline is a signal, not a formatting slip. Rich-text fields are filtered
+  through Contao's own `allowedTags`/`allowedAttributes` rather than a second
+  list maintained here.
+
+- **The sentinel wrapper around tool output cannot be forged.** `<` and `>` are
+  now escaped in the JSON payload. The closing tag was already unreachable — but
+  by accident, through slash escaping, and the *opening* tag was not.
+
+- **Every skipped package is logged with its reason.** Previously a rename
+  upstream — `PlatformFactory` became `Factory` in symfony/ai 0.13 — would have
+  emptied the dropdown in production without a single log line.
+
+### Known limitation: prompt injection
+
+Content the agent reads can try to instruct it. This bundle wraps tool output in
+a sentinel, truncates free-text fields and tells the model to treat the contents
+as data — and none of that is isolation. A language model has one input channel,
+and markup in it is a convention, not a boundary.
+
+What the release does change is the blast radius:
+
+- destructive operations require a real user turn between question and execution
+- the sentinel can no longer be forged from record content
+- an injected instruction can never exceed the rights of the user whose session
+  is running; every tool re-checks them per record
+
+**What remains:** an injected instruction can cause a non-destructive change the
+user is entitled to make but did not intend — a title rewritten, a field
+updated. Every such change is versioned in `tl_version` under the acting user, so
+it is visible and revertible, but it is not prevented.
+
+**For operators:** be deliberate about pointing the agent at tables that accept
+input from outside the editorial team — form submissions, comments, imported
+feeds. Reading those with a write-capable agent is the case this limitation is
+about.
+
+### Changed
+
+- **README: the security section no longer claims API keys are encrypted.** They
+  are not, and cannot be: the Contao DCA `encrypt` flag was removed with Contao
+  5.0 and the flag sat in the DCA doing nothing. Keys are stored in plain text —
+  treat database read access as equivalent to holding every key in it. The dead
+  flag is gone from the DCA.
+
 ## v0.3.0 — 2026-09-02
 
-> **Run `contao:migrate` after updating.** Two nullable columns are added to
-> `tl_user` (`ai_base_url`, `ai_model`). No existing data is touched or moved.
+> **Run `contao:migrate` after updating.** Two columns are added to `tl_user`
+> (`ai_base_url`, `ai_model`), both `NOT NULL DEFAULT ''`. No existing data is
+> touched or moved.
 
 ### Added
 
