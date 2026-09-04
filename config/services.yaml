@@ -6,12 +6,30 @@ services:
 
     Webwerkwien\ContaoAiBackendBundle\:
         resource: '../src/'
-        # NewsTool ist plugin-bedingt (\Contao\NewsModel) und wird in
-        # services_news.yaml registriert, sobald contao/news-bundle installiert
-        # ist (siehe ContaoAiBackendBundle::loadExtension).
+        # Plugin-bedingte Tools werden in services_<plugin>.yaml registriert,
+        # sobald das jeweilige contao-bundle installiert ist (siehe
+        # ContaoAiBackendBundle::loadExtension). Sie MÜSSEN hier zusätzlich
+        # ausgeschlossen werden.
+        #
+        # 🔴 Genau das fehlte für EventTool und FaqTool (v0.6.0/v0.7.0) und hat
+        # auf wienerwandern.at den Container-Build zerlegt:
+        #
+        #   Cannot autowire "…Tool\FaqTool": argument "$createCommand" needs
+        #   "…Command\FaqCreateCommand" but this type has been excluded
+        #
+        # 🎯 Der class_exists-Guard in loadExtension() verhindert nur die
+        # *zusätzliche* Registrierung — er nimmt die Klasse nicht aus dem
+        # Auto-Discover. Ohne Eintrag hier wird das Tool immer gebaut, auch wo
+        # sein Command fehlt. Der Guard sieht aus, als reiche er. Er reicht nur
+        # zur Hälfte.
+        #
+        # Die Gegenprobe lieferte dieselbe Installation: dort fehlt auch das
+        # news-bundle, und NewsTool blieb still — weil es unten steht.
         exclude:
             - '../src/{ContaoAiBackendBundle.php,ContaoManager,Exception,Service/AgentInvocation.php,Service/UserAiConfigDto.php,Resources}'
             - '../src/Tool/NewsTool.php'
+            - '../src/Tool/EventTool.php'
+            - '../src/Tool/FaqTool.php'
             # Rewriter-Infrastruktur ist plugin-bedingt; pro Plugin in
             # services_<plugin>.yaml registriert. Das Interface selbst wird
             # nirgends als Service gebraucht (nur als Type-Hint im Tagged-Iterator).

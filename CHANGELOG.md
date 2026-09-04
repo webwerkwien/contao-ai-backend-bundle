@@ -2,6 +2,43 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.7.1 — 2026-09-04
+
+### Fixed
+
+- **The container build failed on installations without contao/faq-bundle or
+  contao/calendar-bundle.** ⚠️ **v0.6.0 and v0.7.0 are affected — update.**
+
+  ```
+  Cannot autowire "…Tool\FaqTool": argument "$createCommand" needs
+  "…Command\FaqCreateCommand" but this type has been excluded
+  ```
+
+  `EventTool` and `FaqTool` arrived in v0.6.0 and were registered in
+  `services_calendar.yaml` / `services_faq.yaml`, guarded by `class_exists()` in
+  `loadExtension()`. What was missing is the other half: excluding them from the
+  `../src/` auto-discovery in `services.yaml`.
+
+  🎯 **The guard only prevents the *additional* registration — it does not take
+  the class out of auto-discovery.** Without an exclude entry the tool is built
+  everywhere, including where its command does not exist, because the core bundle
+  excludes that command by the same mechanism. The guard looks sufficient; it is
+  exactly half of what is needed.
+
+  Found on a live site during an update, not here: the test server has both
+  bundles installed, so the container built and every test passed. The same site
+  supplied the control — `contao/news-bundle` is missing there too, and
+  `NewsTool` stayed silent, because it *was* excluded. Same shape, opposite
+  outcome, one line of configuration apart.
+
+### Added
+
+- **`PluginConditionalServicesAreExcludedTest`** derives the rule from the
+  configuration instead of restating it: every class registered in a
+  `services_<plugin>.yaml` must be excluded in `services.yaml`. Verified against
+  the real defect — with the two lines removed it names exactly `EventTool` and
+  `FaqTool`. It grows on its own with the next plugin-conditional service.
+
 ## v0.7.0 — 2026-09-04
 
 ### Added
