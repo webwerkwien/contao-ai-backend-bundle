@@ -15,6 +15,9 @@
         .ai-chat__msg--user { background: #e6f3ff; }
         .ai-chat__msg--assistant { background: #f3f3f3; }
         .ai-chat__msg--error { background: #fbe9e9; color: #8a1f1f; }
+        .ai-chat__report { margin: -.25rem 0 .75rem; padding: .5rem .75rem; background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px; }
+        .ai-chat__report summary { cursor: pointer; font-weight: 600; }
+        .ai-chat__report pre { margin: .5rem 0; padding: .5rem; background: #fff; border: 1px solid #e5e5e5; border-radius: 3px; overflow-x: auto; white-space: pre; font-size: .85em; }
         .ai-chat__form { display: flex; flex-direction: column; gap: .5rem; }
         .ai-chat__form textarea { width: 100%; resize: vertical; font-family: inherit; font-size: .95rem; padding: .5rem; border: 1px solid #ccc; border-radius: 4px; }
         .ai-chat__form textarea:disabled { background: #fafafa; color: #888; }
@@ -69,6 +72,59 @@
                 transcript.appendChild(el);
                 transcript.scrollTop = transcript.scrollHeight;
                 return el;
+            };
+
+            /**
+             * Attaches a collapsed, copyable error report below a failed turn.
+             *
+             * The server has already decided what this user may see — an editor
+             * gets the summary, an admin the full report. Nothing here filters,
+             * and nothing here fetches: expanding is presentation only.
+             *
+             * textContent throughout, never innerHTML. The report carries an
+             * exception message, i.e. text this installation did not author.
+             */
+            const appendErrorReport = (afterNode, reportText) => {
+                const details = document.createElement('details');
+                details.classList.add('ai-chat__report');
+
+                const summary = document.createElement('summary');
+                summary.textContent = 'Fehlerbericht zum Weitergeben';
+                details.appendChild(summary);
+
+                const pre = document.createElement('pre');
+                pre.textContent = reportText;
+                details.appendChild(pre);
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = 'Kopieren';
+                button.addEventListener('click', () => {
+                    const done = () => {
+                        button.textContent = 'Kopiert';
+                        window.setTimeout(() => { button.textContent = 'Kopieren'; }, 2000);
+                    };
+                    // navigator.clipboard needs a secure context; a back end
+                    // reachable over plain http would silently do nothing.
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(reportText).then(done, () => selectFallback(pre));
+                    } else {
+                        selectFallback(pre);
+                    }
+                });
+                details.appendChild(button);
+
+                afterNode.insertAdjacentElement('afterend', details);
+                transcript.scrollTop = transcript.scrollHeight;
+            };
+
+            /** Leaves the text selected so Ctrl+C works where the API does not. */
+            const selectFallback = (node) => {
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
             };
 
             const trimHistory = () => {
@@ -170,6 +226,14 @@
                         } else if (eventName === 'error') {
                             assistantNode.classList.add('ai-chat__msg--error');
                             assistantNode.textContent = `[${data.kind || 'error'}] ${data.message || 'Unbekannter Fehler'}`;
+                            // Only tool_failed and agent_failed carry a report;
+                            // access_denied, tool_refused and the config error
+                            // are answers, not defects, and the server sends
+                            // none for them. No client-side check needed —
+                            // the absence of the field is the decision.
+                            if (data.report) {
+                                appendErrorReport(assistantNode, data.report);
+                            }
                         } else if (eventName === 'done') {
                             history.push({ role: 'assistant', content: assistantBuffer });
                             trimHistory();

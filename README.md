@@ -126,7 +126,26 @@ Chat responses arrive as `text/event-stream` (SSE-style frames over `fetch`-`Rea
 - `start` — model id
 - `message` — content chunk (currently emitted once per response; chunked streaming will be added when the underlying platform bridge supports it)
 - `done` — successful completion
-- `error` — `kind: access_denied | tool_failed | agent_failed`
+- `error` — `kind: access_denied | tool_refused | tool_failed | agent_failed`
+
+The four `error` kinds split into two groups, and the split matters:
+
+| kind | what happened | `report` field |
+| --- | --- | --- |
+| `access_denied` | a permission worked as designed | — |
+| `tool_refused` | the command ran, understood the request and declined (e.g. "News-Eintrag 42 nicht gefunden") | — |
+| `tool_failed` | a tool broke | ✓ |
+| `agent_failed` | the agent broke | ✓ |
+
+The first two are *answers* and carry no report — offering to report them would
+train users to send noise and bury the two cases that are genuinely defects. The
+last two carry `report`, a ready-to-forward Markdown block.
+
+**Who sees what is decided server-side, at the moment the event is emitted.** An
+admin receives the full report including the (masked) exception message; anyone
+else receives the summary with the message stripped, so the H-6 guarantee — the
+raw exception never reaches the client — keeps holding unchanged for the audience
+it was written for. The browser only expands the block; it never fetches more.
 
 ## Development
 

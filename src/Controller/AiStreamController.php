@@ -24,8 +24,9 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\AiAccessVoter;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
-use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
 use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
+use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiCoreBundle\Service\ErrorReportBuilder;
 
 class AiStreamController extends AbstractController
 {
@@ -69,6 +70,7 @@ class AiStreamController extends AbstractController
         private readonly string $projectDir,
         private readonly ToolCallLogger $toolCallLogger,
         private readonly UserAiConfig $userConfig,
+        private readonly ErrorReportBuilder $errorReportBuilder,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -173,9 +175,17 @@ class AiStreamController extends AbstractController
         } catch (ToolExecutionException $e) {
             // M-11: tool errors may carry PDO output, file paths or upstream library text.
             // Log original; emit a sanitized variant.
-            $emit('error', ['kind' => 'tool_failed', 'message' => $this->safeMessage($e, $apiKey)]);
+            $emit('error', [
+                'kind'    => 'tool_failed',
+                'message' => $this->safeMessage($e, $apiKey),
+                'report'  => $this->errorReport($e, $user, $apiKey),
+            ]);
         } catch (\Throwable $e) {
-            $emit('error', ['kind' => 'agent_failed', 'message' => $this->safeMessage($e, $apiKey)]);
+            $emit('error', [
+                'kind'    => 'agent_failed',
+                'message' => $this->safeMessage($e, $apiKey),
+                'report'  => $this->errorReport($e, $user, $apiKey),
+            ]);
         }
 
         return new Response($body, 200, [
@@ -288,6 +298,46 @@ class AiStreamController extends AbstractController
             $message = mb_strcut($message, 0, 200) . '…';
         }
         return $message ?: 'Interner Fehler — siehe Logfile';
+    }
+
+    /**
+     * A report the user can hand to the maintainer, rendered to the audience.
+     *
+     * ## Why only these two branches get one
+     *
+     * `access_denied` (403), `tool_refused` (422) and the config error (412) are
+     * *answers*, not failures: a permission working as designed, a command that
+     * looked and reported back, a setup that is incomplete. Offering to report
+     * them would train users to send noise and bury the two cases that are
+     * genuinely ours. The split that makes this cheap was drawn on 2026-09-02
+     * for the bridge's status codes and turns out to be exactly the line between
+     * bug and not-a-bug.
+     *
+     * ## Why the decision is made here and not on a later request
+     *
+     * The draft had the browser fetch the full report on demand, so the click
+     * would *be* the consent. That needs the failure to still exist when the
+     * second request arrives — i.e. a store, which is what we set out not to
+     * build. Deciding at emit time costs nothing and is the stronger guarantee
+     * anyway: an editor never receives the message, rather than being trusted
+     * not to ask for it. Expanding the block in the UI is then presentation, not
+     * authorisation.
+     *
+     * H-6 therefore keeps holding unchanged for exactly the audience it was
+     * written for. An admin may read it because the same person can open
+     * `var/logs/prod-*.log`; withholding it there would be theatre.
+     */
+    private function errorReport(\Throwable $e, BackendUser $user, #[\SensitiveParameter] string $apiKey = ''): string
+    {
+        $toolNames = $this->toolCallLogger->getToolNames();
+
+        $report = $this->errorReportBuilder->build($e, 'backend', [
+            'tool' => [] === $toolNames ? null : end($toolNames),
+        ], '' === $apiKey ? [] : [$apiKey]);
+
+        return $user->isAdmin
+            ? $report->toMarkdown(true)
+            : $report->withoutMessage()->toMarkdown();
     }
 
 

@@ -2,6 +2,58 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.7.0 — 2026-09-04
+
+### Added
+
+- **Failed chat turns carry a forwardable error report.** `tool_failed` and
+  `agent_failed` now emit a `report` field alongside `message` — a Markdown block
+  with versions, exception class, our own file and line, and the tool that was
+  running. The chat UI shows it collapsed under the error, with a copy button.
+
+  `access_denied`, `tool_refused` and the 412 config error get **no** report.
+  Those are answers, not defects: a permission working as designed, a command
+  that looked and declined, a setup that is incomplete. Attaching "report this to
+  the maintainer" to them would train users to send noise and bury the two cases
+  that are genuinely ours.
+
+  That line is not new — it is the 422/500 split drawn on 2026-09-02 for the
+  bridge's status codes, which turns out to be exactly the line between bug and
+  not-a-bug. `ErrorReportOnlyForRealFailuresTest` keeps the two from drifting
+  apart, because nothing else would notice: adding `'report'` to the refusal
+  branch breaks nothing, it just quietly makes every mistyped id look like a
+  defect.
+
+- **The audience is decided server-side.** An admin receives the full report
+  including the masked exception message; anyone else receives the summary with
+  the message stripped. H-6 — the raw exception never reaches the client — keeps
+  holding unchanged for exactly the audience it was written for. An admin may
+  read it because the same person can open `var/logs/prod-*.log`; withholding it
+  there would be theatre.
+
+  An earlier draft had the browser fetch the full report on demand, so the click
+  would *be* the consent. That needs the failure to outlive the request — a
+  store, which the design set out not to build. Deciding at emit time is both
+  cheaper and stronger: an editor never receives the message, rather than being
+  trusted not to ask for it.
+
+### Changed
+
+- **`CredentialMasker` now comes from contao-ai-core-bundle.** The class moved
+  there in core v0.5.0 so the report builder could use it without duplicating the
+  pattern list. Behaviour is unchanged; only the namespace differs
+  (`Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker`).
+
+  ⚠️ Breaking for anyone importing `Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker`.
+
+- Requires contao-ai-core-bundle **>=0.5.0**.
+
+### Fixed
+
+- **README listed three `error` kinds, not four.** `tool_refused` has existed
+  since v0.5.0 and was missing from the streaming section — a client written from
+  that documentation would have treated a refusal as an unknown event.
+
 ## v0.6.0 — 2026-09-02
 
 ### Added

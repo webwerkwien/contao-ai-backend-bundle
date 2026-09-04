@@ -8,7 +8,7 @@ use Symfony\AI\Agent\Toolbox\Event\ToolCallRequested;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallSucceeded;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
 
 /**
  * Logs every tool invocation requested by the agent (and its outcome) to the

@@ -17,7 +17,7 @@ use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordCloneTool;
-use Webwerkwien\ContaoAiBackendBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
 use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
