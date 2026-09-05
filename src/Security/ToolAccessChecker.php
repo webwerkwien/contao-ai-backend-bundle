@@ -3,7 +3,7 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Security;
 
 use Contao\BackendUser;
-use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
 
@@ -88,7 +88,7 @@ class ToolAccessChecker
      * @param iterable<AbstractCoreCommandTool> $tools
      */
     public function __construct(
-        #[TaggedIterator('contao_ai_backend.tool')]
+        #[AutowireIterator('contao_ai_backend.tool')]
         private readonly iterable $tools = [],
     ) {
     }

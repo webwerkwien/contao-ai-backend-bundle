@@ -8,7 +8,7 @@ use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
@@ -78,7 +78,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         TokenChecker $tokenChecker,
         private readonly ContaoFramework $framework,
         private readonly Connection $connection,
-        #[TaggedIterator('contao_ai_backend.entity_rewriter')]
+        #[AutowireIterator('contao_ai_backend.entity_rewriter')]
         private readonly iterable $rewriters,
         private readonly PlatformResolver $platformResolver,
         private readonly RecordPermissionChecker $permissionChecker,

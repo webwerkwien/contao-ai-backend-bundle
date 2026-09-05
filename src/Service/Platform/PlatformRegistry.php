@@ -6,7 +6,7 @@ use Composer\InstalledVersions;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\AI\Platform\PlatformInterface;
-use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 
 /**
@@ -69,7 +69,7 @@ class PlatformRegistry
      * @param iterable<PlatformBridgeInterface> $explicitBridges
      */
     public function __construct(
-        #[TaggedIterator('contao_ai_backend.platform_bridge')]
+        #[AutowireIterator('contao_ai_backend.platform_bridge')]
         private readonly iterable $explicitBridges = [],
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {

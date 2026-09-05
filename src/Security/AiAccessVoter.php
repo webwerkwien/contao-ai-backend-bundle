@@ -18,7 +18,18 @@ class AiAccessVoter extends Voter
         return self::ATTR_USE_CHAT === $attribute;
     }
 
-    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+    /**
+     * Symfony 8 added a fourth parameter to the parent, `?Vote $vote = null`.
+     * A three-parameter override is a fatal error there.
+     *
+     * 🎯 Typed `?object` rather than `?Vote` on purpose: the `Vote` class does
+     * not exist before Symfony 8, so naming it would make this file unloadable
+     * on 6.4/7.x. PHP allows a wider type on a parameter, and `object` is wider
+     * than `Vote` — one signature that holds on both.
+     *
+     * The parameter is never read; it exists to satisfy the contract.
+     */
+    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?object $vote = null): bool
     {
         $user = $token->getUser();
 

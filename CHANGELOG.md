@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.8.1 — 2026-09-05
+
+### Changed
+
+Two preparations for Symfony 8, both backward compatible. Found by installing
+Contao 6.0.0 alongside the 5.7 reference — it pulls **Symfony 8.1.6**, and the
+container refused to compile twice.
+
+- **`AiAccessVoter::voteOnAttribute()` takes a fourth parameter.** Symfony 8
+  added `?Vote $vote = null` to the parent; a three-parameter override is a fatal
+  error there.
+
+  🎯 Typed **`?object`**, not `?Vote`: the `Vote` class does not exist before
+  Symfony 8, so naming it would make the file unloadable on 6.4/7.x. PHP permits
+  a wider type on a parameter, and `object` is wider than `Vote` — one signature
+  that holds on both. The parameter is never read.
+
+- **`#[TaggedIterator]` replaced by `#[AutowireIterator]`** in four places.
+  Symfony 8 removed the former; the latter has existed since 6.4.
+
+### On what the test suite could and could not say
+
+`composer ci` stayed green throughout — and said **nothing** about the voter:
+no test loads `AiAccessVoter`, and a signature mismatch is a fatal error at class
+load time, exactly where no test looks.
+
+What settles it is the container build, which compiles every signature and every
+attribute — and which is where both failures actually surfaced. It now completes
+under Symfony 7.4 and 8.1 with identical code, verified on both installations.
+
+Constraints are untouched: this package still declares `contao/core-bundle: ^5.3`
+and promises nothing about Contao 6.
+
 ## v0.8.0 — 2026-09-05
 
 ### Fixed

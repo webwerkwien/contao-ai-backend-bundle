@@ -6,7 +6,7 @@ use Contao\BackendUser;
 use Psr\Log\LoggerInterface;
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\Toolbox;
-use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
@@ -18,7 +18,7 @@ class AgentFactory
      * @param iterable<AbstractCoreCommandTool> $tools
      */
     public function __construct(
-        #[TaggedIterator('contao_ai_backend.tool')]
+        #[AutowireIterator('contao_ai_backend.tool')]
         private readonly iterable $tools,
         private readonly PlatformResolver $platforms,
         private readonly SystemPromptProvider $promptProvider,
