@@ -1,6 +1,6 @@
 # contao-ai-backend-bundle
 
-In-browser AI agent for the Contao 5 backend. Editors and admins chat with a Claude (or GPT) agent that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
+In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with a Claude (or GPT) agent that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
 > **Pre-1.0.** Runs in production on the author's own installations. Interfaces — tool
 > signatures, bridge JSON, DCA fields — still change between minor versions, and

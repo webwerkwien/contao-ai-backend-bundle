@@ -2,6 +2,48 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.9.0 — 2026-09-05
+
+### Added
+
+- **Contao 6 support.** `contao/core-bundle` now reads `^5.3 || ^6.0`, together
+  with nine other version-bound constraints: the four optional bundles
+  (calendar, comments, faq, news) and five Symfony packages — `console`,
+  `framework-bundle`, `http-foundation`, `security-core` and `security-bundle` —
+  which gain `^8.0` because Contao 6.0.0 pulls Symfony 8.1.
+
+  Ten lines here, seven in `contao-ai-core-bundle`. `twig/twig ^3.0`,
+  `contao/manager-plugin ^2.0` and the `symfony/ai-*` packages at `^0.13` are
+  deliberately unchanged: Contao 6.0.0 installs Twig 3.28, manager-plugin 2.13.6
+  and symfony/ai 0.13 under Symfony 8, all already covered. Read from the
+  installed `composer.lock`, not assumed.
+
+  **This constraint is the actual commitment**, and it was opened last on
+  purpose — after the code work it depends on:
+
+  - **v0.7.1** — the service exclusions that took down every installation
+    without faq- or calendar-bundle
+  - **v0.8.1** — `Voter::voteOnAttribute()` gained a parameter in Symfony 8, and
+    `#[TaggedIterator]` was removed in favour of `#[AutowireIterator]`
+  - `contao-ai-core-bundle` **v0.6.2** and **v0.7.0** — the DBAFS hash and the
+    boolean cast, both found by running the three behaviour questions against a
+    real Contao 6.0.0 installation
+
+  Both directions were resolved before release, in a throwaway project against a
+  pinned core version:
+
+  ```
+  contao/core-bundle 5.7.13 → symfony/console v7.4.18, twig/twig v3.28.0  ✅
+  contao/core-bundle 6.0.0  → symfony/console v8.1.6,  twig/twig v3.28.0  ✅
+  ```
+
+  Widening a constraint can break the *old* version as easily as it enables the
+  new one, and nothing in the Contao 6 work so far had tested that direction.
+
+### Changed
+
+- Package description and README now name both versions.
+
 ## v0.8.1 — 2026-09-05
 
 ### Changed

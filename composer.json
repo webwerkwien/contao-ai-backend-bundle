@@ -1,6 +1,6 @@
 {
     "name": "webwerkwien/contao-ai-backend-bundle",
-    "description": "Contao 5 backend module with an in-browser AI agent for editors and admins, powered by symfony/ai and contao-ai-core-bundle",
+    "description": "Contao 5 and 6 backend module with an in-browser AI agent for editors and admins, powered by symfony/ai and contao-ai-core-bundle",
     "type": "contao-bundle",
     "license": "MIT",
     "authors": [
@@ -33,7 +33,7 @@
     },
     "require": {
         "php": "^8.2",
-        "contao/core-bundle": "^5.3",
+        "contao/core-bundle": "^5.3 || ^6.0",
         "webwerkwien/contao-ai-core-bundle": ">=0.6.0 <1.0",
         "symfony/ai-bundle": "^0.13",
         "symfony/ai-agent": "^0.13",
@@ -42,20 +42,20 @@
         "symfony/ai-open-router-platform": "^0.13",
         "symfony/ai-ollama-platform": "^0.13",
         "symfony/ai-generic-platform": "^0.13",
-        "symfony/console": "^6.4 || ^7.0",
-        "symfony/framework-bundle": "^6.4 || ^7.0",
-        "symfony/http-foundation": "^6.4 || ^7.0",
-        "symfony/security-core": "^6.4 || ^7.0",
-        "symfony/security-bundle": "^6.4 || ^7.0",
+        "symfony/console": "^6.4 || ^7.0 || ^8.0",
+        "symfony/framework-bundle": "^6.4 || ^7.0 || ^8.0",
+        "symfony/http-foundation": "^6.4 || ^7.0 || ^8.0",
+        "symfony/security-core": "^6.4 || ^7.0 || ^8.0",
+        "symfony/security-bundle": "^6.4 || ^7.0 || ^8.0",
         "twig/twig": "^3.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0",
         "phpstan/phpstan": "^2.1",
-        "contao/calendar-bundle": "^5.3",
-        "contao/comments-bundle": "^5.3",
-        "contao/faq-bundle": "^5.3",
-        "contao/news-bundle": "^5.3",
+        "contao/calendar-bundle": "^5.3 || ^6.0",
+        "contao/comments-bundle": "^5.3 || ^6.0",
+        "contao/faq-bundle": "^5.3 || ^6.0",
+        "contao/news-bundle": "^5.3 || ^6.0",
         "contao/manager-plugin": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0"
     },
