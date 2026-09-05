@@ -47,6 +47,7 @@ class RefusalDetectionTraitTest extends TestCase
         $this->assertTrue($this->subject->isRefusal($reply, 'Kurz'));
     }
 
+    /** @return array<string, array{string}> */
     public static function refusalOpenings(): array
     {
         return [

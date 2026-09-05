@@ -6,6 +6,9 @@ use Contao\BackendUser;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
+/**
+ * @extends Voter<string, mixed>
+ */
 class AiAccessVoter extends Voter
 {
     public const ATTR_USE_CHAT = 'AI_CHAT_USE';

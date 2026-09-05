@@ -84,6 +84,7 @@ class PageTool extends AbstractCoreCommandTool
         ], 'page_create');
     }
 
+    /** @param array<string, scalar|null> $fields */
     #[AiContract(
         writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],

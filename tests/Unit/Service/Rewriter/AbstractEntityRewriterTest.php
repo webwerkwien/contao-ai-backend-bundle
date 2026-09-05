@@ -14,7 +14,17 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\AbstractEntityRewriter;
  */
 class AbstractEntityRewriterTest extends TestCase
 {
-    private function rewriter(int $maxBytes = 5_000, bool $html = false, string $hint = ''): AbstractEntityRewriter
+    /**
+     * The subject under test: an anonymous subclass that exposes the protected
+     * surface through `call*()` wrappers.
+     *
+     * 🎯 **No declared return type on purpose.** With `: AbstractEntityRewriter`
+     * the signature is the more informative one for a reader — but it hides the
+     * `call*()` methods from static analysis, which then reports thirteen calls
+     * to undefined methods. Without it PHPStan infers the anonymous class itself
+     * and sees the full surface. The type is not lost, only left to be derived.
+     */
+    private function rewriter(int $maxBytes = 5_000, bool $html = false, string $hint = '')
     {
         return new class ($this->createMock(ContaoFramework::class), $maxBytes, $html, $hint) extends AbstractEntityRewriter {
             public function __construct(

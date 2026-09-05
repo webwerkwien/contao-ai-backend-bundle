@@ -202,6 +202,7 @@ class CliBridgeController extends AbstractController
         return \is_string($username) ? $username : '';
     }
 
+    /** @param array<string, mixed> $payload */
     private function dispatchTool(string $tool, array $payload): string
     {
         if ('record_clone' === $tool) {

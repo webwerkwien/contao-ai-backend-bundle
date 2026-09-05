@@ -2,7 +2,6 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Dca;
 
-use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\DataContainer;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -21,13 +20,23 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
  */
 class TlUserCallback
 {
+    /**
+     * 🔴 `$csrf` und `$csrfTokenName` sind am 2026-09-05 entfallen — sie wurden
+     * injiziert und nie gelesen. Übrig geblieben aus der Zeit, als hier eigene
+     * `<form>`-Elemente mit eigenem Token gerendert wurden; seit dem Umbau auf
+     * `<button formaction="…">` trägt die äußere DCA-Form Contaos `REQUEST_TOKEN`
+     * (siehe {@see tokenWidget()}).
+     *
+     * 🎯 Der Schutz war nie weg — er sitzt in {@see AiCliTokenController}, das
+     * `assertCsrf()` in beiden Routen erzwingt. Die tote Injektion war trotzdem
+     * mehr als Ballast: Wer die Klasse liest, nimmt an, dass CSRF *hier*
+     * gehandhabt wird, und sucht die Lücke an der falschen Stelle.
+     */
     public function __construct(
-        private readonly ContaoCsrfTokenManager $csrf,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly TranslatorInterface $translator,
         private readonly Connection $connection,
         private readonly RequestStack $requestStack,
-        private readonly string $csrfTokenName,
         private readonly PlatformRegistry $platforms,
     ) {
     }

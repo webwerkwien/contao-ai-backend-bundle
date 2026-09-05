@@ -15,6 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
@@ -71,8 +72,28 @@ class AiStreamController extends AbstractController
         private readonly ToolCallLogger $toolCallLogger,
         private readonly UserAiConfig $userConfig,
         private readonly ErrorReportBuilder $errorReportBuilder,
+        private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
+    }
+
+    /**
+     * Everything an editor reads goes through here.
+     *
+     * 🔴 2026-09-05: these four messages were hardcoded German, as were the
+     * input field, the submit button and the copy button in the template — on
+     * an English installation they showed German next to correctly translated
+     * module names and field labels. The `aria-label` among them is what a
+     * screen reader announces.
+     *
+     * The rule is per audience, not per file: what an editor sees in the back
+     * end is bilingual; what a console command prints is for agents and
+     * developers and stays English. `CliBridgeController` answers the CLI, not
+     * a person, and is deliberately not routed through here.
+     */
+    private function label(string $key): string
+    {
+        return $this->translator->trans('ai_chat.' . $key, [], 'contao_ai_chat');
     }
 
     #[Route('/contao/ai-chat/stream', name: 'contao_ai_backend_stream', methods: ['POST'], defaults: ['_scope' => 'backend', '_token_check' => false])]
@@ -90,15 +111,15 @@ class AiStreamController extends AbstractController
         $this->assertSameOrigin($request);
 
         if (!$this->checkRateLimit($request, $user)) {
-            return $this->errorResponse(429, 'Zu viele Anfragen. Bitte einen Moment warten.');
+            return $this->errorResponse(429, $this->label('rate_limited'));
         }
 
         $userInput = (string) ($payload['message'] ?? '');
         if ('' === trim($userInput)) {
-            return $this->errorResponse(400, 'Leere Nachricht.');
+            return $this->errorResponse(400, $this->label('empty_message'));
         }
         if (\strlen($userInput) > self::MAX_USER_INPUT_BYTES) {
-            return $this->errorResponse(413, 'Nachricht zu lang.');
+            return $this->errorResponse(413, $this->label('message_too_long'));
         }
 
         $history = $this->loadHistory($request, $user);
@@ -239,8 +260,10 @@ class AiStreamController extends AbstractController
             if (!\is_array($entry)) {
                 continue;
             }
-            $role    = (string) ($entry['role'] ?? '');
-            $content = (string) ($entry['content'] ?? '');
+            // loadHistory() filtert auf isset(role, content) - beide sind da.
+            // Der Cast bleibt: isset prueft Existenz, nicht Typ.
+            $role    = (string) $entry['role'];
+            $content = (string) $entry['content'];
             if ('' === trim($content)) {
                 continue;
             }
@@ -297,7 +320,7 @@ class AiStreamController extends AbstractController
         if (\strlen($message) > 200) {
             $message = mb_strcut($message, 0, 200) . '…';
         }
-        return $message ?: 'Interner Fehler — siehe Logfile';
+        return $message ?: $this->label('internal_error');
     }
 
     /**
@@ -424,7 +447,7 @@ class AiStreamController extends AbstractController
     {
         $total = 0;
         foreach ($history as $entry) {
-            $total += \strlen((string) ($entry['content'] ?? ''));
+            $total += \strlen((string) $entry['content']);
         }
         return $total;
     }

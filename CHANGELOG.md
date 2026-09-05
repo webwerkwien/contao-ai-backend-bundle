@@ -2,6 +2,72 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.8.0 — 2026-09-05
+
+### Fixed
+
+- **The chat interface was hardcoded German.** Input field, submit button, tool
+  counter, the copy button on error reports, and five controller messages —
+  eleven strings in all. On an English installation they showed German next to a
+  module name and field labels that were translated correctly.
+
+  `aria-label` was among them, which is what a screen reader announces.
+
+  🎯 **The discipline held exactly where it was visible.** Nobody forgets a
+  `$GLOBALS['TL_LANG']` entry — the file is called `languages/de` and its
+  counterpart sits beside it. A string in a Twig attribute, a `textContent =`
+  assignment or a flash message carries no such reminder, so it never entered
+  the translation process at all. The gap was not where the work is; it was
+  where the work did not look like translation.
+
+  All eleven now live in `contao/languages/{de,en}/ai_chat.php`.
+  `BilingualLabelsTest` enforces matching files, matching keys, and the absence
+  of literals in the three places they actually occurred.
+
+- **`AiCliTokenController` called `getFlashBag()` on `SessionInterface`,** which
+  does not declare it. It worked because Symfony hands out a `Session`, and would
+  have stopped the moment it did not. Now guarded by
+  `FlashBagAwareSessionInterface`.
+
+- **`TlUserCallback` received a CSRF token manager and token name it never
+  read.** Left over from when this widget rendered its own `<form>` elements;
+  since the switch to `<button formaction="…">` the outer DCA form carries
+  Contao's `REQUEST_TOKEN`. The protection was never gone — it lives in
+  `AiCliTokenController`, which enforces `assertCsrf()` on both routes — but a
+  dead injection makes a reader look for the gap in the wrong place.
+
+### Added
+
+- **`composer ci` is green for the first time.** It was documented as the gate
+  and had never passed: 56 findings, most of them missing setup rather than
+  defects. PHPStan now runs on `^2.1` with a `phpstan.neon.dist`, and the four
+  optional Contao bundles are dev dependencies.
+
+  🎯 A verification command that has never passed is worse than none. It teaches
+  everyone who runs it that red is the normal state, and that lesson outlives
+  every later repair.
+
+### The one a test could not have caught
+
+The tool counter was first written the Symfony way — `'%count% Werkzeuge'` with
+`trans({'%count%': n})`. Every unit test passed. On the test server it threw:
+
+```
+ValueError: The arguments array must contain 2 items, 1 given
+contao/core-bundle/src/Translation/Translator.php:57
+```
+
+**Contao's translator does not substitute named placeholders.** For any domain
+beginning with `contao_` it reads `$GLOBALS['TL_LANG']` and runs
+`vsprintf($translated, $parameters)`, so `%count%` is not a name but two format
+specifiers — and the chat page would have died on render.
+
+Nothing in the suite could see it: the language files were complete and
+identical, both keys resolved, no literals remained. The defect lived in the one
+step no test performs — handing the string to the translator that actually runs.
+Now `%s` plus a list, and `testPlaceholdersUseSprintfSyntax` fails on any `%word%`
+in a language file.
+
 ## v0.7.1 — 2026-09-04
 
 ### Fixed

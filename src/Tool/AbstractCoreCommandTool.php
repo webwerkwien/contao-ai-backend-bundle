@@ -484,7 +484,7 @@ abstract class AbstractCoreCommandTool
         // tool description and serialized the filters as the same syntax
         // the underlying CLI command consumes. Convert each entry by
         // splitting on the first '=' and skipping malformed ones.
-        if ($allScalar && \count($fields) > 0) {
+        if ($allScalar) {
             $allEqualPairs = true;
             foreach ($fields as $entry) {
                 if (!\is_string($entry) || false === strpos($entry, '=')) {
@@ -504,7 +504,7 @@ abstract class AbstractCoreCommandTool
             }
         }
 
-        if ($allScalar && 0 === \count($fields) % 2 && \count($fields) > 0) {
+        if ($allScalar && 0 === \count($fields) % 2) {
             $values = array_values($fields);
             for ($i = 0; $i < \count($values); $i += 2) {
                 $name = (string) $values[$i];

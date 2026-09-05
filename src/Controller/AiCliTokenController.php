@@ -11,7 +11,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfToken;
 
@@ -36,6 +38,7 @@ class AiCliTokenController extends AbstractController
         private readonly Connection $connection,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly string $csrfTokenName,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -61,10 +64,7 @@ class AiCliTokenController extends AbstractController
         // consumed by Message::generate() before our widget runs.
         $request->getSession()->set(self::ONE_SHOT_KEY_PREFIX . $userId, $userId . '.' . $token);
 
-        $request->getSession()->getFlashBag()->add(
-            self::FLASH_TYPE,
-            'Neuer CLI-Bridge-Token generiert — Klartext ist unten im Profil-Block einmalig sichtbar (siehe „Token kopieren"-Button).',
-        );
+        $this->flash($request, 'token_created');
 
         return new RedirectResponse($this->backUrl($userId));
     }
@@ -84,12 +84,36 @@ class AiCliTokenController extends AbstractController
 
         $this->connection->update('tl_user', ['ai_cli_token' => ''], ['id' => $userId]);
 
-        $request->getSession()->getFlashBag()->add(
-            self::FLASH_TYPE,
-            'Bridge-Token gelöscht — der CLI-Agent kann sich nicht mehr authentifizieren.',
-        );
+        $this->flash($request, 'token_cleared');
 
         return new RedirectResponse($this->backUrl($userId));
+    }
+
+    /**
+     * Adds one translated back-end message.
+     *
+     * 🔴 Two things were wrong here until 2026-09-05, and PHPStan found only one
+     * of them. The typed one: `getSession()` returns `SessionInterface`, which
+     * has no `getFlashBag()` — it worked because Symfony happens to hand out a
+     * `Session`, and would stop working the moment it does not.
+     *
+     * 🎯 The untyped one was the more consequential: both messages were
+     * hardcoded German, and they are shown in the back end after generating or
+     * clearing a token. No tool flags that. It surfaced only because fixing the
+     * type error meant reading the lines.
+     */
+    private function flash(Request $request, string $key): void
+    {
+        $session = $request->getSession();
+
+        if (!$session instanceof FlashBagAwareSessionInterface) {
+            return;
+        }
+
+        $session->getFlashBag()->add(
+            self::FLASH_TYPE,
+            $this->translator->trans('ai_chat.' . $key, [], 'contao_ai_chat'),
+        );
     }
 
     private function assertCanModify(int $userId): void

@@ -71,6 +71,7 @@ class ArticleTool extends AbstractCoreCommandTool
         ], 'article_create');
     }
 
+    /** @param array<string, scalar|null> $fields */
     #[AiContract(
         writes: true, tables: ['tl_article'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],

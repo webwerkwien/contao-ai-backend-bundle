@@ -1,0 +1,67 @@
+# PHPStan configuration.
+#
+# Until 2026-09-05 there was none, and `composer ci` had never been green — 56
+# findings on `src tests`, of which the great majority were missing setup rather
+# than defects: optional Contao bundles absent from require-dev, Contao's magic
+# model properties unknown to static analysis, and the manager plugin not
+# installed.
+#
+# 🎯 A verification command that has never passed is worse than none. It teaches
+# everyone who runs it that red is the normal state, and that lesson survives
+# every later repair. Either the command is green and means something, or it does
+# not belong in the documentation as a check.
+includes:
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/phpstan/phpstan-phpunit/rules.neon
+
+parameters:
+    level: 6
+
+    paths:
+        - src
+        - tests
+
+    # Contao resolves these through `__get()` on the model, driven by the DCA at
+    # runtime. Static analysis cannot see them and never will — they are data,
+    # not declarations.
+    #
+    # Listed one by one on purpose rather than silencing "undefined property" as
+    # a class: a genuine typo in a property name should still be an error. The
+    # three below are the permission fields RecordCloneTool reads from the acting
+    # user (`$user->news`, `$user->faqs`, `$user->calendars`).
+    ignoreErrors:
+        -
+            message: '#Access to an undefined property Contao\\UserModel::\$(news|faqs|calendars)\.#'
+            path: src/Tool/RecordCloneTool.php
+
+        # The factory returns an anonymous subclass that exposes the protected
+        # surface through `call*()` wrappers. Declaring `: AbstractEntityRewriter`
+        # would read better but hides those methods from analysis — thirteen
+        # "undefined method" findings. Leaving the return type off lets PHPStan
+        # infer the anonymous class and see everything; this rule silences the
+        # complaint about the omission itself, not about anything it hides.
+        -
+            message: '#Method .*AbstractEntityRewriterTest::rewriter\(\) has no return type specified\.#'
+            path: tests/Unit/Service/Rewriter/AbstractEntityRewriterTest.php
+
+        # `is_array()` / `is_string()` on a value PHPStan has already narrowed.
+        #
+        # 🎯 The narrowing comes from a docblock, and a docblock is a promise the
+        # runtime is not bound by. These sit on decoded JSON and on DCA rows —
+        # exactly the values that arrive from outside and can be anything. The
+        # guard is what keeps `foreach` off a string.
+        #
+        # Same rule and same reasoning as in contao-ai-core-bundle.
+        - identifier: function.alreadyNarrowedType
+
+        # `$framework->getAdapter(Config::class)` returns `Adapter`; the docblock
+        # names the adapted class so callers see which API they are using. That
+        # is Contao's own idiom throughout its codebase, not a mistake here.
+        -
+            identifier: varTag.nativeType
+            path: src/Service/Rewriter/AbstractEntityRewriter.php
+
+    # `--memory-limit` is not a parameter, it is a command-line flag, so it lives
+    # in composer.json's script. Worth knowing why: without it PHPStan hits the
+    # 128 MB default, aborts — and still prints "Found 2 errors". A crash after
+    # two findings looks like an almost-clean package rather than a crash.

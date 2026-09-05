@@ -33,10 +33,12 @@
         <div class="ai-chat__transcript" id="ai-chat-transcript" role="log" aria-live="polite"></div>
 
         <form class="ai-chat__form" id="ai-chat-form">
-            <textarea id="ai-chat-input" rows="3" placeholder="Frag den Agenten…" aria-label="Eingabe"></textarea>
+            <textarea id="ai-chat-input" rows="3"
+                      placeholder="{{ 'ai_chat.input_placeholder'|trans({}, 'contao_ai_chat') }}"
+                      aria-label="{{ 'ai_chat.input_label'|trans({}, 'contao_ai_chat') }}"></textarea>
             <div class="ai-chat__form-row">
-                <small class="ai-chat__hint">{{ tools|length }} Tools verfügbar · {{ platform|slice(0, 40) }}</small>
-                <button type="submit" class="tl_submit" id="ai-chat-submit">Senden</button>
+                <small class="ai-chat__hint">{{ 'ai_chat.tools_available'|trans([tools|length], 'contao_ai_chat') }} · {{ platform|slice(0, 40) }}</small>
+                <button type="submit" class="tl_submit" id="ai-chat-submit">{{ 'ai_chat.send'|trans({}, 'contao_ai_chat') }}</button>
             </div>
         </form>
     </div>
@@ -51,6 +53,22 @@
             const form = document.getElementById('ai-chat-form');
             const input = document.getElementById('ai-chat-input');
             const submitBtn = document.getElementById('ai-chat-submit');
+
+            /*
+             * Sichtbare Texte des Skripts. Bewusst hier gebündelt und nicht
+             * einzeln unten eingesetzt: So steht an einer Stelle, was ein
+             * Benutzer zu lesen bekommt, und `BilingualLabelsTest` findet die
+             * Schlüssel, ohne den ganzen Code lesen zu müssen.
+             *
+             * `json_encode` statt Anführungszeichen von Hand — ein Apostroph in
+             * einer Übersetzung würde das Skript sonst zerlegen.
+             */
+            const LANG = {
+                reportSummary: {{ 'ai_chat.report_summary'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                copy:          {{ 'ai_chat.copy'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                copied:        {{ 'ai_chat.copied'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                unknownError:  {{ 'ai_chat.unknown_error'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+            };
 
             const HISTORY_HARD_CAP = 60;
             const HISTORY_SEND_CAP = 30;
@@ -89,7 +107,7 @@
                 details.classList.add('ai-chat__report');
 
                 const summary = document.createElement('summary');
-                summary.textContent = 'Fehlerbericht zum Weitergeben';
+                summary.textContent = LANG.reportSummary;
                 details.appendChild(summary);
 
                 const pre = document.createElement('pre');
@@ -98,11 +116,11 @@
 
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.textContent = 'Kopieren';
+                button.textContent = LANG.copy;
                 button.addEventListener('click', () => {
                     const done = () => {
-                        button.textContent = 'Kopiert';
-                        window.setTimeout(() => { button.textContent = 'Kopieren'; }, 2000);
+                        button.textContent = LANG.copied;
+                        window.setTimeout(() => { button.textContent = LANG.copy; }, 2000);
                     };
                     // navigator.clipboard needs a secure context; a back end
                     // reachable over plain http would silently do nothing.
@@ -225,7 +243,7 @@
                             assistantNode.textContent = assistantBuffer;
                         } else if (eventName === 'error') {
                             assistantNode.classList.add('ai-chat__msg--error');
-                            assistantNode.textContent = `[${data.kind || 'error'}] ${data.message || 'Unbekannter Fehler'}`;
+                            assistantNode.textContent = `[${data.kind || 'error'}] ${data.message || LANG.unknownError}`;
                             // Only tool_failed and agent_failed carry a report;
                             // access_denied, tool_refused and the config error
                             // are answers, not defects, and the server sends
