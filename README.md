@@ -8,7 +8,9 @@ In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with
 
 > **You bring your own LLM API key.** Each backend user must provide an Anthropic or OpenAI key in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
 
-## The contao-ai ecosystem
+## ConpAI — the contao-ai family
+
+**ConpAI** is the family name of the contao-ai packages. The story is *kanpai* (乾杯, Japanese for "cheers") — a toast to Contao and AI working together. The P stands for *protocol*: changes are recorded in Contao's own [audit trail](https://github.com/webwerkwien/contao-ai-core-bundle#audit-trail) instead of bypassing it. The package names stay `contao-ai-*`.
 
 | Package | What it is | When to use |
 |---|---|---|
