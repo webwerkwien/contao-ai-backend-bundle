@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.9.1 — 2026-09-18
+
+Needs no newer contao-ai-core-bundle. The two runtime changes are one word in the system
+prompt and two tool parameter descriptions; everything else is documentation and packaging.
+
+### Changed
+
+- **The agent guide is `AGENTS.md`, not `CLAUDE.md`**, so every coding agent finds it,
+  not only Claude Code. `CLAUDE.md` only imports it (`@AGENTS.md`). New first convention:
+  nothing in this repository may depend on one coding agent. Documentation only.
+- **Developer files stay out of the installed package.** `AGENTS.md`, `CLAUDE.md`,
+  `REVIEW.md` and `phpstan.neon.dist` are `export-ignore` now, as `tests/` already was:
+  `vendor/` gets the code, `README.md`, `LICENSE` and `CHANGELOG.md`.
+- **The system prompt no longer names Claude.** One sentence said "Claude has no path to
+  complete it", while the bundle runs on any provider `symfony/ai` supports (Anthropic,
+  OpenAI, OpenRouter, Ollama, OpenAI-compatible services, more by installing a platform
+  package); it now says "you". Two tool parameter descriptions did the same ("lets
+  Claude pick either shape" in `record_clone` and `record_list`); symfony/ai sends them
+  to the model as the tool schema, so they now say "the model".
+  The agent's instructions are `src/Resources/prompts/system.md` and the tool
+  descriptions, both shipped; `AGENTS.md` is for developing the bundle and never
+  reached the in-browser agent.
+- README: the family table and the note on credentials named only Anthropic and OpenAI.
+  They now say any provider, as the *Providers* section already did. Same row in the
+  READMEs of contao-ai-core-bundle and contao-ai-cli. The intro no longer says "a Claude
+  (or GPT) agent"; `composer.json` keywords add `openai`, `openrouter`, `ollama`.
+
 ## v0.9.0 — 2026-09-05
 
 ### Added

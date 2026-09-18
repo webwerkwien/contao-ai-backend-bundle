@@ -1,12 +1,12 @@
 # contao-ai-backend-bundle
 
-In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with a Claude (or GPT) agent that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
+In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with an AI agent (any provider `symfony/ai` supports) that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
 > **Pre-1.0.** Runs in production on the author's own installations. Interfaces — tool
 > signatures, bridge JSON, DCA fields — still change between minor versions, and
 > `symfony/ai` is itself pre-1.0. Read the changelog before updating.
 
-> **You bring your own LLM API key.** Each backend user must provide an Anthropic or OpenAI key in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
+> **You bring your own model access.** Each backend user enters their provider's credentials — an API key, or an endpoint for a self-hosted model (see *Providers*) — in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
 
 ## ConpAI — the contao-ai family
 
@@ -16,7 +16,7 @@ In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with
 |---|---|---|
 | [contao-ai-core-bundle](https://github.com/webwerkwien/contao-ai-core-bundle) | Contao bundle exposing CMS operations as Symfony console commands. | Required as the foundation layer. Install on any Contao site you want to manage via AI. |
 | [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) | Python CLI — connects to Contao via SSH and runs commands. | For developers and agencies: manage Contao from the terminal or hand control to an AI agent. |
-| **contao-ai-backend-bundle** *(this package)* | Contao backend module — browser-based AI chat interface (Anthropic Claude, OpenAI). | For editors and admins: AI directly inside the Contao backend, no SSH or terminal needed. |
+| **contao-ai-backend-bundle** *(this package)* | Contao backend module — browser-based AI chat interface for any model provider (Anthropic, OpenAI, OpenRouter, Ollama, any OpenAI-compatible service, more via `symfony/ai`). | For editors and admins: AI directly inside the Contao backend, no SSH or terminal needed. |
 
 ## What it does
 

@@ -39,3 +39,8 @@
 /phpunit.xml.dist export-ignore
 /.gitattributes  export-ignore
 /.gitignore      export-ignore
+# Guides and settings for developing the bundle, not for running it (2026-09-18).
+/AGENTS.md         export-ignore
+/CLAUDE.md         export-ignore
+/REVIEW.md         export-ignore
+/phpstan.neon.dist export-ignore

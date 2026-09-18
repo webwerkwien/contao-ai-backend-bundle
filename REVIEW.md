@@ -28,7 +28,7 @@ else is a nit.
 Specifically Important, because it has happened:
 
 - A service registered in `services_<plugin>.yaml` that is not also listed under
-  `exclude` in `services.yaml` — see the note in `CLAUDE.md`.
+  `exclude` in `services.yaml` — see the note in `AGENTS.md`.
 - A verification claim without the command output that backs it.
 - A check that cannot fail under the conditions it runs in — including a control
   in a test that has an explicit service definition.
@@ -41,7 +41,7 @@ At most five nits per review; summarise the rest as a count.
 
 ## Do not report
 
-- Style and naming, unless it contradicts a convention in `CLAUDE.md`.
+- Style and naming, unless it contradicts a convention in `AGENTS.md`.
 - Anything `composer ci` already enforces — it is green, so a finding it would
   have caught means the command was not run, and that is the finding.
 - The two documented `ignoreErrors` entries in `phpstan.neon.dist`. Both carry

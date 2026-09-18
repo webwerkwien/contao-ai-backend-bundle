@@ -88,7 +88,7 @@ class RecordListTool extends AbstractCoreCommandTool
      * @param int                         $limit   Max rows (1–50; default 20)
      * @param int                         $offset  Result offset (default 0)
      * @param string                      $order   ORDER BY clause, e.g. "tstamp DESC" or "id ASC"
-     * @param array<string, scalar|null>|string  $filter  Equality filter, e.g. {"pid": 5, "published": 1}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets Claude pick either shape.
+     * @param array<string, scalar|null>|string  $filter  Equality filter, e.g. {"pid": 5, "published": 1}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets the model pick either shape.
      * @param list<string>|string                $fields  Columns to return; empty = curated default per table. Same array|string-tolerance.
      */
     #[AiContract(writes: false, trace: [])]
