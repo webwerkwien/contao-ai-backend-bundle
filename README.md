@@ -32,7 +32,7 @@ Also installed: [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerk
 ## Installation
 
 ```bash
-composer require "webwerkwien/contao-ai-backend-bundle:>=0.1 <1.0"
+composer require "webwerkwien/contao-ai-backend-bundle:>=0.1 <2.0"
 vendor/bin/contao-console contao:migrate           # adds ai_api_key, ai_platform, ai_cli_token to tl_user
 vendor/bin/contao-console assets:install            # publishes the Stimulus controller + CSS
 ```

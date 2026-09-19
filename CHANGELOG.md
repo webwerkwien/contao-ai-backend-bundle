@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.9.2 — 2026-09-19
+
+Works with contao-ai-core-bundle from v0.6.0 up to and including the 1.x series. Nothing
+else changes.
+
+### Changed
+
+- **contao-ai-core-bundle 1.x is allowed.** The requirement was `>=0.6.0 <1.0`, so with
+  core-bundle 1.0.0 an installation with this bundle would have stayed on core 0.x, and
+  `composer require` of core 1.0 would have been refused. Now `>=0.6.0 <2.0`. The install
+  line in the README widens the same way (`>=0.1 <2.0`), so later releases of this bundle,
+  including a 1.0, stay reachable for the Contao Manager and `composer update`.
+- With core-bundle 1.0 the `event_update` tool stores the times the front end needs (the
+  core derives them as the back end does), and a date passed as text instead of a
+  timestamp is refused by name instead of failing in the database. No change here.
+
 ## v0.9.1 — 2026-09-18
 
 Needs no newer contao-ai-core-bundle. The two runtime changes are one word in the system
