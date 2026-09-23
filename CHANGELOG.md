@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.9.3 — 2026-09-23
+
+Packaging only. No code, no behaviour change.
+
+### Changed
+
+- **`conpai` added to the package keywords.** The family has carried the name since
+  2026-09-13 and it stands in the Contao extension directory since PR
+  [contao/package-metadata#797](https://github.com/contao/package-metadata/pull/797), but
+  the `composer.json` never named it — so a Packagist search for the product name did not
+  find the package that carries it.
+
 ## v0.9.2 — 2026-09-19
 
 Works with contao-ai-core-bundle from v0.6.0 up to and including the 1.x series. Nothing
