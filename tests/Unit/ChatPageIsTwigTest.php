@@ -147,6 +147,11 @@ class ChatPageIsTwigTest extends TestCase
      * the real TemplateLocator, not a copy of its rule (review 2026-10-03: the
      * first version of this test re-implemented the rule, and would have stayed
      * green had Contao changed it).
+     *
+     * Not covered: that Contao picks up this bundle's contao/templates/ as a
+     * source at all (its ResourceFinder does that by convention; here it gets an
+     * empty one). That half is checked on the test server with
+     * `debug:contao-twig backend/ai_chat`.
      */
     public function testContaoRegistersEachTemplateUnderTheRenderedName(): void
     {

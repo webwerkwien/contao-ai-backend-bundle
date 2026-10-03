@@ -44,9 +44,9 @@ chat opens on Contao 6 again.
   from the navigation, because that is what puts the checkbox into users and user
   groups. The old address `/contao?do=ai_chat`, in bookmarks and Contao's favourites,
   redirects to the new page.
-- **A running answer stops when you leave the page through the menu.** The back end
-  navigates with Turbo (Contao 5.7 and 6), which never fires `beforeunload`, so the
-  stream and the agent run behind it kept going.
+- **A running answer stops when you leave the page,** through the menu or the back and
+  forward buttons. The back end navigates with Turbo (Contao 5.7 and 6), which never
+  fires `beforeunload`, so the stream and the agent run behind it kept going.
 - **The back button returns to a working chat.** Turbo restored a cached snapshot of
   the page without running its script, so the form was there but sending reloaded the
   page. The chat page now opts out of Turbo's snapshot cache.

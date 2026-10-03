@@ -64,7 +64,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   that finds nothing passes exactly like one that finds everything.
 - **Templates are Twig, in `contao/templates/`, rendered as `@Contao/…`.** No
   `.html5`, no `BackendModule` with `$strTemplate`, no Twig namespace of the
-  bundle's own. Back-end pages are routes on Contao's `AbstractBackendController`
+  bundle's own. Back-end pages are routes on Contao's `Controller\Backend\AbstractBackendController`
   with a `contao.backend_menu_build` listener for the menu entry — see
   `AiChatController` and `BackendMenuListener`. `ChatPageIsTwigTest` enforces it.
 
@@ -129,7 +129,8 @@ no test renders a back-end page. Since v0.10.0 nothing legacy is left.
 `.twig-root` marker.** Without it Contao reads the top level only and drops the
 folder: `backend/ai_chat.html.twig` was registered as `@Contao/ai_chat.html.twig`
 and the controller's name did not resolve. A test that checked the file's
-existence passed throughout; `ChatPageIsTwigTest` now applies Contao's rule. Do
+existence passed throughout; `ChatPageIsTwigTest` now asks Contao's own
+`TemplateLocator`, not a copy of its rule. Do
 not delete the empty marker file — it is the reason the names work.
 
 > To see what Contao actually calls a template on an installation:

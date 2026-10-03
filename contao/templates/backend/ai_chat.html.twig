@@ -315,16 +315,23 @@
             // would keep the stream — and the agent run behind it — going. Both
             // events, so a full page load and a Turbo visit end it alike.
             //
+            // `turbo:visit`, not `turbo:before-visit`: Turbo fires it when any
+            // visit starts, the back and forward buttons included, and it cannot
+            // be cancelled. `turbo:before-visit` comes only for links and forms
+            // (a history step skips it), and a visit another listener cancels
+            // would have aborted the answer and disarmed the page for nothing.
+            // Read in Contao 5.7's bundled Turbo: visitStarted() dispatches it.
+            //
             // Both listeners remove themselves when either fires. window and
             // document outlive a Turbo visit, so without that every visit to
             // this page would leave one more pair behind.
             const onLeave = () => {
                 if (activeAbort) activeAbort.abort();
                 window.removeEventListener('beforeunload', onLeave);
-                document.removeEventListener('turbo:before-visit', onLeave);
+                document.removeEventListener('turbo:visit', onLeave);
             };
             window.addEventListener('beforeunload', onLeave);
-            document.addEventListener('turbo:before-visit', onLeave);
+            document.addEventListener('turbo:visit', onLeave);
         }
     }
     </script>
