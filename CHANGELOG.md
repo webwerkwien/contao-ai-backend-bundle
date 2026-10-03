@@ -14,7 +14,8 @@ chat opens on Contao 6 again.
   back-end module (`BE_MOD['callback']`) wrapped in a `be_ai_chat.html5` template, and
   Contao 6 no longer reads `.html5` at all. The 6.0 test installation is reachable from
   the console only, so the menu entry was never clicked there.
-- **The requirements promised Contao 5.3, where the bundle could never be installed.**
+- **The requirements promised Contao 5.3, where the bundle could never be installed**
+  ([#27](https://github.com/webwerkwien/contao-ai-backend-bundle/issues/27)).
   Every release of `symfony/ai-bundle` needs Symfony 7.3 or later; Contao 5.3 requires
   Symfony 6.4. Composer refused the installation with a message about `symfony/clock`
   and `symfony/config` rather than about Contao. Found while trying to install it on
@@ -27,7 +28,6 @@ chat opens on Contao 6 again.
   bundle is tested on. Contao 5.4 to 5.6 could install it, but they are no LTS releases,
   have reached their end of life, and no test installation runs them; on those,
   Composer stays on v0.9.3.
-
 - **The chat page is a Twig page behind a route, nothing legacy left.** It is rendered
   by Contao's `Backend\AbstractBackendController` at `/contao/ai-chat` (the page follows
   a configured back-end prefix; the stream endpoint behind it stays at
@@ -47,9 +47,10 @@ chat opens on Contao 6 again.
 - **A running answer stops when you leave the page,** through the menu or the back and
   forward buttons. The back end navigates with Turbo (Contao 5.7 and 6), which never
   fires `beforeunload`, so the stream and the agent run behind it kept going.
-- **The back button returns to a working chat.** Turbo restored a cached snapshot of
-  the page without running its script, so the form was there but sending reloaded the
-  page. The chat page now opts out of Turbo's snapshot cache.
+- **The back button returns to a working chat.** Turbo can restore a cached snapshot of
+  a page without running its inline script, which would leave the form without its
+  handler. The chat page now opts out of Turbo's snapshot cache, so going back loads it
+  afresh.
 - `ChatViewRenderer` is now `ChatViewContext` and supplies the page's variables instead
   of rendering HTML. It is no longer a public service.
 
