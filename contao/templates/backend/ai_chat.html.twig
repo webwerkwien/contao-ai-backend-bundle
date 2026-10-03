@@ -14,15 +14,23 @@
    Contao 6 marks its own contao/templates/ the same way; its 5.x bundles mark
    contao/templates/twig/, because their .html5 files share the directory.
 
-   Two parents, the first one that exists wins:
-   - `be_main.html.twig` — Contao 5.7 and 6.x
-   - `be_main.html5`     — Contao 5.3, where be_main exists only as a legacy
-                           template. Contao lets a Twig template extend it and
-                           fill its `main_content` block.
-   Measured on all three test installations (2026-10-03): 5.3 resolves only the
-   second name, 6.0 only the first, 5.7 both.
+   The parent is the Twig `be_main`, which Contao has from 5.7 on — the lowest
+   version this bundle supports. Before 5.7 be_main existed only as a legacy
+   .html5 template (checked against Contao's tags 5.3.51 to 5.6.11).
 #}
-{% extends ['@Contao/be_main.html.twig', '@Contao/be_main.html5'] %}
+{% extends '@Contao/be_main.html.twig' %}
+
+{#
+   No Turbo snapshot of this page. The back end navigates with Turbo (from 5.7),
+   and a restoration visit — the browser's back button — shows the cached
+   snapshot without running inline scripts: the form would be there, its submit
+   handler not, and a message would reload the page instead of being sent.
+   Without a snapshot, going back loads the page and the script runs.
+#}
+{% block meta %}
+    {{ parent() }}
+    <meta name="turbo-cache-control" content="no-cache">
+{% endblock %}
 
 {% block main_content %}
 {# `hasKey` used to mean "an API key is stored", which hid the chat from every
@@ -302,15 +310,21 @@
                 });
             });
 
-            // Contao 6 navigates the back end with Turbo, and a Turbo visit
-            // never fires beforeunload: leaving the chat through the menu would
-            // keep the stream — and the agent run behind it — going. Both
+            // The back end navigates with Turbo (Contao 5.7 and 6), and a Turbo
+            // visit never fires beforeunload: leaving the chat through the menu
+            // would keep the stream — and the agent run behind it — going. Both
             // events, so a full page load and a Turbo visit end it alike.
-            const abortRunning = () => {
+            //
+            // Both listeners remove themselves when either fires. window and
+            // document outlive a Turbo visit, so without that every visit to
+            // this page would leave one more pair behind.
+            const onLeave = () => {
                 if (activeAbort) activeAbort.abort();
+                window.removeEventListener('beforeunload', onLeave);
+                document.removeEventListener('turbo:before-visit', onLeave);
             };
-            window.addEventListener('beforeunload', abortRunning);
-            document.addEventListener('turbo:before-visit', abortRunning, { once: true });
+            window.addEventListener('beforeunload', onLeave);
+            document.addEventListener('turbo:before-visit', onLeave);
         }
     }
     </script>

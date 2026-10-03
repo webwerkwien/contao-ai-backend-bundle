@@ -2,15 +2,25 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit;
 
-use Contao\CoreBundle\Controller\AbstractBackendController;
+use Contao\CoreBundle\Config\ResourceFinder;
+use Contao\CoreBundle\Controller\Backend\AbstractBackendController;
+use Contao\CoreBundle\Event\ContaoCoreEvents;
 use Contao\CoreBundle\Event\MenuEvent;
+use Contao\CoreBundle\Twig\Loader\TemplateLocator;
+use Contao\CoreBundle\Twig\Loader\ThemeNamespace;
+use Doctrine\DBAL\Connection;
 use Knp\Menu\MenuFactory;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Config\FileLocator;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -62,6 +72,22 @@ class ChatPageIsTwigTest extends TestCase
         }
 
         self::assertSame([], $html5, 'Contao 6 never reads .html5 — a template here works on 5.x and breaks on 6');
+    }
+
+    /**
+     * The counter for the two scans below: an empty file list passes them just
+     * as happily as a clean one.
+     */
+    public function testTheScansSeeTheSourceTree(): void
+    {
+        $files = $this->phpFilesIn(self::ROOT . '/src');
+
+        self::assertGreaterThan(30, \count($files), 'src/ yields almost no PHP files — the scan path is wrong');
+        self::assertArrayHasKey(
+            realpath(self::ROOT . '/src/Controller/AiChatController.php'),
+            array_flip(array_map('realpath', array_keys($files))),
+            'the controller is not among the scanned files',
+        );
     }
 
     public function testNoClassRendersThroughALegacyTemplate(): void
@@ -117,12 +143,24 @@ class ChatPageIsTwigTest extends TestCase
      * Contao's TemplateLocator reads a bundle's template directory one level
      * deep and keeps subfolders in the name only below a `.twig-root` marker
      * (5.3, 5.7 and 6.0 alike). So the question is not "is the file there" but
-     * "would Contao call it what we call it" — answered here by Contao's rule,
-     * not by a file lookup.
+     * "would Contao call it what we call it" — and Contao answers it: this asks
+     * the real TemplateLocator, not a copy of its rule (review 2026-10-03: the
+     * first version of this test re-implemented the rule, and would have stayed
+     * green had Contao changed it).
      */
     public function testContaoRegistersEachTemplateUnderTheRenderedName(): void
     {
-        $wrong = [];
+        // No database here: the mocked connection yields no theme folders,
+        // which only matter for templates/ in the project, not for a bundle.
+        $locator = new TemplateLocator(
+            sys_get_temp_dir(),
+            new ResourceFinder([]),
+            new ThemeNamespace(),
+            $this->createMock(Connection::class),
+        );
+
+        $registered = array_keys($locator->findTemplates(self::TEMPLATE_DIR));
+        $missing = [];
 
         foreach ($this->phpFilesIn(self::ROOT . '/src') as $path => $source) {
             if (!preg_match_all("#'@Contao/([^']+\.html\.twig)'#", $source, $m)) {
@@ -130,13 +168,18 @@ class ChatPageIsTwigTest extends TestCase
             }
 
             foreach ($m[1] as $name) {
-                if (str_contains($name, '/') && !is_file(self::TEMPLATE_DIR . '/.twig-root')) {
-                    $wrong[] = "@Contao/$name would be registered as @Contao/" . basename($name) . ' (rendered in ' . basename($path) . ')';
+                if (!\in_array($name, $registered, true)) {
+                    $missing[] = "@Contao/$name (rendered in " . basename($path) . ')';
                 }
             }
         }
 
-        self::assertSame([], $wrong, "contao/templates/.twig-root is missing:\n  - " . implode("\n  - ", $wrong));
+        self::assertNotEmpty($registered, 'the locator found no templates at all — wrong directory');
+        self::assertSame(
+            [],
+            $missing,
+            "Contao does not register these names. It has: " . implode(', ', $registered) . "\n  - " . implode("\n  - ", $missing),
+        );
     }
 
     /**
@@ -161,39 +204,22 @@ class ChatPageIsTwigTest extends TestCase
         }
     }
 
-    // ── the template finds its parent on every supported Contao ─────────
+    // ── the template renders inside Contao's be_main ─────────────────────
 
     /**
-     * @return iterable<string, array{array<string, string>, string}>
+     * A stand-in `be_main.html.twig` with the real block name. What this pins is
+     * that the page fills `main_content` of the Twig be_main (Contao 5.7 and 6.x)
+     * and renders nothing outside it. The real be_main is checked on the test
+     * server, not here.
      */
-    public static function parentLayouts(): iterable
-    {
-        // What each installation resolves, measured 2026-10-03 on the test server.
-        yield 'Contao 5.3: only the legacy be_main' => [['be_main.html5' => 'PARENT-HTML5'], 'PARENT-HTML5'];
-        yield 'Contao 6.0: only the Twig be_main' => [['be_main.html.twig' => 'PARENT-TWIG'], 'PARENT-TWIG'];
-        yield 'Contao 5.7: both, Twig wins' => [['be_main.html.twig' => 'PARENT-TWIG', 'be_main.html5' => 'PARENT-HTML5'], 'PARENT-TWIG'];
-    }
-
-    /**
-     * The real Contao turns `be_main.html5` into something Twig can extend; here
-     * a stand-in with the same name and block does. What this pins is the
-     * fallback order of `{% extends [...] %}` — that the page renders inside
-     * whichever parent the installation has. Contao's own .html5 handling is
-     * checked on the test server, not here.
-     *
-     * @param array<string, string> $parents
-     *
-     * @dataProvider parentLayouts
-     */
-    public function testThePageRendersInsideWhicheverParentExists(array $parents, string $expectedMarker): void
+    public function testThePageRendersInsideBeMain(): void
     {
         $parentDir = sys_get_temp_dir() . '/ai-chat-parent-' . bin2hex(random_bytes(4));
         mkdir($parentDir);
+        $expectedMarker = 'PARENT-TWIG';
 
         try {
-            foreach ($parents as $file => $marker) {
-                file_put_contents("$parentDir/$file", $marker . '[{% block main_content %}{% endblock %}]');
-            }
+            file_put_contents("$parentDir/be_main.html.twig", $expectedMarker . '<{% block meta %}{% endblock %}>[{% block main_content %}{% endblock %}]');
 
             $html = $this->twig($parentDir)->render('@Contao/backend/ai_chat.html.twig', [
                 'title' => 'AI chat', 'headline' => 'AI chat',
@@ -205,7 +231,8 @@ class ChatPageIsTwigTest extends TestCase
             rmdir($parentDir);
         }
 
-        self::assertStringStartsWith($expectedMarker . '[', $html);
+        self::assertStringStartsWith($expectedMarker . '<', $html);
+        self::assertMatchesRegularExpression('#<[^>]*<meta name="turbo-cache-control" content="no-cache">\s*>#', $html, 'the no-cache hint belongs in the meta block, i.e. in <head>');
         self::assertStringContainsString('id="ai-chat-root"', $html, 'the chat must sit inside main_content');
         self::assertStringEndsWith(']', trim($html), 'nothing may be rendered outside the parent');
     }
@@ -249,8 +276,8 @@ class ChatPageIsTwigTest extends TestCase
             'only Contao\'s base adds the be_main context',
         );
 
-        // The attribute's arguments rather than its getters: those are deprecated
-        // since Symfony 7.4, and the properties replacing them do not exist in 6.4.
+        // The attribute's arguments rather than its getters, which are deprecated
+        // since Symfony 7.4.
         $args = (new \ReflectionMethod(AiChatController::class, 'index'))->getAttributes(Route::class)[0]->getArguments();
 
         self::assertSame('%contao.backend.route_prefix%/ai-chat', $args[0] ?? $args['path'] ?? null, 'follow the configured back-end prefix');
@@ -291,6 +318,24 @@ class ChatPageIsTwigTest extends TestCase
         self::assertNull($tree->getChild('system')->getChild('ai_chat'));
     }
 
+    public function testNoCurrentRequestIsNotAnError(): void
+    {
+        $factory = new MenuFactory();
+        $tree = $factory->createItem('mainMenu');
+        $tree->addChild($factory->createItem('system'));
+
+        $auth = $this->createMock(AuthorizationCheckerInterface::class);
+        $auth->method('isGranted')->willReturn(true);
+        $router = $this->createMock(UrlGeneratorInterface::class);
+        $router->method('generate')->willReturn('/contao/ai-chat');
+
+        (new BackendMenuListener($auth, $router, new RequestStack(), new IdentityTranslator()))(new MenuEvent($factory, $tree));
+
+        $item = $tree->getChild('system')->getChild('ai_chat');
+        self::assertNotNull($item);
+        self::assertFalse($item->isCurrent());
+    }
+
     public function testAMissingSystemGroupIsNotAnError(): void
     {
         $factory = new MenuFactory();
@@ -299,6 +344,42 @@ class ChatPageIsTwigTest extends TestCase
         $this->menuListener(granted: true, controller: null)(new MenuEvent($factory, $tree));
 
         self::assertCount(0, $tree->getChildren());
+    }
+
+    // ── wiring ───────────────────────────────────────────────────────────
+
+    /**
+     * The listener tests above build their objects themselves (review
+     * 2026-10-03, rule 25). This checks the half that is visible without a
+     * kernel: both classes get an autoconfigured definition from services.yaml,
+     * and their attributes name the right event and priority.
+     *
+     * Whether Symfony turns the attribute into a registered listener needs the
+     * compiled container — checked on the test server after each deploy with
+     * `debug:event-dispatcher contao.backend_menu_build` and `kernel.request`.
+     */
+    public function testTheListenersAreWiredByServicesYaml(): void
+    {
+        $container = new ContainerBuilder();
+        (new YamlFileLoader($container, new FileLocator(self::ROOT . '/config')))->load('services.yaml');
+
+        $expected = [
+            BackendMenuListener::class   => [ContaoCoreEvents::BACKEND_MENU_BUILD, -255],
+            LegacyChatUrlListener::class => [KernelEvents::REQUEST, 16],
+        ];
+
+        foreach ($expected as $class => [$event, $priority]) {
+            self::assertTrue($container->hasDefinition($class), "$class has no service definition");
+            $definition = $container->getDefinition($class);
+            self::assertFalse($definition->hasTag('container.excluded'), "$class is excluded from auto-discovery");
+            self::assertTrue($definition->isAutoconfigured(), "#[AsEventListener] only works on an autoconfigured service");
+
+            $attributes = (new \ReflectionClass($class))->getAttributes(AsEventListener::class);
+            self::assertCount(1, $attributes, "$class needs exactly one #[AsEventListener]");
+            $listener = $attributes[0]->newInstance();
+            self::assertSame($event, $listener->event, "$class listens to the wrong event");
+            self::assertSame($priority, $listener->priority, "$class has the wrong priority");
+        }
     }
 
     // ── old address ──────────────────────────────────────────────────────
@@ -316,6 +397,14 @@ class ChatPageIsTwigTest extends TestCase
     public function testOtherModulesAreNotRedirected(): void
     {
         $event = $this->requestEvent(['_route' => 'contao_backend'], ['do' => 'page']);
+        $this->legacyListener()($event);
+
+        self::assertNull($event->getResponse());
+    }
+
+    public function testOtherRoutesWithTheSameParameterAreNotRedirected(): void
+    {
+        $event = $this->requestEvent(['_route' => 'contao_frontend'], ['do' => 'ai_chat']);
         $this->legacyListener()($event);
 
         self::assertNull($event->getResponse());

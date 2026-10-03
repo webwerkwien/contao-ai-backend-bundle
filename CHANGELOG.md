@@ -4,7 +4,8 @@ All notable changes to this project are documented here. The project adheres to 
 
 ## v0.10.0 — 2026-10-03
 
-Needs no newer contao-ai-core-bundle. The chat opens on Contao 6 again.
+Needs no newer contao-ai-core-bundle. **Requires Contao 5.7 or 6.x** (was `^5.3`). The
+chat opens on Contao 6 again.
 
 ### Fixed
 
@@ -13,27 +14,42 @@ Needs no newer contao-ai-core-bundle. The chat opens on Contao 6 again.
   back-end module (`BE_MOD['callback']`) wrapped in a `be_ai_chat.html5` template, and
   Contao 6 no longer reads `.html5` at all. The 6.0 test installation is reachable from
   the console only, so the menu entry was never clicked there.
+- **The requirements promised Contao 5.3, where the bundle could never be installed.**
+  Every release of `symfony/ai-bundle` needs Symfony 7.3 or later; Contao 5.3 requires
+  Symfony 6.4. Composer refused the installation with a message about `symfony/clock`
+  and `symfony/config` rather than about Contao. Found while trying to install it on
+  the 5.3 test installation.
 
 ### Changed
 
+- **Contao 5.7 or 6.x, Symfony 7.4 or 8.** `contao/core-bundle` is now `^5.7 || ^6.0`
+  and the `symfony/*` requirements `^7.4 || ^8.0`. 5.7 and 6.0 are the versions this
+  bundle is tested on. Contao 5.4 to 5.6 could install it, but they are no LTS releases,
+  have reached their end of life, and no test installation runs them; on those,
+  Composer stays on v0.9.3.
+
 - **The chat page is a Twig page behind a route, nothing legacy left.** It is rendered
-  by Contao's `AbstractBackendController` at `/contao/ai-chat` (following the configured
-  back-end prefix), and the menu entry comes from a `contao.backend_menu_build`
+  by Contao's `Backend\AbstractBackendController` at `/contao/ai-chat` (the page follows
+  a configured back-end prefix; the stream endpoint behind it stays at
+  `/contao/ai-chat/stream` as before), and the menu entry comes from a `contao.backend_menu_build`
   listener, the way Contao adds its own route-based pages. `AiChatModule` and
   `be_ai_chat.html5` are gone.
 - **The template moved to where Contao looks for it.** It was
   `@ContaoAiBackend/Backend/chat.html.twig` in `src/Resources/views/`, a namespace only
   this bundle knew. It is now `@Contao/backend/ai_chat.html.twig` in `contao/templates/`
   and can be overridden in `templates/backend/` like any Contao template. ⚠️ An override
-  of the old template no longer applies and has to move. The page extends
-  `be_main.html.twig` where it exists (5.7, 6.x) and the legacy `be_main` on 5.3.
+  of the old template no longer applies and has to move. The page extends Contao's
+  `be_main.html.twig`.
 - **"Allowed modules" works as before.** The `ai_chat` entry stays in `BE_MOD`, hidden
   from the navigation, because that is what puts the checkbox into users and user
   groups. The old address `/contao?do=ai_chat`, in bookmarks and Contao's favourites,
   redirects to the new page.
-- **A running answer stops when you leave the page through the menu.** Contao 6
-  navigates the back end with Turbo, which never fires `beforeunload`, so the stream
-  and the agent run behind it kept going.
+- **A running answer stops when you leave the page through the menu.** The back end
+  navigates with Turbo (Contao 5.7 and 6), which never fires `beforeunload`, so the
+  stream and the agent run behind it kept going.
+- **The back button returns to a working chat.** Turbo restored a cached snapshot of
+  the page without running its script, so the form was there but sending reloaded the
+  page. The chat page now opts out of Turbo's snapshot cache.
 - `ChatViewRenderer` is now `ChatViewContext` and supplies the page's variables instead
   of rendering HTML. It is no longer a public service.
 

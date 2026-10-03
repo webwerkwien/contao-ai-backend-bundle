@@ -3,7 +3,7 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Controller;
 
 use Contao\BackendUser;
-use Contao\CoreBundle\Controller\AbstractBackendController;
+use Contao\CoreBundle\Controller\Backend\AbstractBackendController;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -28,10 +28,10 @@ use Webwerkwien\ContaoAiBackendBundle\Service\ChatViewContext;
  * `ai_chat` entry, hidden from the navigation, for one reason: it is what puts
  * "AI chat" under "Allowed modules", which AiAccessVoter reads.
  *
- * ⚠️ `Contao\CoreBundle\Controller\AbstractBackendController` is deprecated
- * since Contao 5.7 in favour of `…\Controller\Backend\AbstractBackendController`.
- * The new one does not exist in 5.3, which this bundle supports, so the old
- * one stays until 5.3 is dropped. Both work up to and including 6.x.
+ * The base is `Contao\CoreBundle\Controller\Backend\AbstractBackendController`,
+ * which exists from Contao 5.7 — the lowest version this bundle supports. The
+ * older `Contao\CoreBundle\Controller\AbstractBackendController` is deprecated
+ * since 5.7 and goes away in Contao 7.
  */
 class AiChatController extends AbstractBackendController
 {
@@ -46,6 +46,12 @@ class AiChatController extends AbstractBackendController
     #[Route('%contao.backend.route_prefix%/ai-chat', name: 'contao_ai_backend_chat', defaults: ['_scope' => 'backend', '_token_check' => true])]
     public function index(): Response
     {
+        // render() builds Contao's BackendMain, which needs the framework. It is
+        // already up on every authenticated back-end request (the user provider
+        // starts it), but Contao's own BackendController asks for it in each
+        // action rather than relying on that, and so does this one.
+        $this->initializeContaoFramework();
+
         $user = $this->requireBackendUser();
 
         if (!$this->authorizationChecker->isGranted(AiAccessVoter::ATTR_USE_CHAT)) {

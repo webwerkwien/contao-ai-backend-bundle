@@ -1,6 +1,6 @@
 # contao-ai-backend-bundle
 
-A Contao back-end page (Contao 5.3 to 6.x): an in-browser AI agent for editors and admins. Built on
+A Contao back-end page (Contao 5.7 to 6.x): an in-browser AI agent for editors and admins. Built on
 `symfony/ai` and `webwerkwien/contao-ai-core-bundle`, which supplies the console
 commands this bundle wraps as agent tools.
 

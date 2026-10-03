@@ -1,6 +1,6 @@
 # contao-ai-backend-bundle
 
-In-browser AI agent for the Contao 5 and 6 backend. Editors and admins chat with an AI agent (any provider `symfony/ai` supports) that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
+In-browser AI agent for the Contao 5.7 and 6 backend. Editors and admins chat with an AI agent (any provider `symfony/ai` supports) that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
 > **Pre-1.0.** Runs in production on the author's own installations. Interfaces — tool
 > signatures, bridge JSON, DCA fields — still change between minor versions, and
@@ -25,7 +25,9 @@ contao-ai-backend-bundle is the **browser client** for AI-powered Contao content
 ## Requirements
 
 - PHP ^8.2
-- Contao ^5.3
+- Contao 5.7 or 6.x (`^5.7 || ^6.0`)
+
+`symfony/ai` needs Symfony 7.3 or later, which rules out Contao 5.3 (Symfony 6.4). Up to v0.9.3 the requirements said `^5.3`, but the bundle could never actually be installed there. Contao 5.4 to 5.6 are not supported either; on those, Composer keeps v0.9.3.
 
 Also installed: [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerkwien/contao-ai-core-bundle) and `symfony/ai-*`.
 

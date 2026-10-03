@@ -154,8 +154,9 @@ class PluginConditionalServicesAreExcludedTest extends TestCase
      *
      * 🔴 **Every entry here must be a service that exists *only* through
      * auto-discovery.** The first version used `RecordRewriteTool` and
-     * `ChatViewRenderer` — both carry their own explicit definition further down
-     * in `services.yaml`, and an explicit definition overrides the exclude list.
+     * `ChatViewRenderer` — both carried their own explicit definition further down
+     * in `services.yaml` (`ChatViewRenderer`'s went away in 0.10.0, when it
+     * became `ChatViewContext`), and an explicit definition overrides the exclude list.
      * Adding either to `exclude` changes nothing, so as controls they could not
      * fail: the mutation check that was meant to prove them stayed green.
      *
