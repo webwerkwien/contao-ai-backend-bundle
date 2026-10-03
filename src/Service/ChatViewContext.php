@@ -5,14 +5,20 @@ namespace Webwerkwien\ContaoAiBackendBundle\Service;
 use Contao\BackendUser;
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Twig\Environment;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
 
-class ChatViewRenderer
+/**
+ * What the chat page needs to know about the current user.
+ *
+ * Until 0.10.0 this was `ChatViewRenderer` and rendered the chat itself, so that
+ * the legacy `AiChatModule` could paste the HTML into a `be_ai_chat.html5`
+ * wrapper. The page is a Twig template rendered by AiChatController now, and
+ * this class only supplies its variables.
+ */
+class ChatViewContext
 {
     public function __construct(
-        private readonly Environment $twig,
         private readonly UrlGeneratorInterface $router,
         private readonly ContaoCsrfTokenManager $csrf,
         private readonly UserAiConfig $userConfig,
@@ -21,7 +27,10 @@ class ChatViewRenderer
     ) {
     }
 
-    public function render(BackendUser $user): string
+    /**
+     * @return array{hasKey: bool, blocker: ?string, platform: string, tools: list<string>, csrfToken: string, streamUrl: string}
+     */
+    public function forUser(BackendUser $user): array
     {
         $config = $this->userConfig->getForUser($user);
 
@@ -31,17 +40,17 @@ class ChatViewRenderer
         // derived registry was built for could not be reached through the UI at
         // all, while AgentFactory would happily have served it.
         //
-        // The renderer no longer decides what "configured" means; it asks the
+        // This class no longer decides what "configured" means; it asks the
         // one place that knows, and shows the reason instead of a generic hint.
         $blocker = $this->platformResolver->missingRequirement($user);
 
-        return $this->twig->render('@ContaoAiBackend/Backend/chat.html.twig', [
+        return [
             'hasKey'    => null === $blocker,
             'blocker'   => $blocker,
             'platform'  => $config->platform,
             'tools'     => $this->toolAccess->listAllowedTools($user),
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),
-        ]);
+        ];
     }
 }

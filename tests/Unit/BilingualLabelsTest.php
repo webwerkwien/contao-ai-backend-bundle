@@ -35,7 +35,7 @@ class BilingualLabelsTest extends TestCase
 {
     private const LANG_DIR = __DIR__ . '/../../contao/languages';
 
-    private const TEMPLATE = __DIR__ . '/../../src/Resources/views/Backend/chat.html.twig';
+    private const TEMPLATE = __DIR__ . '/../../contao/templates/backend/ai_chat.html.twig';
 
     /**
      * Loads one language directory into a fresh key list.

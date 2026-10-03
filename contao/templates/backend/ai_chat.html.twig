@@ -1,3 +1,30 @@
+{#
+   The AI chat page, rendered by AiChatController.
+
+   It lives here, in contao/templates/, because that is where Contao looks for a
+   bundle's templates: `@Contao/backend/ai_chat.html.twig` can be overridden in
+   templates/backend/ like any core template. Until 0.10.0 it sat in
+   src/Resources/views/ under a namespace of its own, which nothing in Contao
+   knows about.
+
+   The subfolder is part of the name only because contao/templates/ carries a
+   `.twig-root` marker. Without it Contao reads just the top level and drops the
+   folder: on the test server this file was registered as
+   `@Contao/ai_chat.html.twig`, and the controller's name did not resolve.
+   Contao 6 marks its own contao/templates/ the same way; its 5.x bundles mark
+   contao/templates/twig/, because their .html5 files share the directory.
+
+   Two parents, the first one that exists wins:
+   - `be_main.html.twig` — Contao 5.7 and 6.x
+   - `be_main.html5`     — Contao 5.3, where be_main exists only as a legacy
+                           template. Contao lets a Twig template extend it and
+                           fill its `main_content` block.
+   Measured on all three test installations (2026-10-03): 5.3 resolves only the
+   second name, 6.0 only the first, 5.7 both.
+#}
+{% extends ['@Contao/be_main.html.twig', '@Contao/be_main.html5'] %}
+
+{% block main_content %}
 {# `hasKey` used to mean "an API key is stored", which hid the chat from every
    self-hosted provider — Ollama needs a host, not a key. It now means "this
    profile can actually run", answered by PlatformResolver, and `blocker` carries
@@ -275,10 +302,17 @@
                 });
             });
 
-            window.addEventListener('beforeunload', () => {
+            // Contao 6 navigates the back end with Turbo, and a Turbo visit
+            // never fires beforeunload: leaving the chat through the menu would
+            // keep the stream — and the agent run behind it — going. Both
+            // events, so a full page load and a Turbo visit end it alike.
+            const abortRunning = () => {
                 if (activeAbort) activeAbort.abort();
-            });
+            };
+            window.addEventListener('beforeunload', abortRunning);
+            document.addEventListener('turbo:before-visit', abortRunning, { once: true });
         }
     }
     </script>
 {% endif %}
+{% endblock %}

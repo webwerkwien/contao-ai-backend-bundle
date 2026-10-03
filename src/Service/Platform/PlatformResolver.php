@@ -21,7 +21,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
  *   the platform through the two hand-written bridge classes — so `record_rewrite`
  *   answered *"Unbekannte KI-Plattform"* for every derived provider and *"kein
  *   API-Key"* for Ollama, while ignoring `ai_model` and `ai_base_url` entirely.
- * - `ChatViewRenderer` gated the whole chat UI on `hasApiKey()`, so a user on a
+ * - `ChatViewRenderer` (now `ChatViewContext`) gated the whole chat UI on `hasApiKey()`, so a user on a
  *   self-hosted provider — the case the derivation was built for — saw no chat
  *   at all.
  * - `PlatformRegistry::createPlatform()` dropped a stored base URL for providers

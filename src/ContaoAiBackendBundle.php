@@ -34,14 +34,10 @@ class ContaoAiBackendBundle extends AbstractBundle
         }
     }
 
-    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
-    {
-        $container->extension('twig', [
-            'paths' => [
-                __DIR__ . '/Resources/views' => 'ContaoAiBackend',
-            ],
-        ]);
-    }
+    // No Twig path of its own any more. The chat template lives in
+    // contao/templates/ and Contao registers it under @Contao, where it can be
+    // overridden like any core template. Until 0.10.0 a prependExtension()
+    // here added src/Resources/views as @ContaoAiBackend.
 
     // Routes are loaded by the ContaoManager Plugin (RoutingPluginInterface)
     // to avoid duplicate registration with both AbstractBundle::configureRoutes

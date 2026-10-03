@@ -80,11 +80,6 @@ services:
         arguments:
             $promptFile: '%kernel.project_dir%/vendor/webwerkwien/contao-ai-backend-bundle/src/Resources/prompts/system.md'
 
-    # Public service consumed by the legacy Contao backend module callback (AiChatModule)
-    Webwerkwien\ContaoAiBackendBundle\Service\ChatViewRenderer:
-        autowire: true
-        public: true
-
     # Phase 9.3+9.4: RecordRewriteTool lädt immer (kein plugin-condition), die
     # plugin-bedingten Update-Commands (news/event/faq) kommen optional rein über
     # '@?' — null wenn das jeweilige contao-bundle nicht installiert ist. Tool

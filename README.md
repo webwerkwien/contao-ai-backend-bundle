@@ -75,6 +75,8 @@ Nothing to register, no code to change. `composer suggests` lists further ones.
 
 Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry. The CLI bridge does not require the module mount but still respects the same per-record permission voters.
 
+The chat sits in the "System" group of the back-end menu, at `/contao/ai-chat`. Its template is `@Contao/backend/ai_chat.html.twig` and can be overridden in `templates/backend/ai_chat.html.twig` like any Contao template.
+
 ## Available tools
 
 | Group | Tool names |

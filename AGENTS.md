@@ -1,6 +1,6 @@
 # contao-ai-backend-bundle
 
-A Contao 5 backend module: an in-browser AI agent for editors and admins. Built on
+A Contao back-end page (Contao 5.3 to 6.x): an in-browser AI agent for editors and admins. Built on
 `symfony/ai` and `webwerkwien/contao-ai-core-bundle`, which supplies the console
 commands this bundle wraps as agent tools.
 
@@ -62,6 +62,11 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `BilingualLabelsTest` enforces both halves.
 - Every scanning test needs a counter and at least one known non-match. A search
   that finds nothing passes exactly like one that finds everything.
+- **Templates are Twig, in `contao/templates/`, rendered as `@Contao/…`.** No
+  `.html5`, no `BackendModule` with `$strTemplate`, no Twig namespace of the
+  bundle's own. Back-end pages are routes on Contao's `AbstractBackendController`
+  with a `contao.backend_menu_build` listener for the menu entry — see
+  `AiChatController` and `BackendMenuListener`. `ChatPageIsTwigTest` enforces it.
 
 ## Things that go wrong here
 
@@ -113,3 +118,20 @@ unrelated work happened to touch those lines.
 entry under `services:` in `services.yaml`.** An explicit definition overrides
 the exclude, so such a service reports "active" even when it is excluded — it
 cannot fail, and is therefore useless as a control.
+
+**Contao 6 does not read `.html5` templates.** Up to v0.9.3 the chat was a legacy
+`BackendModule` with a `be_ai_chat.html5` wrapper. On Contao 6.0 it answered
+*Template "@Contao/be_ai_chat.html.twig" is not defined* (issue #26). Nothing
+here noticed: the 6.0 test installation is reachable from the console only, and
+no test renders a back-end page. Since v0.10.0 nothing legacy is left.
+
+**A subfolder of `contao/templates/` is part of a template's name only below a
+`.twig-root` marker.** Without it Contao reads the top level only and drops the
+folder: `backend/ai_chat.html.twig` was registered as `@Contao/ai_chat.html.twig`
+and the controller's name did not resolve. A test that checked the file's
+existence passed throughout; `ChatPageIsTwigTest` now applies Contao's rule. Do
+not delete the empty marker file — it is the reason the names work.
+
+> To see what Contao actually calls a template on an installation:
+> `vendor/bin/contao-console debug:contao-twig <name>`. Believe that, not the
+> file path.
