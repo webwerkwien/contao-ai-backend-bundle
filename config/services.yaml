@@ -12,7 +12,7 @@ services:
         # ausgeschlossen werden.
         #
         # 🔴 Genau das fehlte für EventTool und FaqTool (v0.6.0/v0.7.0) und hat
-        # auf wienerwandern.at den Container-Build zerlegt:
+        # auf einer Live-Installation den Container-Build zerlegt:
         #
         #   Cannot autowire "…Tool\FaqTool": argument "$createCommand" needs
         #   "…Command\FaqCreateCommand" but this type has been excluded

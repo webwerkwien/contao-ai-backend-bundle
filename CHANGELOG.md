@@ -791,7 +791,7 @@ a model but the bridge's own canonical key — the value already stored in
 
 The input marking is hardening, not a fix for an open privilege hole. The rewriters' inner loop is a bare `PlatformInterface::invoke()` with no toolbox, so injected text cannot call tools or escalate rights; the result is written back only to the field it came from, through allow-listed `*_update` commands. Reaching the path at all requires write access to the affected tables, which already permits setting those fields directly, and no front end source (comments, form data) is processed by a rewriter. The realistic failure mode addressed here is garbled output on imported third-party content during a bulk rewrite.
 
-Verified live against c5.axeltest.at (Contao 5.7.11) through the CLI bridge: a record whose teaser carried an injection attempt was translated correctly, the injected instruction was not followed, no `<editorial_input>` markers leaked into the stored value, and the operator audit trail in `tl_version` stayed intact.
+Verified live against the test server (Contao 5.7.11) through the CLI bridge: a record whose teaser carried an injection attempt was translated correctly, the injected instruction was not followed, no `<editorial_input>` markers leaked into the stored value, and the operator audit trail in `tl_version` stayed intact.
 
 ## v0.1.0 — 2026-04-26 (Beta)
 

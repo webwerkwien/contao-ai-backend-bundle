@@ -113,13 +113,13 @@ class RecordPermissionChecker
 
         switch ($sourceTable) {
             case 'tl_news_archive':
-                $this->assertContainerCreate($user, 'tl_news_archive', 'newp');
+                $this->assertContainerCreate('tl_news_archive');
                 return;
             case 'tl_calendar':
-                $this->assertContainerCreate($user, 'tl_calendar', 'calp');
+                $this->assertContainerCreate('tl_calendar');
                 return;
             case 'tl_faq_category':
-                $this->assertContainerCreate($user, 'tl_faq_category', 'faqp');
+                $this->assertContainerCreate('tl_faq_category');
                 return;
             case 'tl_page':
                 $this->assertCanCreatePageBelow($user, $sourceId);
@@ -323,34 +323,25 @@ class RecordPermissionChecker
     }
 
     /**
-     * Pfad (a) — Container-Anlage-Permission. Dual-Path für Contao 5.3–5.6
-     * (legacy `newp`/`calp`/`faqp`-Arrays) und 5.7+ (zentrale `cud`-Liste,
-     * via Voter `contao_user.cud.<table>::create`).
+     * Pfad (a) — Container-Anlage-Permission: der Voter
+     * `contao_user.cud.<table>::create` (zentrale `cud`-Liste, Contao 5.7+).
      *
-     * Strategie: erst Voter probieren — der existiert in 5.7+ und liefert
-     * authoritative Ja/Nein. In 5.3–5.6 ist der Voter unbekannt → Symfony
-     * AccessDecisionManager stimmt dort default-deny → wir fallen durch
-     * auf das alte Array-Feld. So funktioniert beides ohne Versions-Sniffing.
+     * Bis v0.10.0 fiel eine Ablehnung auf die alten `newp`/`calp`/`faqp`-Arrays
+     * von Contao 5.3–5.6 zurück. Seit v0.10.0 setzt das Bundle 5.7 voraus, wo
+     * eine Migration diese Spalten entfernt hat — der Rückfall konnte nie mehr
+     * entscheiden, wäre aber eine zweite Tür gewesen (Review 2026-10-03).
+     * Siehe ContainerCreatePermissionTest.
      */
-    private function assertContainerCreate(BackendUser $user, string $sourceTable, string $legacyPermField): void
+    private function assertContainerCreate(string $sourceTable): void
     {
         $subject = 'contao_user.cud.'.$sourceTable.'::create';
         if ($this->authorizationChecker->isGranted($subject)) {
             return;
         }
-        // Legacy-Fallback (Contao 5.3–5.6): newp/calp/faqp existieren als
-        // serialisierte Arrays auf tl_user. Auf 5.7+ wurden diese Spalten
-        // per Migration entfernt — dort ist $user->{$legacyPermField} null
-        // und der Check schlägt sauber fehl.
-        $perms = (array) ($user->{$legacyPermField} ?? []);
-        if (\in_array('create', $perms, true)) {
-            return;
-        }
         throw new ToolAccessDeniedException(\sprintf(
-            'Kein Anlage-Recht für %s (weder cud "%s::create" noch %s enthält "create").',
+            'Kein Anlage-Recht für %s (cud "%s::create" fehlt).',
             $sourceTable,
-            $sourceTable,
-            $legacyPermField
+            $sourceTable
         ));
     }
 
