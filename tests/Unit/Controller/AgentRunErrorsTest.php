@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Controller;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Symfony\AI\Agent\Toolbox\Exception\ToolExecutionException as ToolboxExecutionException;
 use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Platform\Message\Message;
@@ -49,7 +50,7 @@ class AgentRunErrorsTest extends TestCase
         $platform = new InMemoryPlatform(static function () use (&$calls, $toolName) {
             return 0 === $calls++ ? new ToolCallResult([new ToolCall('c1', $toolName)]) : 'fertig';
         });
-        $toolbox    = new Toolbox([new ProbeRefusedTool(), new ProbeDeniedTool(), new ProbeFailedTool(), new ProbeOkTool()]);
+        $toolbox    = new Toolbox([new ProbeRefusedTool(), new ProbeDeniedTool(), new ProbeFailedTool(), new ProbeOkTool(), new ProbeForeignTool()]);
         $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, self::ALL);
 
         return AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben');
@@ -85,6 +86,23 @@ class AgentRunErrorsTest extends TestCase
         } catch (\Throwable $e) {
             self::assertSame($expected, $e::class);
             self::assertSame($message, $e->getMessage(), 'the message is ours, not "Execution of tool … failed with error: …"');
+        }
+    }
+
+    /**
+     * Review W2 of the unwrap fix: only our three exceptions are unwrapped. A
+     * foreign one (a RuntimeException out of Contao) stays the toolbox's, falls to
+     * \Throwable and reads as agent_failed with a report — a defect, as it should.
+     * Unwrapping everything left the suite green until this test.
+     */
+    public function testAForeignExceptionStaysWrapped(): void
+    {
+        try {
+            $this->runProbe('probe_foreign', [...self::ALL, 'probe_foreign']);
+            self::fail('expected the toolbox exception');
+        } catch (ToolboxExecutionException $e) {
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertSame('intern', $e->getPrevious()->getMessage());
         }
     }
 
@@ -148,5 +166,14 @@ final class ProbeOkTool
     public function __invoke(): string
     {
         return 'ok';
+    }
+}
+
+#[AsTool('probe_foreign', 'throws what Contao might')]
+final class ProbeForeignTool
+{
+    public function __invoke(): string
+    {
+        throw new \RuntimeException('intern');
     }
 }

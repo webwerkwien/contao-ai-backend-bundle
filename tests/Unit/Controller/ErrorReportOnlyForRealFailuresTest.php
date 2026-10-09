@@ -175,6 +175,35 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
      * That the two lines coincide is not a coincidence. Both ask the same
      * question — did we author this text, or did something else?
      */
+    /**
+     * 🔴 Review 2026-10-09 (W1 of the unwrap fix). A refusal carries the core command's
+     * `message`, and since the core bundle's JsonErrorBoundary that is "ShortName:
+     * <message>" of *any* exception — a DriverException with SQL and parameters, a
+     * TypeError with a file path. As long as the branch was unreachable nobody saw
+     * it; unwrapping made it live. Our own texts must stay readable, foreign ones
+     * must not leak: the same scrubbing as safeMessage(), with room for our longer
+     * sentences and without the error log a typo does not deserve.
+     */
+    public function testARefusalIsScrubbedButStaysReadable(): void
+    {
+        $own = 'Tool "page_update" abgelehnt: InvalidArgumentException: Only a website root (type root) can stand at the top level, not a page of type regular. Nothing was written.';
+        self::assertSame($own, AiStreamController::scrubMessage($own, '/var/www/site', 'sk-secret', 500));
+
+        $foreign = 'Tool "news_update" abgelehnt: TypeError: Argument #1 must be int, string given in /var/www/site/vendor/x/Y.php:12 key sk-secret';
+        $scrubbed = AiStreamController::scrubMessage($foreign, '/var/www/site', 'sk-secret', 500);
+        self::assertStringNotContainsString('/var/www/site', $scrubbed);
+        self::assertStringNotContainsString('sk-secret', $scrubbed);
+
+        self::assertLessThanOrEqual(503, \strlen(AiStreamController::scrubMessage(str_repeat('x', 2000), '/p', '', 500)));
+    }
+
+    public function testTheRefusedBranchScrubs(): void
+    {
+        $body = $this->errorEmits()['tool_refused'] ?? '';
+
+        self::assertStringContainsString('self::scrubMessage($e->getMessage(), $this->projectDir, $apiKey, 500)', $body);
+    }
+
     public function testForeignFailureMessagesAreNeverEmittedRaw(): void
     {
         $checked = 0;
