@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.11.0 — 2026-10-09
+
+Needs no newer contao-ai-core-bundle. **Requires `symfony/ai` 0.14** (was 0.13); a
+provider package added by hand (`symfony/ai-mistral-platform` and the like) has to move
+to `^0.14` along with it, or Composer refuses the update.
+
+### Changed
+
+- **`symfony/ai` 0.14.** The release that matters here is
+  [symfony/ai#2602](https://github.com/symfony/ai/pull/2602): the `tools` option of a run
+  now also restricts what is *executed*, not only what the model is shown. Up to 0.13 a call
+  of a tool the run had left out still ran, and only this bundle's own `ToolAccessChecker`
+  refused it; the checker stays as the second line. Since 0.14 the library refuses such a
+  call by ending the run, which the chat now answers as `access_denied` ("This tool is not
+  enabled for your account") instead of as a crashed agent with a bug report. None of the
+  other breaking changes of 0.14 touch this bundle.
+- **Creating a news archive, calendar or FAQ category is decided by the `cud` voter
+  alone.** A refusal used to fall back to the `newp`/`calp`/`faqp` fields of Contao
+  5.3–5.6, which a migration removed in 5.7 — the version this bundle has required since
+  v0.10.0. The fallback could no longer decide anything; it would only have been a second
+  door.
+- A comment and an older changelog entry no longer name the installation a finding came
+  from ([#28](https://github.com/webwerkwien/contao-ai-backend-bundle/issues/28)).
+
 ## v0.10.0 — 2026-10-03
 
 Needs no newer contao-ai-core-bundle. **Requires Contao 5.7 or 6.x** (was `^5.3`). The

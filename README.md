@@ -68,7 +68,7 @@ Installed with the bundle:
 **To add another,** install its package — that is the whole procedure:
 
 ```bash
-composer require "symfony/ai-mistral-platform:^0.13"
+composer require "symfony/ai-mistral-platform:^0.14"
 ```
 
 The list in the Platform select is derived from the installed
