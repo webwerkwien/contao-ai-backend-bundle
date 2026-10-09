@@ -6,6 +6,7 @@ use Contao\BackendUser;
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
+use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -158,9 +159,11 @@ class AiStreamController extends AbstractController
             // verified in the vendored 0.13 source, not assumed. So
             // admin-only sub-tools (e.g. news_delete for an editor with the
             // news module) are NOT advertised in the JSON-schema sent to the
-            // LLM. Runtime ToolAccessChecker still rejects on attempt — this
-            // is defense in depth, but advertising the tool lets the model
-            // attempt it, wastes a roundtrip, and confuses the user.
+            // LLM. Up to 0.13 that was all the option did: a call of a tool left
+            // out still ran, and only our runtime ToolAccessChecker refused it.
+            // Since 0.14 (#2602) the Runner refuses it as well, before execution
+            // — ToolNotFoundException, caught below as access_denied. The
+            // checker stays: defense in depth.
             $result = $invocation->agent->call($messages, [
                 'tools' => $invocation->allowedToolNames,
             ]);
@@ -177,10 +180,15 @@ class AiStreamController extends AbstractController
                 $this->toolCallLogger->getToolNames(),
             );
             $this->appendHistory($request, $user, $userInput, $persistedAssistant);
-        } catch (ToolAccessDeniedException $e) {
+        } catch (ToolAccessDeniedException | ToolNotFoundException $e) {
             // Access-denied messages are written by us and stay user-facing — log for audit.
+            // symfony/ai 0.14 (#2602) refuses a tool the run's `tools` option left out
+            // itself, before our ToolAccessChecker sees the call; its message is the
+            // library's English, so the reader gets our label.
             $this->logger->info('contao_ai_backend tool access denied', CredentialMasker::context($e, $apiKey));
-            $emit('error', ['kind' => 'access_denied', 'message' => $e->getMessage()]);
+            $emit('error', ['kind' => 'access_denied', 'message' => $e instanceof ToolNotFoundException
+                ? $this->label('tool_not_allowed')
+                : $e->getMessage()]);
         } catch (ToolRefusedException $e) {
             // 🔴 2026-09-02. Refusals used to arrive as ToolExecutionException and
             // were labelled `tool_failed`. Splitting them off for the bridge's

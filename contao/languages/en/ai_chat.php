@@ -31,6 +31,7 @@ $GLOBALS['TL_LANG']['ai_chat']['rate_limited']     = 'Too many requests. Please 
 $GLOBALS['TL_LANG']['ai_chat']['empty_message']    = 'Empty message.';
 $GLOBALS['TL_LANG']['ai_chat']['message_too_long'] = 'Message too long.';
 $GLOBALS['TL_LANG']['ai_chat']['internal_error']   = 'Internal error — see the log file';
+$GLOBALS['TL_LANG']['ai_chat']['tool_not_allowed'] = 'This tool is not enabled for your account.';
 
 // Back-end messages after creating or clearing the CLI bridge token.
 $GLOBALS['TL_LANG']['ai_chat']['token_created'] = 'New CLI bridge token generated — the cleartext is shown once in the profile block below.';
