@@ -136,3 +136,25 @@ not delete the empty marker file — it is the reason the names work.
 > To see what Contao actually calls a template on an installation:
 > `vendor/bin/contao-console debug:contao-twig <name>`. Believe that, not the
 > file path.
+
+**symfony/ai wraps every exception a tool throws** in its own
+`Toolbox\Exception\ToolExecutionException`, unless it implements
+`ToolExecutionExceptionInterface` — ours do not. Up to v0.10.0 the chat's catch
+blocks for `access_denied`, `tool_refused` and `tool_failed` were therefore never
+reached: every refusal read as `agent_failed` with a bug report. The tests that
+guarded the branches read the controller's source and passed throughout.
+`AiStreamController::runAgent()` unwraps ours (v0.11.0); a foreign exception stays
+wrapped and is a defect. Since symfony/ai 0.14 a call of a registered tool the run's
+`tools` option left out ends the run with `ToolNotFoundException` (#2602) — the same
+exception the toolbox throws for a name no tool has; only the first is a refused
+permission (`isRestrictedToolCall()`).
+
+> Anything about what reaches the chat is tested with a real agent:
+> `AgentRunErrorsTest` runs `Agent`, `Toolbox` and `Runner` against
+> `Symfony\AI\Platform\Test\InMemoryPlatform`, which scripts the model's answers —
+> no API key, no cost. Add a probe tool there before believing a catch block.
+
+**A refusal's text is not necessarily ours.** It is the core command's `message`,
+and the core bundle's error boundary puts any exception's text there
+(`DriverException: …` with SQL and parameters). The chat scrubs it like a failure
+(`scrubMessage()`), only with more room.
