@@ -25,7 +25,7 @@ final readonly class AgentInvocation
         public string $systemPrompt,
         public string $model,
         public array $allowedToolNames,
-        public array $registeredToolNames = [],
+        public array $registeredToolNames,
     ) {
     }
 }
