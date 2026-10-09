@@ -81,6 +81,23 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
         );
     }
 
+    /**
+     * symfony/ai 0.14 (#2602) refuses a call of a registered tool that the run's
+     * `tools` option left out, by throwing `ToolNotFoundException` out of the run.
+     * Up to 0.13 the call went through and our ToolAccessChecker refused it as
+     * `access_denied`. Without its own catch the same situation would land in
+     * `\Throwable` and read as `agent_failed`, with a report inviting a bug
+     * ticket for a permission that worked.
+     */
+    public function testAToolTheRunDidNotAllowReadsAsAccessDenied(): void
+    {
+        self::assertMatchesRegularExpression(
+            '/catch \(ToolAccessDeniedException \| ToolNotFoundException \$e\)/',
+            $this->controllerSource(),
+            'ToolNotFoundException must be caught with ToolAccessDeniedException, not fall through to \Throwable',
+        );
+    }
+
     public function testOnlyGenuineFailuresCarryAReport(): void
     {
         foreach ($this->errorEmits() as $kind => $body) {
