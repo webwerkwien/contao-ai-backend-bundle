@@ -3,6 +3,10 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Controller;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
+use Symfony\AI\Platform\Result\ToolCall;
+use Symfony\AI\Platform\Tool\ExecutionReference;
+use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 
 /**
  * A report is offered for defects, and for nothing else.
@@ -85,17 +89,35 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
      * symfony/ai 0.14 (#2602) refuses a call of a registered tool that the run's
      * `tools` option left out, by throwing `ToolNotFoundException` out of the run.
      * Up to 0.13 the call went through and our ToolAccessChecker refused it as
-     * `access_denied`. Without its own catch the same situation would land in
+     * `access_denied`. Without its own handling the same situation would land in
      * `\Throwable` and read as `agent_failed`, with a report inviting a bug
      * ticket for a permission that worked.
+     *
+     * 🔴 Review W2 (2026-10-09): the same exception comes from the toolbox for a
+     * name **no** tool has — a name the model invented. That is no permission
+     * matter, and "this tool is not enabled for your account" sends the editor
+     * to the admin for nothing. Only a registered name is a refused permission.
+     * The first version of this test was a regex on the catch line and could not
+     * see the difference (rule 24); this one calls the decision.
      */
-    public function testAToolTheRunDidNotAllowReadsAsAccessDenied(): void
+    public function testOnlyARegisteredToolIsARefusedPermission(): void
     {
-        self::assertMatchesRegularExpression(
-            '/catch \(ToolAccessDeniedException \| ToolNotFoundException \$e\)/',
-            $this->controllerSource(),
-            'ToolNotFoundException must be caught with ToolAccessDeniedException, not fall through to \Throwable',
-        );
+        $call = static fn (string $name): ToolNotFoundException => ToolNotFoundException::notFoundForToolCall(new ToolCall('id1', $name));
+
+        self::assertTrue(AiStreamController::isRestrictedToolCall($call('news_delete'), ['news_read', 'news_delete']));
+        self::assertFalse(AiStreamController::isRestrictedToolCall($call('news_delet'), ['news_read', 'news_delete']), 'an invented name is not a permission matter');
+        self::assertFalse(AiStreamController::isRestrictedToolCall(
+            ToolNotFoundException::notFoundForReference(new ExecutionReference('X', 'y')),
+            ['news_read'],
+        ), 'without a tool call there is no name to judge');
+    }
+
+    public function testTheControllerUsesTheDecision(): void
+    {
+        $source = $this->controllerSource();
+
+        self::assertStringContainsString('self::isRestrictedToolCall($e, $invocation->registeredToolNames)', $source);
+        self::assertStringContainsString("throw new ToolAccessDeniedException(\$this->label('tool_not_allowed')", $source);
     }
 
     public function testOnlyGenuineFailuresCarryAReport(): void
