@@ -16,10 +16,16 @@ to `^0.14` along with it, or Composer refuses the update.
   branches for `access_denied`, `tool_refused` and `tool_failed` were never reached:
   "Seite 9 nicht gefunden" or a denied record read as `agent_failed` and offered a report
   to send to the maintainer. Measured with a real agent and a scripted model on
-  `symfony/ai` 0.14.1; per the code 0.13 behaved the same, so v0.10.0 is affected. The
-  chat now unwraps them. The CLI bridge calls tools directly and was not affected. The
-  tests that guarded the branches read the controller's source and could not see it; the
-  new one runs the agent.
+  `symfony/ai` 0.14.1; the 0.13 code wraps the same way, and the controller never
+  unwrapped, so every release so far is affected. The chat now unwraps them; a foreign
+  exception stays a defect with a report. The CLI bridge calls tools directly and was not
+  affected. The tests that guarded the branches read the controller's source and could
+  not see it; the new one runs the agent.
+- **A refusal is now scrubbed like a failure.** Its text comes from the core command, and
+  since the core bundle's error boundary that can be any exception's message — SQL, a
+  file path. Path, credentials and length are treated as for `tool_failed`; our own
+  sentences come through unchanged. The branch was unreachable before the fix above, so
+  the old "refusals stay unsanitised" had never been exercised.
 
 ### Changed
 

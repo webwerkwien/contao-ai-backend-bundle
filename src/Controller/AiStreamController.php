@@ -245,10 +245,13 @@ class AiStreamController extends AbstractController
             // what we started with. Two catchers, one exception: changing the
             // type is only half the change.
             //
-            // The message is written by our own commands ("News-Eintrag 42 nicht
-            // gefunden") and is meant for the reader, so it stays unsanitised
-            // like the access-denied branch above.
-            $emit('error', ['kind' => 'tool_refused', 'message' => $e->getMessage()]);
+            // The message is meant for the reader ("News-Eintrag 42 nicht gefunden"),
+            // so no report. But it comes from the core command, and since its
+            // JsonErrorBoundary that can be any exception's text — SQL, a file
+            // path. Scrubbed like safeMessage(), with room for our own longer
+            // sentences (review 2026-10-09; the branch was unreachable until the
+            // unwrap fix, so the old "stays unsanitised" was never tested).
+            $emit('error', ['kind' => 'tool_refused', 'message' => self::scrubMessage($e->getMessage(), $this->projectDir, $apiKey, 500)]);
         } catch (ToolExecutionException $e) {
             // M-11: tool errors may carry PDO output, file paths or upstream library text.
             // Log original; emit a sanitized variant.
@@ -371,12 +374,27 @@ class AiStreamController extends AbstractController
         // string. The masking protected the wrong side.
         $this->logger->error('contao_ai_backend agent error', CredentialMasker::context($e, $apiKey));
 
-        $message = str_replace($this->projectDir, '…', $e->getMessage());
-        $message = CredentialMasker::mask($message, $apiKey);
-        if (\strlen($message) > 200) {
-            $message = mb_strcut($message, 0, 200) . '…';
+        return self::scrubMessage($e->getMessage(), $this->projectDir, $apiKey, 200) ?: $this->label('internal_error');
+    }
+
+    /**
+     * The project path replaced, credentials masked, the length capped — what
+     * safeMessage() does to a message, without its error log.
+     *
+     * Also used for refusals (review 2026-10-09): their text comes from the core
+     * command, and since its JsonErrorBoundary that can be any exception's message.
+     */
+    public static function scrubMessage(string $message, string $projectDir, #[\SensitiveParameter] string $apiKey, int $maxBytes): string
+    {
+        if ('' !== $projectDir) {
+            $message = str_replace($projectDir, '…', $message);
         }
-        return $message ?: $this->label('internal_error');
+        $message = CredentialMasker::mask($message, $apiKey);
+        if (\strlen($message) > $maxBytes) {
+            $message = mb_strcut($message, 0, $maxBytes) . '…';
+        }
+
+        return $message;
     }
 
     /**
