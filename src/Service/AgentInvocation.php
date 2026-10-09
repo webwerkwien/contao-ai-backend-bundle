@@ -15,12 +15,17 @@ final readonly class AgentInvocation
      *   would see e.g. `news_delete` for a non-admin editor, attempt to call
      *   it, and the runtime denial would still protect us but waste a tool
      *   roundtrip and confuse the user.
+     * @param list<string> $registeredToolNames Every tool name in the run's toolbox,
+     *   the ones left out of $allowedToolNames included. A call of one of these that
+     *   symfony/ai 0.14 refuses is a permission the run did not grant; a call of any
+     *   other name is a name the model invented (review W2, 2026-10-09).
      */
     public function __construct(
         public Agent $agent,
         public string $systemPrompt,
         public string $model,
         public array $allowedToolNames,
+        public array $registeredToolNames = [],
     ) {
     }
 }

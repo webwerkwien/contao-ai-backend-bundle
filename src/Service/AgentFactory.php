@@ -61,11 +61,21 @@ class AgentFactory
 
         $allowedToolNames = $this->accessChecker->listAllowedTools($user);
 
+        // Every name in the toolbox, admin-only sub-tools included — what tells a
+        // refused permission from an invented name (review W2).
+        $registeredToolNames = [];
+        foreach ($allowedTools as $tool) {
+            foreach ($tool->getToolNames() as $name) {
+                $registeredToolNames[] = $name;
+            }
+        }
+
         return new AgentInvocation(
             $agent,
             $this->promptProvider->forUser($user, $allowedToolNames),
             $model,
             $allowedToolNames,
+            array_values(array_unique($registeredToolNames)),
         );
     }
 

@@ -97,6 +97,23 @@ class AiStreamController extends AbstractController
         return $this->translator->trans('ai_chat.' . $key, [], 'contao_ai_chat');
     }
 
+    /**
+     * Whether symfony/ai refused a tool the run did not allow, rather than one that
+     * does not exist (review W2, 2026-10-09).
+     *
+     * Both arrive as `ToolNotFoundException`: from the Runner for a registered tool
+     * the `tools` option left out (#2602, 0.14), from the toolbox for a name no tool
+     * has. Only the first is a permission matter.
+     *
+     * @param list<string> $registeredToolNames every name in the run's toolbox
+     */
+    public static function isRestrictedToolCall(ToolNotFoundException $e, array $registeredToolNames): bool
+    {
+        $name = $e->getToolCall()?->getName();
+
+        return null !== $name && \in_array($name, $registeredToolNames, true);
+    }
+
     #[Route('/contao/ai-chat/stream', name: 'contao_ai_backend_stream', methods: ['POST'], defaults: ['_scope' => 'backend', '_token_check' => false])]
     public function __invoke(Request $request): Response
     {
@@ -162,12 +179,23 @@ class AiStreamController extends AbstractController
             // LLM. Up to 0.13 that was all the option did: a call of a tool left
             // out still ran, and only our runtime ToolAccessChecker refused it.
             // Since 0.14 (#2602) the Runner refuses it as well, before execution
-            // — ToolNotFoundException, caught below as access_denied. The
+            // — ToolNotFoundException, turned into access_denied here. The
             // checker stays: defense in depth.
-            $result = $invocation->agent->call($messages, [
-                'tools' => $invocation->allowedToolNames,
-            ]);
-            $assistantContent = (string) $result->getContent();
+            try {
+                $result = $invocation->agent->call($messages, [
+                    'tools' => $invocation->allowedToolNames,
+                ]);
+                // The run is lazy since 0.13: it happens here, and so does the refusal.
+                $assistantContent = (string) $result->getContent();
+            } catch (ToolNotFoundException $e) {
+                // The same exception comes from the toolbox for a name no tool has —
+                // one the model invented. That stays agent_failed, as up to 0.13;
+                // only a registered name is a refused permission (review W2).
+                if (self::isRestrictedToolCall($e, $invocation->registeredToolNames)) {
+                    throw new ToolAccessDeniedException($this->label('tool_not_allowed'), 0, $e);
+                }
+                throw $e;
+            }
             $emit('message', ['content' => $assistantContent]);
             $emit('done', ['ok' => true]);
             // Persist only on successful turns — failed turns leave the store untouched
@@ -180,15 +208,10 @@ class AiStreamController extends AbstractController
                 $this->toolCallLogger->getToolNames(),
             );
             $this->appendHistory($request, $user, $userInput, $persistedAssistant);
-        } catch (ToolAccessDeniedException | ToolNotFoundException $e) {
+        } catch (ToolAccessDeniedException $e) {
             // Access-denied messages are written by us and stay user-facing — log for audit.
-            // symfony/ai 0.14 (#2602) refuses a tool the run's `tools` option left out
-            // itself, before our ToolAccessChecker sees the call; its message is the
-            // library's English, so the reader gets our label.
             $this->logger->info('contao_ai_backend tool access denied', CredentialMasker::context($e, $apiKey));
-            $emit('error', ['kind' => 'access_denied', 'message' => $e instanceof ToolNotFoundException
-                ? $this->label('tool_not_allowed')
-                : $e->getMessage()]);
+            $emit('error', ['kind' => 'access_denied', 'message' => $e->getMessage()]);
         } catch (ToolRefusedException $e) {
             // 🔴 2026-09-02. Refusals used to arrive as ToolExecutionException and
             // were labelled `tool_failed`. Splitting them off for the bridge's

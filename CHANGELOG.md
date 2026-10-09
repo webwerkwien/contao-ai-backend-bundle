@@ -16,7 +16,9 @@ to `^0.14` along with it, or Composer refuses the update.
   of a tool the run had left out still ran, and only this bundle's own `ToolAccessChecker`
   refused it; the checker stays as the second line. Since 0.14 the library refuses such a
   call by ending the run, which the chat now answers as `access_denied` ("This tool is not
-  enabled for your account") instead of as a crashed agent with a bug report. None of the
+  enabled for your account") instead of as a crashed agent with a bug report. The library
+  uses the same exception for a tool name that does not exist at all — one the model
+  invented; that is no permission matter and stays `agent_failed`, as before. None of the
   other breaking changes of 0.14 touch this bundle.
 - **Creating a news archive, calendar or FAQ category is decided by the `cud` voter
   alone.** A refusal used to fall back to the `newp`/`calp`/`faqp` fields of Contao
