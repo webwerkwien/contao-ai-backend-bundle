@@ -112,13 +112,9 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
         ), 'without a tool call there is no name to judge');
     }
 
-    public function testTheControllerUsesTheDecision(): void
-    {
-        $source = $this->controllerSource();
-
-        self::assertStringContainsString('self::isRestrictedToolCall($e, $invocation->registeredToolNames)', $source);
-        self::assertStringContainsString("throw new ToolAccessDeniedException(\$this->label('tool_not_allowed')", $source);
-    }
+    // That the run uses the decision is no longer read from the source here:
+    // AgentRunErrorsTest runs a real agent through AiStreamController::runAgent()
+    // and sees the refusal arrive as ToolAccessDeniedException.
 
     public function testOnlyGenuineFailuresCarryAReport(): void
     {

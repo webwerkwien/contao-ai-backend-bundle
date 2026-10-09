@@ -8,6 +8,19 @@ Needs no newer contao-ai-core-bundle. **Requires `symfony/ai` 0.14** (was 0.13);
 provider package added by hand (`symfony/ai-mistral-platform` and the like) has to move
 to `^0.14` along with it, or Composer refuses the update.
 
+### Fixed
+
+- **Every refusal by a tool reached the chat as a crashed agent, with a bug report.**
+  The toolbox of `symfony/ai` wraps any exception a tool throws in its own
+  `ToolExecutionException`, and ours are not of the kind it passes through. So the chat's
+  branches for `access_denied`, `tool_refused` and `tool_failed` were never reached:
+  "Seite 9 nicht gefunden" or a denied record read as `agent_failed` and offered a report
+  to send to the maintainer. Measured with a real agent and a scripted model on
+  `symfony/ai` 0.14.1; per the code 0.13 behaved the same, so v0.10.0 is affected. The
+  chat now unwraps them. The CLI bridge calls tools directly and was not affected. The
+  tests that guarded the branches read the controller's source and could not see it; the
+  new one runs the agent.
+
 ### Changed
 
 - **`symfony/ai` 0.14.** The release that matters here is

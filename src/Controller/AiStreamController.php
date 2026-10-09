@@ -6,6 +6,7 @@ use Contao\BackendUser;
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
+use Symfony\AI\Agent\Toolbox\Exception\ToolExecutionException as ToolboxExecutionException;
 use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
@@ -26,6 +27,7 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\AiAccessVoter;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
+use Webwerkwien\ContaoAiBackendBundle\Service\AgentInvocation;
 use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
 use Webwerkwien\ContaoAiCoreBundle\Service\ErrorReportBuilder;
@@ -95,6 +97,54 @@ class AiStreamController extends AbstractController
     private function label(string $key): string
     {
         return $this->translator->trans('ai_chat.' . $key, [], 'contao_ai_chat');
+    }
+
+    /**
+     * Run the agent and hand the catch blocks in __invoke() what they expect.
+     *
+     * Pass the per-tool allow-list along with the call. Since symfony/ai 0.13 the
+     * Agent drives the loop itself and the option is consumed in Execution\Runner,
+     * which filters the tool map by name. So admin-only sub-tools (e.g. news_delete
+     * for an editor with the news module) are NOT advertised to the model. Up to
+     * 0.13 that was all the option did: a call of a tool left out still ran, and
+     * only our runtime ToolAccessChecker refused it. Since 0.14 (#2602) the Runner
+     * refuses it as well, before execution — ToolNotFoundException, turned into
+     * access_denied here. The checker stays: defense in depth.
+     *
+     * 🔴 The toolbox wraps every exception a tool throws in its own
+     * `Toolbox\Exception\ToolExecutionException` (unless it implements
+     * `ToolExecutionExceptionInterface`, which ours do not). Without unwrapping,
+     * none of the catch blocks for access_denied, tool_refused and tool_failed was
+     * ever reached — "Seite 9 nicht gefunden" read as agent_failed with a bug
+     * report. Measured on 2026-10-09 with a real agent, see AgentRunErrorsTest.
+     *
+     * @throws ToolAccessDeniedException|ToolRefusedException|ToolExecutionException|\Throwable
+     */
+    public static function runAgent(AgentInvocation $invocation, MessageBag $messages, string $toolNotAllowed): string
+    {
+        try {
+            $result = $invocation->agent->call($messages, [
+                'tools' => $invocation->allowedToolNames,
+            ]);
+
+            // The run is lazy since 0.13: it happens here, and so do the failures.
+            return (string) $result->getContent();
+        } catch (ToolNotFoundException $e) {
+            // The same exception comes from the toolbox for a name no tool has —
+            // one the model invented. That stays agent_failed, as up to 0.13;
+            // only a registered name is a refused permission (review W2).
+            if (self::isRestrictedToolCall($e, $invocation->registeredToolNames)) {
+                throw new ToolAccessDeniedException($toolNotAllowed, 0, $e);
+            }
+            throw $e;
+        } catch (ToolboxExecutionException $e) {
+            $previous = $e->getPrevious();
+
+            if ($previous instanceof ToolAccessDeniedException || $previous instanceof ToolRefusedException || $previous instanceof ToolExecutionException) {
+                throw $previous;
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -170,32 +220,7 @@ class AiStreamController extends AbstractController
         $emit('start', ['model' => $invocation->model]);
 
         try {
-            // Pass the per-tool allow-list along with the call. Since
-            // symfony/ai 0.13 the Agent drives the loop itself and the option is
-            // consumed in Execution\Runner, which filters the tool map by name —
-            // verified in the vendored 0.13 source, not assumed. So
-            // admin-only sub-tools (e.g. news_delete for an editor with the
-            // news module) are NOT advertised in the JSON-schema sent to the
-            // LLM. Up to 0.13 that was all the option did: a call of a tool left
-            // out still ran, and only our runtime ToolAccessChecker refused it.
-            // Since 0.14 (#2602) the Runner refuses it as well, before execution
-            // — ToolNotFoundException, turned into access_denied here. The
-            // checker stays: defense in depth.
-            try {
-                $result = $invocation->agent->call($messages, [
-                    'tools' => $invocation->allowedToolNames,
-                ]);
-                // The run is lazy since 0.13: it happens here, and so does the refusal.
-                $assistantContent = (string) $result->getContent();
-            } catch (ToolNotFoundException $e) {
-                // The same exception comes from the toolbox for a name no tool has —
-                // one the model invented. That stays agent_failed, as up to 0.13;
-                // only a registered name is a refused permission (review W2).
-                if (self::isRestrictedToolCall($e, $invocation->registeredToolNames)) {
-                    throw new ToolAccessDeniedException($this->label('tool_not_allowed'), 0, $e);
-                }
-                throw $e;
-            }
+            $assistantContent = self::runAgent($invocation, $messages, $this->label('tool_not_allowed'));
             $emit('message', ['content' => $assistantContent]);
             $emit('done', ['ok' => true]);
             // Persist only on successful turns — failed turns leave the store untouched
