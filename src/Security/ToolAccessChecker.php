@@ -87,6 +87,10 @@ class ToolAccessChecker
         // (TableAccess), and admins only when it names none.
         'ext_list'       => ['module' => '*', 'op' => 'read'],
         'ext_run'        => ['module' => '*', 'op' => 'macro'],
+        // v0.13.0: changelanguage. The table's module, the record and the field
+        // permission are checked in LanguageTool, per call.
+        'language_link'  => ['module' => '*', 'op' => 'macro'],
+        'language_check' => ['module' => 'page', 'op' => 'read'],
     ];
 
     /**
