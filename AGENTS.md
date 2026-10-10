@@ -54,6 +54,15 @@ that existed before the fix, and that could not be rewritten, is the proof.
   only imports this file is the one exception.
 - PHP 8.2+, `declare(strict_types=1)` in every file.
 - Tools extend `AbstractCoreCommandTool` and are auto-tagged via `_instanceof`.
+- **Rights come from Contao, not from a list of our own.** Which tables a user reaches is
+  `TableAccess` (BE_MOD plus `hasAccess($module, 'modules')`, the rule of Contao's
+  `TableAccessVoter`); record and field rights are Contao's voters and `alexf`. `ext_run`
+  offers a foreign command only if every table of its `#[AiContract]` is reachable, none
+  named means admin-only. Don't add a configuration allow-list beside it (decided with
+  the maintainer, 2026-10-10).
+- **A tool for an optional extension is offered only when its command exists**
+  (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
+  changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).
 - Code and comments in English.
 - **Everything a user sees is bilingual, German and English.** Every key under
   `contao/languages/de/` has its counterpart in `en/`, and the two are kept in

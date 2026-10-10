@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.13.0 — 2026-10-10
+
+Works with every contao-ai-core-bundle it worked with before. The translation-link tools
+need core-bundle **v1.4.0** and terminal42/contao-changelanguage; without them they are
+simply not offered.
+
+### Added
+
+- **Commands of other extensions in the chat: `ext_list` and `ext_run`.** An extension
+  that declares a console command with `#[AiContract]` was reachable from the CLI
+  (`ext run`) but not from the chat. `ext_list` names the commands this user may run,
+  with description, tables, arguments, options and what cannot be undone; `ext_run`
+  runs one through the core's `contao:ai:run`, which checks the declaration and records
+  the invocation with the user as operator.
+- **Who sees which command follows the back-end module rights, no allow-list.** A command
+  is offered when the user may reach every table its contract names (the rule of
+  Contao's `TableAccessVoter`); one that names no tables is for admins only. A contract
+  that states something `irreversible` asks the user first, as the delete tools do.
+  Commands under `contao:` stay out — the core's own have dedicated tools.
+- **Translation links (terminal42/contao-changelanguage): `language_link` and
+  `language_check`.** `language_link` links a page, article, news item, event or FAQ —
+  or an archive — to its counterpart in the fallback language, or unlinks it with
+  `main: 0`; it checks module access, the record's edit permission and the field
+  permission for `languageMain`/`master`. `language_check` reports, read-only, what is
+  missing or broken under a root of another language: unlinked pages, links into the
+  wrong tree, duplicates, archives without master.
+
+### Changed
+
+- **With core-bundle v1.4.0, writes from the chat run Contao's DCA callbacks** as the back
+  end does (`oncreate`, `onsubmit`, `oncut`, `oncopy`, `ondelete`, save callbacks) and
+  versions are written by Contao's `Versions` class. Nothing changes in the bundle for
+  that; the core does it for every caller.
+
+### Fixed
+
+- **An extension command whose refusal Symfony also logs** put a log line before the JSON
+  answer in the same output (seen with a Consho command missing `--root`). `ext_run`
+  reads the last JSON line as the answer, so the refusal reaches the model as one.
+
 ## v0.12.0 — 2026-10-10
 
 Works with every contao-ai-core-bundle it worked with before. The crash-or-refusal split

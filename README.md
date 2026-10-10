@@ -89,6 +89,10 @@ The chat sits in the "System" group of the back-end menu, at `/contao/ai-chat`. 
 | Content | `content_create`, `content_update`, `content_delete`, `content_read` |
 | Meta    | `dca_schema`, `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
+| Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |
+| Translation links | `language_link`, `language_check` — only with terminal42/contao-changelanguage and core-bundle ≥ 1.4.0 |
+
+**Extension commands** are offered per user: a command appears when the user's module rights reach every table its contract names; a command that names no tables is admin-only; one that states something `irreversible` asks the user before it runs.
 
 Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use, and **delete** sub-tools are admin-only regardless of module membership. Per-record checks (page hierarchy, news-archive access, article parent-page, FAQ category access) run via Symfony voters (`ContaoCorePermissions::USER_CAN_*`) before each call.
 
