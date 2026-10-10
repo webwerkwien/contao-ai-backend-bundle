@@ -69,7 +69,7 @@ final class SelfCorrectingToolbox implements ToolboxInterface
                 throw $e;
             }
 
-            return new ToolResult($toolCall, self::tryAgain(self::describeArgumentTypeError($previous, $toolCall->getName())));
+            return new ToolResult($toolCall, self::tryAgain(self::describeArgumentTypeError($previous, $metadata, $toolCall->getName())));
         } catch (ToolNotFoundException $e) {
             // The same exception reports a registered tool whose object is missing
             // (Toolbox::getExecutable) — a defect, not the model's mistake.
@@ -89,9 +89,19 @@ final class SelfCorrectingToolbox implements ToolboxInterface
      * Whether $e is PHP refusing the arguments of the tool's own method — the
      * model's value reached the call unchecked — rather than a TypeError inside it.
      *
-     * For a userland call PHP throws in the callee's frame, so the top of the
-     * trace is the tool method itself. A TypeError further down names another
-     * function there.
+     * Recognised by PHP's own wording, bound to that method:
+     * `<DeclaringClass>::<method>(): Argument #n ($name) must be of type …, … given`.
+     * Only the error for the arguments of a call to exactly this method begins
+     * like that. Each part closes a hole the second pre-release review found:
+     *
+     * - A trace check was not enough. `count()`, `strlen()` and the like are
+     *   compiled to opcodes and get no frame of their own, so a bug of ours with
+     *   them in the tool method's body had the tool method on top of the trace —
+     *   but its message names `count()`.
+     * - A wrong return type also has the tool method on top; it says "Return
+     *   value", not "Argument".
+     * - The declaring class, not the tool's: an inherited `update()` is named
+     *   after its parent.
      */
     public static function isArgumentTypeError(?\Throwable $e, Tool $metadata): bool
     {
@@ -99,26 +109,34 @@ final class SelfCorrectingToolbox implements ToolboxInterface
             return false;
         }
 
-        $top = $e->getTrace()[0] ?? null;
-        if (null === $top) {
-            return false;
-        }
+        $pattern = self::argumentTypeErrorPattern($metadata);
 
-        return ($top['class'] ?? null) === $metadata->getReference()->getClass()
-            && $top['function'] === $metadata->getReference()->getMethod()
-            && 1 === preg_match(self::ARGUMENT_TYPE_ERROR, $e->getMessage());
+        return null !== $pattern && 1 === preg_match($pattern, $e->getMessage());
     }
 
-    private const ARGUMENT_TYPE_ERROR = '/Argument #\d+ \(\$(\w+)\) must be of type (.+?), (.+?) given/';
+    private static function argumentTypeErrorPattern(Tool $metadata): ?string
+    {
+        $method = $metadata->getReference()->getMethod();
+        try {
+            $declaring = (new \ReflectionMethod($metadata->getReference()->getClass(), $method))->getDeclaringClass()->getName();
+        } catch (\ReflectionException) {
+            return null;
+        }
+
+        // No ", called in" at the end: PHP leaves it out when the caller is internal
+        // (call_user_func, Reflection), and the method name already binds it.
+        return '/^' . preg_quote($declaring . '::' . $method, '/') . '\(\): Argument #\d+ \(\$(\w+)\) must be of type (.+?), (.+?) given/';
+    }
 
     /**
      * Our own sentence, not PHP's: that one names the class and the server path.
+     * Only called after isArgumentTypeError() matched.
      */
-    private static function describeArgumentTypeError(\TypeError $e, string $toolName): string
+    private static function describeArgumentTypeError(\TypeError $e, Tool $metadata, string $toolName): string
     {
-        preg_match(self::ARGUMENT_TYPE_ERROR, $e->getMessage(), $m);
+        preg_match((string) self::argumentTypeErrorPattern($metadata), $e->getMessage(), $m);
 
-        return \sprintf('Invalid value for parameter "%s" of tool "%s": must be of type %s, %s given.', $m[1], $toolName, $m[2], $m[3]);
+        return \sprintf('Invalid value for parameter "%s" of tool "%s": must be of type %s, %s given.', $m[1] ?? '?', $toolName, $m[2] ?? '?', $m[3] ?? '?');
     }
 
     private static function tryAgain(string $reason): string

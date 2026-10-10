@@ -151,8 +151,9 @@ class AgentRunErrorsTest extends TestCase
 
             return 'fertig';
         });
-        $toolbox    = new SelfCorrectingToolbox(new Toolbox([new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool(), new ProbeFieldsTool(), new ProbeTypeBugTool()]), $allowed);
-        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id', 'probe_fields', 'probe_type_bug']);
+        $tools      = [new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool(), new ProbeFieldsTool(), new ProbeTypeBugTool(), new ProbeCountBugTool(), new ProbeReturnBugTool(), new ProbeInheritedTool()];
+        $toolbox    = new SelfCorrectingToolbox(new Toolbox($tools), $allowed);
+        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id', 'probe_fields', 'probe_type_bug', 'probe_count_bug', 'probe_return_bug', 'probe_inherited']);
 
         return [AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'), $told];
     }
@@ -217,6 +218,39 @@ class AgentRunErrorsTest extends TestCase
         } catch (ToolboxExecutionException $e) {
             self::assertInstanceOf(\TypeError::class, $e->getPrevious());
         }
+    }
+
+    /**
+     * Second pre-release review: `\count()` is compiled to an opcode and gets no
+     * trace frame of its own, so a bug with it in the tool method had the tool
+     * method on top — and was handed to the model as its mistake.
+     */
+    public function testACountBugInTheToolMethodStaysADefect(): void
+    {
+        try {
+            $this->runCorrecting(new ToolCall('c1', 'probe_count_bug', ['fields' => ['items' => 'x']]), ['probe_count_bug']);
+            self::fail('expected the toolbox exception');
+        } catch (ToolboxExecutionException $e) {
+            self::assertStringContainsString('count()', $e->getPrevious()?->getMessage() ?? '');
+        }
+    }
+
+    public function testAWrongReturnTypeOfTheToolMethodStaysADefect(): void
+    {
+        try {
+            $this->runCorrecting(new ToolCall('c1', 'probe_return_bug', []), ['probe_return_bug']);
+            self::fail('expected the toolbox exception');
+        } catch (ToolboxExecutionException $e) {
+            self::assertStringContainsString('Return value', $e->getPrevious()?->getMessage() ?? '');
+        }
+    }
+
+    public function testAnInheritedToolMethodIsRecognisedToo(): void
+    {
+        [$answer, $told] = $this->runCorrecting(new ToolCall('c1', 'probe_inherited', ['fields' => 'x']), ['probe_inherited']);
+
+        self::assertSame('fertig', $answer);
+        self::assertStringContainsString('parameter "fields" of tool "probe_inherited"', (string) $told);
     }
 
     public function testARegisteredNameTheToolboxCannotFindIsADefectNotTheModelsMistake(): void
@@ -314,6 +348,45 @@ final class ProbeTypeBugTool
     {
         return (string) $id;
     }
+}
+
+#[AsTool('probe_count_bug', 'counts the wrong thing')]
+final class ProbeCountBugTool
+{
+    /** @param array<string, mixed> $fields */
+    public function __invoke(array $fields): string
+    {
+        // Fully qualified, so PHP compiles it to an opcode without a frame.
+        return (string) \count($fields['items']);
+    }
+}
+
+#[AsTool('probe_return_bug', 'returns the wrong type')]
+final class ProbeReturnBugTool
+{
+    public function __invoke(): string
+    {
+        return $this->fromOutside();
+    }
+
+    private function fromOutside(): mixed
+    {
+        return 42;
+    }
+}
+
+abstract class ProbeFieldsParent
+{
+    /** @param array<string, mixed> $fields */
+    public function __invoke(array $fields): string
+    {
+        return 'ok';
+    }
+}
+
+#[AsTool('probe_inherited', 'inherits its method')]
+final class ProbeInheritedTool extends ProbeFieldsParent
+{
 }
 
 #[AsTool('probe_foreign', 'throws what Contao might')]

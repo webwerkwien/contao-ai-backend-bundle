@@ -159,9 +159,12 @@ to the user. A registered name the toolbox cannot find is a lost tool object, ou
 fix, and stays an exception. symfony/ai's denormalizer does not check an `array`
 parameter — the six `*_update` tools take `array $fields` — so a string there fails as a
 `TypeError` when the tool method is called (measured on c5, symfony/ai 0.14.1). That one
-goes back to the model as well, recognised by the top of the trace being the tool method
-itself (`isArgumentTypeError()`); a `TypeError` deeper in our code stays a defect, and the
-model gets our own sentence, not PHP's (which names the server path). Argument errors are
+goes back to the model as well, recognised by PHP's wording for exactly that method —
+`<DeclaringClass>::<method>(): Argument #n (…) must be of type …` (`isArgumentTypeError()`).
+A trace check is not enough: `\count()`, `strlen()` and the like run as opcodes without a
+frame of their own, so a bug with them in the tool method's body also has the tool method
+on top. Any other `TypeError` — inside our code, a wrong return type — stays a defect, and
+the model gets our own sentence, not PHP's (which names the server path). Argument errors are
 logged at `info`, not `warning` (`ToolCallLogger`): they are the model's mistake, not the
 system's.
 

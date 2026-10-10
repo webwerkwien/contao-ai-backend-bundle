@@ -59,6 +59,31 @@ class ToolCallLoggerTest extends TestCase
         $this->assertSame(['info', 'warning'], $this->levels);
     }
 
+    /**
+     * The other form of the same mistake: a string for an `array` parameter, which
+     * PHP rejects at the call. Logged with the raw TypeError, before the toolbox
+     * wraps it — info as well.
+     */
+    public function testAStringForAnArrayParameterIsNoWarningEither(): void
+    {
+        try {
+            $unreached = (new LoggerProbeTool())->update(self::fromOutside());
+            self::fail('expected a TypeError, got ' . $unreached);
+        } catch (\TypeError $error) {
+        }
+
+        $listener = new ToolCallLogger($this->logger());
+        $listener->onFailed(new ToolCallFailed(new LoggerProbeTool(),
+            new Tool(new ExecutionReference(LoggerProbeTool::class, 'update'), 'probe_update', 'd'), [], $error));
+
+        $this->assertSame(['info'], $this->levels);
+    }
+
+    private static function fromOutside(): mixed
+    {
+        return 'title=x';
+    }
+
     private function metadata(string $name): Tool
     {
         return new Tool(new ExecutionReference('SomeTool'), $name, 'description');
@@ -118,5 +143,14 @@ class ToolCallLoggerTest extends TestCase
         ));
 
         $this->assertSame(['page_update'], $listener->getToolNames());
+    }
+}
+
+final class LoggerProbeTool
+{
+    /** @param array<string, mixed> $fields */
+    public function update(array $fields): string
+    {
+        return 'ok';
     }
 }
