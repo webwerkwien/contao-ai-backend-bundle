@@ -14,9 +14,12 @@ to now.
   that do not fit a tool (a missing parameter, a string where a number belongs) and a tool
   name that does not exist used to end the chat as `agent_failed`, with a bug report,
   although nothing was broken. The model now gets the reason as the tool's answer —
-  for an invented name with the tools this user may call — and calls again. A refusal, a
-  denied permission and a crash still end the turn; the run stays bounded by the agent's
-  50 tool calls.
+  for an invented name with the tools this user may call — and calls again. That includes
+  `fields` sent as a string to one of the six `*_update` tools, which symfony/ai passes on
+  unchecked and PHP rejects at the call; the model gets our own sentence, not PHP's with
+  the server path. A refusal, a denied permission and a crash still end the turn; the run
+  stays bounded by the agent's 50 tool calls. Such argument errors are logged at `info`
+  rather than as a warning.
 - **A crash inside a core command is `tool_failed` with a report**, no longer a scrubbed
   `tool_refused` without one. core-bundle v1.3.0 marks it with `exception`.
 

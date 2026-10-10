@@ -151,8 +151,8 @@ class AgentRunErrorsTest extends TestCase
 
             return 'fertig';
         });
-        $toolbox    = new SelfCorrectingToolbox(new Toolbox([new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool()]), $allowed);
-        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id']);
+        $toolbox    = new SelfCorrectingToolbox(new Toolbox([new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool(), new ProbeFieldsTool(), new ProbeTypeBugTool()]), $allowed);
+        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id', 'probe_fields', 'probe_type_bug']);
 
         return [AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'), $told];
     }
@@ -188,6 +188,35 @@ class AgentRunErrorsTest extends TestCase
         $this->expectException(ToolAccessDeniedException::class);
 
         $this->runCorrecting(new ToolCall('c1', 'probe_refused'), ['probe_ok']);
+    }
+
+    /**
+     * symfony/ai does not check an `array` parameter; a string for `fields` fails as a
+     * TypeError at the call (measured on c5, page_update, 2026-10-10). PHP's own text
+     * names the server path — the model gets ours.
+     */
+    public function testAStringForAnArrayParameterGoesBackToTheModelWithoutAPath(): void
+    {
+        [$answer, $told] = $this->runCorrecting(new ToolCall('c1', 'probe_fields', ['fields' => '{"title":"x"}']), ['probe_fields']);
+
+        self::assertSame('fertig', $answer);
+        self::assertStringContainsString('Invalid value for parameter "fields" of tool "probe_fields": must be of type array, string given.', (string) $told);
+        self::assertStringNotContainsString('.php', (string) $told);
+        self::assertStringNotContainsString('Probe', (string) $told, 'no class name either');
+    }
+
+    /**
+     * A TypeError inside the tool is ours to fix — the same exception class, one
+     * frame further down.
+     */
+    public function testATypeErrorInsideTheToolStaysADefect(): void
+    {
+        try {
+            $this->runCorrecting(new ToolCall('c1', 'probe_type_bug', []), ['probe_type_bug']);
+            self::fail('expected the toolbox exception');
+        } catch (ToolboxExecutionException $e) {
+            self::assertInstanceOf(\TypeError::class, $e->getPrevious());
+        }
     }
 
     public function testARegisteredNameTheToolboxCannotFindIsADefectNotTheModelsMistake(): void
@@ -253,6 +282,37 @@ final class ProbeNeedsIdTool
     public function __invoke(int $id): string
     {
         return 'Seite ' . $id;
+    }
+}
+
+#[AsTool('probe_fields', 'takes fields like the *_update tools')]
+final class ProbeFieldsTool
+{
+    /** @param array<string, mixed> $fields */
+    public function __invoke(array $fields): string
+    {
+        return 'ok';
+    }
+}
+
+#[AsTool('probe_type_bug', 'has a type bug inside')]
+final class ProbeTypeBugTool
+{
+    public function __invoke(): string
+    {
+        // A string where our own helper wants an int — a bug in the tool, not in
+        // the model's call. The value comes from "outside", as decoded data does.
+        return $this->helper($this->fromOutside());
+    }
+
+    private function fromOutside(): mixed
+    {
+        return 'not an int';
+    }
+
+    private function helper(int $id): string
+    {
+        return (string) $id;
     }
 }
 

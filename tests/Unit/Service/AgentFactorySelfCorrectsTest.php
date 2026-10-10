@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\AI\Platform\Message\ToolCallMessage;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Result\ToolCallResult;
 use Symfony\AI\Platform\Test\InMemoryPlatform;
@@ -29,18 +30,29 @@ class AgentFactorySelfCorrectsTest extends TestCase
     public function testAnInventedToolNameDoesNotEndTheTurn(): void
     {
         $calls    = 0;
-        $platform = new InMemoryPlatform(static function () use (&$calls) {
-            return 0 === $calls++ ? new ToolCallResult([new ToolCall('c1', 'page_invented')]) : 'fertig';
+        $told     = null;
+        $platform = new InMemoryPlatform(static function ($model, $input) use (&$calls, &$told) {
+            if (0 === $calls++) {
+                return new ToolCallResult([new ToolCall('c1', 'page_invented')]);
+            }
+            foreach ($input->getMessages() as $message) {
+                if ($message instanceof ToolCallMessage) {
+                    $told = $message->asText();
+                }
+            }
+
+            return 'fertig';
         });
 
         $resolver = $this->createMock(PlatformResolver::class);
         $resolver->method('resolve')->willReturn(new ResolvedPlatform($platform, 'probe-model', new PlatformDescriptor('probe', 'Probe', null, 'probe/probe')));
         $access = $this->createMock(ToolAccessChecker::class);
-        $access->method('listAllowedTools')->willReturn([]);
+        $access->method('listAllowedTools')->willReturn(['page_list', 'page_read']);
 
         $factory    = new AgentFactory([], $resolver, $this->createMock(SystemPromptProvider::class), $access, $this->createMock(EventDispatcherInterface::class), new NullLogger());
         $invocation = $factory->createForUser($this->createMock(BackendUser::class));
 
         self::assertSame('fertig', AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'));
+        self::assertStringContainsString('page_list, page_read', (string) $told, 'the names come from the access checker');
     }
 }

@@ -132,9 +132,11 @@ class AiStreamController extends AbstractController
         } catch (ToolNotFoundException $e) {
             // The same exception comes from the toolbox for a name no tool has —
             // one the model invented. Since v0.12.0 SelfCorrectingToolbox answers
-            // that to the model, so what still arrives here unregistered is a
-            // toolbox that lost a tool's object: agent_failed. Only a registered
-            // name is a refused permission (review W2).
+            // that to the model and it never gets here. What can still arrive is a
+            // toolbox that lost a tool's object (Toolbox::getExecutable): that
+            // exception carries no tool call, isRestrictedToolCall() says false,
+            // and it stays agent_failed. Only a registered name in a refused call
+            // is a permission matter (review W2).
             if (self::isRestrictedToolCall($e, $invocation->registeredToolNames)) {
                 throw new ToolAccessDeniedException($toolNotAllowed, 0, $e);
             }

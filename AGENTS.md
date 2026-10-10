@@ -156,7 +156,14 @@ no tool has come back to the model as the tool's result, with the user's tool na
 the model calls again. Both used to end the chat as `agent_failed` with a bug report.
 Everything else still ends the turn: a refusal, a denied permission and a crash belong
 to the user. A registered name the toolbox cannot find is a lost tool object, ours to
-fix, and stays an exception.
+fix, and stays an exception. symfony/ai's denormalizer does not check an `array`
+parameter — the six `*_update` tools take `array $fields` — so a string there fails as a
+`TypeError` when the tool method is called (measured on c5, symfony/ai 0.14.1). That one
+goes back to the model as well, recognised by the top of the trace being the tool method
+itself (`isArgumentTypeError()`); a `TypeError` deeper in our code stays a defect, and the
+model gets our own sentence, not PHP's (which names the server path). Argument errors are
+logged at `info`, not `warning` (`ToolCallLogger`): they are the model's mistake, not the
+system's.
 
 **A refusal and a crash from the core are told apart by `exception`** (core-bundle
 v1.3.0): an error answer that carries it — or an entry of a bulk update's `errors` that

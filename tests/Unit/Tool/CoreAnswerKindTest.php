@@ -98,6 +98,17 @@ class CoreAnswerKindTest extends TestCase
         }
     }
 
+    public function testAtMostFiveReasonsAreNamed(): void
+    {
+        $errors = array_map(static fn (int $id): array => ['id' => $id, 'message' => "Page not found: $id"], range(1, 7));
+
+        $message = AbstractCoreCommandTool::failureMessage(['status' => 'partial', 'total' => 7, 'failed' => 7, 'errors' => $errors]);
+
+        self::assertStringContainsString('5: Page not found: 5', $message);
+        self::assertStringNotContainsString('6: Page not found', $message);
+        self::assertStringEndsWith('… und 2 weitere', $message);
+    }
+
     public function testAPartialBulkUpdateWithACrashedRecordIsADefect(): void
     {
         $this->expectException(ToolExecutionException::class);

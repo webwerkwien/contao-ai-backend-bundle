@@ -149,8 +149,9 @@ last two carry `report`, a ready-to-forward Markdown block.
 
 Since v0.12.0 a crash inside a core command is `tool_failed` rather than `tool_refused`
 (with contao-ai-core-bundle v1.3.0 or later, which marks it). Two mistakes of the model
-never reach the chat at all: arguments that do not fit a tool and a tool name that does
-not exist go back to the model, which calls again.
+go back to the model, which calls again, instead of ending the chat: arguments that do
+not fit a tool (a missing parameter, a value the tool's types reject) and a tool name
+that does not exist.
 
 **Who sees what is decided server-side, at the moment the event is emitted.** An
 admin receives the full report including the (masked) exception message; anyone

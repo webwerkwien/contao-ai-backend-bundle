@@ -6,8 +6,10 @@ use Psr\Log\LoggerInterface;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallFailed;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallRequested;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallSucceeded;
+use Symfony\AI\Agent\Toolbox\Exception\InvalidToolCallArgumentsException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
 use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
 
 /**
@@ -139,7 +141,14 @@ class ToolCallLogger implements EventSubscriberInterface
 
     public function onFailed(ToolCallFailed $event): void
     {
-        $this->logger->warning(sprintf(
+        // Arguments that do not fit the tool are the model's mistake, handed back to
+        // it by SelfCorrectingToolbox (v0.12.0) -- not a failure of this system, so
+        // they do not belong among the warnings in the system log.
+        $exception = $event->getException();
+        $level     = $exception instanceof InvalidToolCallArgumentsException
+            || SelfCorrectingToolbox::isArgumentTypeError($exception, $event->getDefinition()) ? 'info' : 'warning';
+
+        $this->logger->log($level, sprintf(
             'contao-ai-backend tool failed: %s (%s)',
             $event->getDefinition()->getName(),
             $event->getException()::class,

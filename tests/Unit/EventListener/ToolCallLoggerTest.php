@@ -29,10 +29,34 @@ class ToolCallLoggerTest extends TestCase
         $logger->method('warning')->willReturnCallback(
             function (string $message) : void {
                 $this->messages[] = $message;
+                $this->levels[]   = 'warning';
+            }
+        );
+        $logger->method('log')->willReturnCallback(
+            function (string $level, string $message) : void {
+                $this->messages[] = $message;
+                $this->levels[]   = $level;
             }
         );
 
         return $logger;
+    }
+
+    /** @var list<string> */
+    private array $levels = [];
+
+    /**
+     * v0.12.0: arguments that do not fit the tool are the model's mistake, handed
+     * back to it — info, not a warning in the system log. A real failure stays one.
+     */
+    public function testTheModelsArgumentMistakeIsNoWarning(): void
+    {
+        $listener = new ToolCallLogger($this->logger());
+        $listener->onFailed(new ToolCallFailed(new \stdClass(), $this->metadata('page_read'), [],
+            new \Symfony\AI\Agent\Toolbox\Exception\InvalidToolCallArgumentsException('Parameter "id" is mandatory for tool "page_read".')));
+        $listener->onFailed(new ToolCallFailed(new \stdClass(), $this->metadata('page_read'), [], new \RuntimeException('nope')));
+
+        $this->assertSame(['info', 'warning'], $this->levels);
     }
 
     private function metadata(string $name): Tool

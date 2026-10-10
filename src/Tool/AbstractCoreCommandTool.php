@@ -332,12 +332,14 @@ abstract class AbstractCoreCommandTool
         return "<tool_output_data tool=\"{$toolName}\">\n{$json}\n</tool_output_data>";
     }
 
+    private const MAX_REASONS = 5;
+
     /**
      * What went wrong, in one line — also for answers without a `message`.
      *
      * A bulk update with `--ids` answers `status: partial` with the reasons per
      * record in `errors` and no `message`; this used to read "unbekannter Fehler"
-     * and drop every reason (review H4, 2026-10-09).
+     * and drop every reason (review H4, 2026-10-09). At most five reasons.
      *
      * @param array<mixed> $decoded
      */
@@ -359,11 +361,16 @@ abstract class AbstractCoreCommandTool
             }
         }
 
+        // Five are enough to see the pattern; a bulk update of 174 records with a
+        // database error each would otherwise be tens of KB in tl_log and the bridge.
+        $more = \count($reasons) - self::MAX_REASONS;
+
         return \sprintf(
-            '%d von %d nicht geändert — %s',
+            '%d von %d nicht geändert — %s%s',
             (int) ($decoded['failed'] ?? \count($errors)),
             (int) ($decoded['total'] ?? \count($errors)),
-            implode('; ', $reasons),
+            implode('; ', \array_slice($reasons, 0, self::MAX_REASONS)),
+            $more > 0 ? \sprintf(' … und %d weitere', $more) : '',
         );
     }
 
