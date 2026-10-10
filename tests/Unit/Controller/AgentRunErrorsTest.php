@@ -10,6 +10,7 @@ use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\AI\Platform\Message\ToolCallMessage;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Result\ToolCallResult;
 use Symfony\AI\Platform\Test\InMemoryPlatform;
@@ -18,6 +19,7 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentInvocation;
+use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
 
 /**
  * What a failing run hands the chat's catch blocks — measured with a real Agent,
@@ -124,6 +126,82 @@ class AgentRunErrorsTest extends TestCase
         $this->runProbe('probe_invented', self::ALL);
     }
 
+    // --- v0.12.0: the model's own mistakes go back to the model ---------------------
+
+    /**
+     * Two model rounds through SelfCorrectingToolbox: the first calls $call, the
+     * second sees the tool message and answers "fertig".
+     *
+     * @param list<string> $allowed
+     * @return array{string, ?string} the run's answer and what the model was told
+     */
+    private function runCorrecting(ToolCall $call, array $allowed): array
+    {
+        $told     = null;
+        $calls    = 0;
+        $platform = new InMemoryPlatform(static function ($model, $input) use (&$calls, &$told, $call) {
+            if (0 === $calls++) {
+                return new ToolCallResult([$call]);
+            }
+            foreach ($input->getMessages() as $message) {
+                if ($message instanceof ToolCallMessage) {
+                    $told = $message->asText();
+                }
+            }
+
+            return 'fertig';
+        });
+        $toolbox    = new SelfCorrectingToolbox(new Toolbox([new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool()]), $allowed);
+        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id']);
+
+        return [AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'), $told];
+    }
+
+    public function testInvalidArgumentsGoBackToTheModelInsteadOfEndingTheTurn(): void
+    {
+        [$answer, $told] = $this->runCorrecting(new ToolCall('c1', 'probe_needs_id', []), ['probe_needs_id']);
+
+        self::assertSame('fertig', $answer, 'the turn went on instead of agent_failed');
+        self::assertStringContainsString('Parameter "id" is mandatory', (string) $told);
+        self::assertStringContainsString('call it again', (string) $told);
+    }
+
+    public function testAnInventedNameGetsTheUsersToolsNotTheWholeToolbox(): void
+    {
+        [$answer, $told] = $this->runCorrecting(new ToolCall('c1', 'probe_invented'), ['probe_ok', 'probe_needs_id']);
+
+        self::assertSame('fertig', $answer);
+        self::assertStringContainsString('There is no tool "probe_invented"', (string) $told);
+        self::assertStringContainsString('probe_ok, probe_needs_id', (string) $told);
+        self::assertStringNotContainsString('probe_refused', (string) $told, 'registered, but not this user\'s');
+    }
+
+    public function testARefusalStillEndsTheTurn(): void
+    {
+        $this->expectException(ToolRefusedException::class);
+
+        $this->runCorrecting(new ToolCall('c1', 'probe_refused'), ['probe_refused']);
+    }
+
+    public function testARegisteredToolTheRunLeftOutIsStillAccessDenied(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+
+        $this->runCorrecting(new ToolCall('c1', 'probe_refused'), ['probe_ok']);
+    }
+
+    public function testARegisteredNameTheToolboxCannotFindIsADefectNotTheModelsMistake(): void
+    {
+        $tool  = new \Symfony\AI\Platform\Tool\Tool(new \Symfony\AI\Platform\Tool\ExecutionReference(ProbeOkTool::class), 'probe_ok', 'works');
+        $inner = $this->createMock(\Symfony\AI\Agent\Toolbox\ToolboxInterface::class);
+        $inner->method('getTools')->willReturn([$tool]);
+        $inner->method('execute')->willThrowException(new ToolNotFoundException('Tool not found for reference: ProbeOkTool::__invoke.'));
+
+        $this->expectException(ToolNotFoundException::class);
+
+        (new SelfCorrectingToolbox($inner, ['probe_ok']))->execute(new ToolCall('c1', 'probe_ok'));
+    }
+
     public function testTheControllerRunsTheAgentThroughIt(): void
     {
         $source = (string) file_get_contents(__DIR__ . '/../../../src/Controller/AiStreamController.php');
@@ -166,6 +244,15 @@ final class ProbeOkTool
     public function __invoke(): string
     {
         return 'ok';
+    }
+}
+
+#[AsTool('probe_needs_id', 'needs an id')]
+final class ProbeNeedsIdTool
+{
+    public function __invoke(int $id): string
+    {
+        return 'Seite ' . $id;
     }
 }
 

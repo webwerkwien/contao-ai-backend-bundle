@@ -147,6 +147,11 @@ The first two are *answers* and carry no report — offering to report them woul
 train users to send noise and bury the two cases that are genuinely defects. The
 last two carry `report`, a ready-to-forward Markdown block.
 
+Since v0.12.0 a crash inside a core command is `tool_failed` rather than `tool_refused`
+(with contao-ai-core-bundle v1.3.0 or later, which marks it). Two mistakes of the model
+never reach the chat at all: arguments that do not fit a tool and a tool name that does
+not exist go back to the model, which calls again.
+
 **Who sees what is decided server-side, at the moment the event is emitted.** An
 admin receives the full report including the (masked) exception message; anyone
 else receives the summary with the message stripped, so the H-6 guarantee — the

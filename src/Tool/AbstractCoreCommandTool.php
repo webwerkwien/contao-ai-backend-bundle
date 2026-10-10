@@ -297,7 +297,15 @@ abstract class AbstractCoreCommandTool
         }
 
         if (Command::SUCCESS !== $exitCode || ($decoded['status'] ?? null) === 'error') {
-            $message = $decoded['message'] ?? 'unbekannter Fehler';
+            $message = self::failureMessage($decoded);
+
+            // core-bundle v1.3.0 names a defect: `exception` on the answer, or on an
+            // entry of a bulk update's `errors`. That is a crash, not a refusal —
+            // tool_failed with a report. An older core never sends the field, and
+            // everything stays a refusal as before.
+            if (self::isDefect($decoded)) {
+                throw new ToolExecutionException(\sprintf('Tool "%s" fehlgeschlagen: %s', $toolName, $message));
+            }
 
             // 🔴 Gefunden am 2026-09-02: hier stand `ToolExecutionException`, und
             // damit wurde eine falsche ID zu HTTP 500. Ein nicht vorhandener
@@ -322,6 +330,61 @@ abstract class AbstractCoreCommandTool
         }
 
         return "<tool_output_data tool=\"{$toolName}\">\n{$json}\n</tool_output_data>";
+    }
+
+    /**
+     * What went wrong, in one line — also for answers without a `message`.
+     *
+     * A bulk update with `--ids` answers `status: partial` with the reasons per
+     * record in `errors` and no `message`; this used to read "unbekannter Fehler"
+     * and drop every reason (review H4, 2026-10-09).
+     *
+     * @param array<mixed> $decoded
+     */
+    public static function failureMessage(array $decoded): string
+    {
+        if (isset($decoded['message']) && \is_string($decoded['message']) && '' !== $decoded['message']) {
+            return $decoded['message'];
+        }
+
+        $errors = \is_array($decoded['errors'] ?? null) ? $decoded['errors'] : [];
+        if ([] === $errors) {
+            return 'unbekannter Fehler';
+        }
+
+        $reasons = [];
+        foreach ($errors as $error) {
+            if (\is_array($error)) {
+                $reasons[] = \sprintf('%s: %s', (string) ($error['id'] ?? '?'), (string) ($error['message'] ?? 'unbekannter Fehler'));
+            }
+        }
+
+        return \sprintf(
+            '%d von %d nicht geändert — %s',
+            (int) ($decoded['failed'] ?? \count($errors)),
+            (int) ($decoded['total'] ?? \count($errors)),
+            implode('; ', $reasons),
+        );
+    }
+
+    /**
+     * Whether the core marked the failure as a defect (core-bundle v1.3.0).
+     *
+     * @param array<mixed> $decoded
+     */
+    public static function isDefect(array $decoded): bool
+    {
+        if (isset($decoded['exception'])) {
+            return true;
+        }
+
+        foreach (\is_array($decoded['errors'] ?? null) ? $decoded['errors'] : [] as $error) {
+            if (\is_array($error) && isset($error['exception'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

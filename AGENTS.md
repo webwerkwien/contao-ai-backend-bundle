@@ -149,6 +149,23 @@ wrapped and is a defect. Since symfony/ai 0.14 a call of a registered tool the r
 exception the toolbox throws for a name no tool has; only the first is a refused
 permission (`isRestrictedToolCall()`).
 
+**The model's own mistakes go back to the model** (v0.12.0). `AgentFactory` wraps the
+toolbox in `SelfCorrectingToolbox`: arguments that do not fit a tool
+(`InvalidToolCallArgumentsException` — a missing parameter, a wrong type) and a tool name
+no tool has come back to the model as the tool's result, with the user's tool names, and
+the model calls again. Both used to end the chat as `agent_failed` with a bug report.
+Everything else still ends the turn: a refusal, a denied permission and a crash belong
+to the user. A registered name the toolbox cannot find is a lost tool object, ours to
+fix, and stays an exception.
+
+**A refusal and a crash from the core are told apart by `exception`** (core-bundle
+v1.3.0): an error answer that carries it — or an entry of a bulk update's `errors` that
+does — is `ToolExecutionException` (`tool_failed` with a report); without it, it stays
+`ToolRefusedException`. An older core never sends the field, so everything stays a
+refusal there, as before. An answer without `message` (a bulk update's `status:
+partial`) is told from its `errors`: "2 von 3 nicht geändert — 7: …; 9: …"
+(`AbstractCoreCommandTool::failureMessage()`).
+
 > Anything about what reaches the chat is tested with a real agent:
 > `AgentRunErrorsTest` runs `Agent`, `Toolbox` and `Runner` against
 > `Symfony\AI\Platform\Test\InMemoryPlatform`, which scripts the model's answers —

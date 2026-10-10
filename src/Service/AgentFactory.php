@@ -48,18 +48,20 @@ class AgentFactory
         // tool invocation. Without this, a chat that "looks successful" but
         // skipped tool calls (LLM extrapolating from prior outputs) is
         // indistinguishable from a real run in the SSE response alone.
-        $toolbox  = new Toolbox(
+        $allowedToolNames = $this->accessChecker->listAllowedTools($user);
+
+        // Invalid arguments and invented names go back to the model, which can
+        // call again; refusals, denials and crashes still end the turn (v0.12.0).
+        $toolbox  = new SelfCorrectingToolbox(new Toolbox(
             tools: $allowedTools,
             logger: $this->logger,
             eventDispatcher: $this->eventDispatcher,
-        );
+        ), $allowedToolNames);
         // symfony/ai 0.13 removed Toolbox\AgentProcessor: tool calling is no
         // longer wired as an input/output processor pair, the Agent drives the
         // loop itself and takes the toolbox directly. maxToolCalls defaults to
         // 50 since 0.10 — bounded by default, which it was not before.
         $agent = new Agent($platform, $model, toolbox: $toolbox);
-
-        $allowedToolNames = $this->accessChecker->listAllowedTools($user);
 
         // Every name in the toolbox, admin-only sub-tools included — what tells a
         // refused permission from an invented name (review W2).

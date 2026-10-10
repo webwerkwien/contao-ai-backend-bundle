@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.12.0 — 2026-10-10
+
+Works with every contao-ai-core-bundle it worked with before. The crash-or-refusal split
+needs core-bundle **v1.3.0**; with an older core every core error stays a refusal, as up
+to now.
+
+### Changed
+
+- **The model's own mistakes go back to the model instead of ending the turn.** Arguments
+  that do not fit a tool (a missing parameter, a string where a number belongs) and a tool
+  name that does not exist used to end the chat as `agent_failed`, with a bug report,
+  although nothing was broken. The model now gets the reason as the tool's answer —
+  for an invented name with the tools this user may call — and calls again. A refusal, a
+  denied permission and a crash still end the turn; the run stays bounded by the agent's
+  50 tool calls.
+- **A crash inside a core command is `tool_failed` with a report**, no longer a scrubbed
+  `tool_refused` without one. core-bundle v1.3.0 marks it with `exception`.
+
+### Fixed
+
+- **A bulk update that partly failed named no reason** — "unbekannter Fehler". Its answer
+  carries the reasons per record in `errors` and no `message`; they are now joined into
+  the refusal: "2 von 3 nicht geändert — 7: …; 9: …". No chat tool sends `--ids` today, so
+  this is a gap closed before anything could fall into it.
+
 ## v0.11.0 — 2026-10-09
 
 Needs no newer contao-ai-core-bundle. **Requires `symfony/ai` 0.14** (was 0.13); a
