@@ -82,6 +82,11 @@ class ToolAccessChecker
         // gates them.
         'search_query'   => ['module' => 'page', 'op' => 'read'],
         'listing_config' => ['module' => 'page', 'op' => 'read'],
+        // v0.13.0: extension commands. No fixed module — ExtTool offers a command
+        // only when the user has the modules of every table its contract names
+        // (TableAccess), and admins only when it names none.
+        'ext_list'       => ['module' => '*', 'op' => 'read'],
+        'ext_run'        => ['module' => '*', 'op' => 'macro'],
     ];
 
     /**

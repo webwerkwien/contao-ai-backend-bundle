@@ -279,7 +279,20 @@ abstract class AbstractCoreCommandTool
             throw new ToolExecutionException(\sprintf('Tool "%s" konnte nicht ausgeführt werden: %s', $toolName, $e->getMessage()), 0, $e);
         }
 
-        $raw = trim($output->fetch());
+        return $this->answer($exitCode, $output->fetch(), $toolName);
+    }
+
+    /**
+     * A command's JSON answer as the tool's output: a refusal or a defect thrown as
+     * such, strings truncated, the rest wrapped in the sentinel (v0.13.0: shared with
+     * the tools that run commands through ConsoleRunner).
+     *
+     * @throws ToolExecutionException
+     * @throws ToolRefusedException
+     */
+    protected function answer(int $exitCode, string $output, string $toolName): string
+    {
+        $raw = trim($output);
 
         try {
             $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
