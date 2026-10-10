@@ -193,6 +193,21 @@ class ExtToolTest extends TestCase
         $this->assertSame([], array_filter($this->runs, static fn (array $r): bool => 'contao:ai:run' === $r['command']));
     }
 
+    /**
+     * A refusal that Symfony also logs puts a log line before the JSON in the same
+     * output (consho:connect:products without --root, c5).
+     */
+    public function testTheJsonAfterALogLineIsTheAnswer(): void
+    {
+        $output = "13:40:22 CRITICAL  [console] Error thrown while running command \"consho:connect:products\".\n"
+            . '{"status":"error","message":"InvalidArgumentException: --root must be a start point id.","code":1}';
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('--root must be a start point id.');
+
+        $this->tool($this->user(true), $this->console($output))->runCommandLine('consho:connect:products');
+    }
+
     public function testATextAnswerComesBackAsText(): void
     {
         $answer = self::decode($this->tool($this->user(true), $this->console('Done: 3 feeds written.'))->runCommandLine('acme:sync'));

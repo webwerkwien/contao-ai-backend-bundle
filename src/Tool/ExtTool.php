@@ -155,16 +155,38 @@ class ExtTool extends AbstractCoreCommandTool
             throw new ToolExecutionException(\sprintf('Tool "ext_run" fehlgeschlagen: %s', $e->getMessage()), 0, $e);
         }
 
-        // A foreign command need not answer in JSON; its text comes back as text.
-        if (!\is_array(json_decode(trim($output), true))) {
-            $output = (string) json_encode([
-                'status'  => 0 === $code ? 'ok' : 'error',
-                'message' => 0 === $code ? null : 'exit code ' . $code,
-                'output'  => trim($output),
-            ], self::JSON_FLAGS);
+        return $this->answer($code, self::jsonOf($code, $output), 'ext_run');
+    }
+
+    /**
+     * The command's JSON answer, or its text as one.
+     *
+     * A foreign command need not answer in JSON, and where it does, a log line can stand
+     * before it in the same output (a refusal that Symfony also logs as console.CRITICAL,
+     * measured on c5 with consho:connect:products). The last line that is a JSON object
+     * is the answer; without one, the text is, and on failure also the message.
+     */
+    private static function jsonOf(int $code, string $output): string
+    {
+        $text = trim($output);
+
+        if (\is_array(json_decode($text, true))) {
+            return $text;
         }
 
-        return $this->answer($code, $output, 'ext_run');
+        foreach (array_reverse(preg_split('/\R/', $text) ?: []) as $line) {
+            $line = trim($line);
+
+            if (str_starts_with($line, '{') && \is_array(json_decode($line, true))) {
+                return $line;
+            }
+        }
+
+        return (string) json_encode([
+            'status'  => 0 === $code ? 'ok' : 'error',
+            'message' => 0 === $code ? null : (mb_substr($text, 0, 500) ?: 'exit code ' . $code),
+            'output'  => $text,
+        ], self::JSON_FLAGS);
     }
 
     /**
