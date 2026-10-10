@@ -30,6 +30,8 @@ class SystemPromptProvider
         'record_clone',
         'record_rewrite',
         'dca_schema', 'listing_config', 'search_query',
+        'ext_list', 'ext_run',
+        'language_link', 'language_check',
     ];
 
     /**
