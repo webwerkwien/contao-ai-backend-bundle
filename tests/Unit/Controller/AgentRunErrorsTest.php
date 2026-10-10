@@ -17,6 +17,7 @@ use Symfony\AI\Platform\Test\InMemoryPlatform;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentInvocation;
 use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
@@ -151,9 +152,9 @@ class AgentRunErrorsTest extends TestCase
 
             return 'fertig';
         });
-        $tools      = [new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool(), new ProbeFieldsTool(), new ProbeTypeBugTool(), new ProbeCountBugTool(), new ProbeReturnBugTool(), new ProbeInheritedTool()];
+        $tools      = [new ProbeRefusedTool(), new ProbeOkTool(), new ProbeNeedsIdTool(), new ProbeFieldsTool(), new ProbeTypeBugTool(), new ProbeCountBugTool(), new ProbeReturnBugTool(), new ProbeInheritedTool(), new ProbeMistakeTool()];
         $toolbox    = new SelfCorrectingToolbox(new Toolbox($tools), $allowed);
-        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id', 'probe_fields', 'probe_type_bug', 'probe_count_bug', 'probe_return_bug', 'probe_inherited']);
+        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: $toolbox), 'system', 'probe-model', $allowed, ['probe_refused', 'probe_ok', 'probe_needs_id', 'probe_fields', 'probe_type_bug', 'probe_count_bug', 'probe_return_bug', 'probe_inherited', 'probe_mistake']);
 
         return [AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'), $told];
     }
@@ -175,6 +176,20 @@ class AgentRunErrorsTest extends TestCase
         self::assertStringContainsString('There is no tool "probe_invented"', (string) $told);
         self::assertStringContainsString('probe_ok, probe_needs_id', (string) $told);
         self::assertStringNotContainsString('probe_refused', (string) $told, 'registered, but not this user\'s');
+    }
+
+    /**
+     * The chat test on c5 (2026-10-10): the model invented `product:list` for ext_run,
+     * the refusal ended the turn. A value the tool itself names as the model's
+     * mistake goes back to the model like a wrong parameter.
+     */
+    public function testAMistakeTheToolNamesGoesBackToTheModel(): void
+    {
+        [$answer, $told] = $this->runCorrecting(new ToolCall('c1', 'probe_mistake'), ['probe_mistake']);
+
+        self::assertSame('fertig', $answer, 'the turn went on');
+        self::assertStringContainsString('"product:list" is no command this user may run here', (string) $told);
+        self::assertStringContainsString('call it again', (string) $told);
     }
 
     public function testARefusalStillEndsTheTurn(): void
@@ -280,6 +295,15 @@ final class ProbeRefusedTool
     public function __invoke(): string
     {
         throw new ToolRefusedException('Seite 9 nicht gefunden.');
+    }
+}
+
+#[AsTool('probe_mistake', 'names the model\'s mistake')]
+final class ProbeMistakeTool
+{
+    public function __invoke(): string
+    {
+        throw new ToolCallMistakeException('"product:list" is no command this user may run here. Available: consho:connect:products.');
     }
 }
 

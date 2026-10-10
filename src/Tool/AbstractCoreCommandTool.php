@@ -331,7 +331,11 @@ abstract class AbstractCoreCommandTool
             // Fehlerobjekt geliefert hat: er lief, verstand die Anfrage und hat
             // sie abgelehnt. Das ist eine Aussage an den Aufrufer, kein Defekt.
             // Siehe ToolRefusedException für die Grenze und ihren Preis.
-            throw new ToolRefusedException(\sprintf('Tool "%s" abgelehnt: %s', $toolName, $message));
+            //
+            // Der Core stellt jeder Meldung die Klasse voran (JsonErrorBoundary);
+            // bei einer Ablehnung ist das immer `InvalidArgumentException:` und
+            // sagt einem Redakteur nichts (Chat-Test auf c5, 2026-10-10).
+            throw new ToolRefusedException(\sprintf('Tool "%s" abgelehnt: %s', $toolName, self::withoutRefusalClass($message)));
         }
 
         $decoded = $this->truncateStrings($decoded);
@@ -346,6 +350,14 @@ abstract class AbstractCoreCommandTool
     }
 
     private const MAX_REASONS = 5;
+
+    /**
+     * A refusal's message without the class the core puts in front of it.
+     */
+    public static function withoutRefusalClass(string $message): string
+    {
+        return str_starts_with($message, 'InvalidArgumentException: ') ? substr($message, \strlen('InvalidArgumentException: ')) : $message;
+    }
 
     /**
      * What went wrong, in one line — also for answers without a `message`.

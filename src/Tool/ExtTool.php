@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\TableAccess;
@@ -116,8 +117,11 @@ class ExtTool extends AbstractCoreCommandTool
         $options   = $this->asArray($options);
         $available = $this->available($user);
 
+        // The model's mistake, handed back to it (SelfCorrectingToolbox): in the chat
+        // test it invented `product:list`. The wording is the same for a command that
+        // exists but is not this user's — it does not tell which.
         if (!isset($available[$command])) {
-            throw new ToolRefusedException(\sprintf(
+            throw new ToolCallMistakeException(\sprintf(
                 '"%s" is no command this user may run here. Available: %s. Call ext_list for the details.',
                 $command,
                 [] === $available ? 'none' : implode(', ', array_keys($available)),
@@ -163,8 +167,10 @@ class ExtTool extends AbstractCoreCommandTool
      *
      * A foreign command need not answer in JSON, and where it does, a log line can stand
      * before it in the same output (a refusal that Symfony also logs as console.CRITICAL,
-     * measured on c5 with consho:connect:products). The last line that is a JSON object
-     * is the answer; without one, the text is, and on failure also the message.
+     * measured on c5 with consho:connect:products). The last line is the answer if it
+     * is a JSON object — only the last: a text answer that echoes data somewhere in
+     * the middle must not have a line of it taken for the answer (review K5). Without
+     * one, the text is, and on failure also the message.
      */
     private static function jsonOf(int $code, string $output): string
     {
@@ -174,12 +180,11 @@ class ExtTool extends AbstractCoreCommandTool
             return $text;
         }
 
-        foreach (array_reverse(preg_split('/\R/', $text) ?: []) as $line) {
-            $line = trim($line);
+        $lines = preg_split('/\R/', $text) ?: [];
+        $last  = trim((string) end($lines));
 
-            if (str_starts_with($line, '{') && \is_array(json_decode($line, true))) {
-                return $line;
-            }
+        if (str_starts_with($last, '{') && \is_array(json_decode($last, true))) {
+            return $last;
         }
 
         return (string) json_encode([
@@ -241,8 +246,21 @@ class ExtTool extends AbstractCoreCommandTool
     }
 
     /**
-     * The command line for contao:ai:run: arguments in the order the command defines
-     * them, options as --name=value, every value quoted.
+     * The command line for contao:ai:run: options first, then `--`, then the
+     * arguments in the order the command defines them; every value quoted.
+     *
+     * Quotes alone protect nothing from Symfony's option parsing: StringInput strips
+     * them while tokenizing and then parses like ArgvInput (pre-release review S1,
+     * measured against symfony/console):
+     *
+     * - An argument `--root=9` became the option root, `-5` an unknown option.
+     *   Behind `--` every token is an argument.
+     * - An option written `--name="value"` loses `''` and `"'` (StringInput deletes
+     *   them in that form): `Men's ''Classic''` arrived as `Men's Classic`. Written
+     *   as its own token, `--name "value"`, it arrives unchanged.
+     * - Only a value that starts with `-` needs the `=` form — as its own token it
+     *   would be read as the next option. One of those that also contains `''` or
+     *   `"'` cannot be passed faithfully at all and is refused.
      *
      * @param array<string, mixed> $definition
      * @param array<string, mixed> $arguments
@@ -256,31 +274,16 @@ class ExtTool extends AbstractCoreCommandTool
         $unknown = array_diff(array_keys($arguments), array_keys($argumentSpecs));
 
         if ([] !== $unknown) {
-            throw new ToolRefusedException(\sprintf('%s takes no argument %s. Arguments: %s.', $command, implode(', ', $unknown), implode(', ', array_keys($argumentSpecs)) ?: 'none'));
+            throw new ToolCallMistakeException(\sprintf('%s takes no argument %s. Arguments: %s.', $command, implode(', ', $unknown), implode(', ', array_keys($argumentSpecs)) ?: 'none'));
         }
 
         $parts = [$command];
-
-        foreach ($argumentSpecs as $name => $spec) {
-            if (!\array_key_exists($name, $arguments)) {
-                if ($spec['required'] ?? false) {
-                    throw new ToolRefusedException(\sprintf('%s needs the argument %s.', $command, $name));
-                }
-
-                // Positional: a later argument cannot be given without this one.
-                break;
-            }
-
-            foreach ((array) $arguments[$name] as $value) {
-                $parts[] = self::quote($value);
-            }
-        }
 
         foreach ($options as $name => $value) {
             $name = ltrim((string) $name, '-');
 
             if (!isset($optionSpecs[$name])) {
-                throw new ToolRefusedException(\sprintf('%s has no option %s. Options: %s.', $command, $name, implode(', ', array_keys($optionSpecs)) ?: 'none'));
+                throw new ToolCallMistakeException(\sprintf('%s has no option %s. Options: %s.', $command, $name, implode(', ', array_keys($optionSpecs)) ?: 'none'));
             }
 
             if (!($optionSpecs[$name]['accepts_value'] ?? false)) {
@@ -292,16 +295,56 @@ class ExtTool extends AbstractCoreCommandTool
             }
 
             foreach ((array) $value as $one) {
-                $parts[] = '--' . $name . '=' . self::quote($one);
+                $parts[] = self::option($command, $name, self::text($one));
             }
+        }
+
+        $positional = [];
+
+        foreach ($argumentSpecs as $name => $spec) {
+            if (!\array_key_exists($name, $arguments)) {
+                if ($spec['required'] ?? false) {
+                    throw new ToolCallMistakeException(\sprintf('%s needs the argument %s.', $command, $name));
+                }
+
+                // Positional: a later argument cannot be given without this one.
+                break;
+            }
+
+            foreach ((array) $arguments[$name] as $value) {
+                $positional[] = self::quote(self::text($value));
+            }
+        }
+
+        if ([] !== $positional) {
+            $parts[] = '--';
+            array_push($parts, ...$positional);
         }
 
         return implode(' ', $parts);
     }
 
-    private static function quote(mixed $value): string
+    private static function option(string $command, string $name, string $value): string
     {
-        return '"' . addcslashes(\is_bool($value) ? ($value ? '1' : '0') : (string) $value, '"\\') . '"';
+        if (!str_starts_with($value, '-')) {
+            return '--' . $name . ' ' . self::quote($value);
+        }
+
+        if (str_contains($value, "''") || str_contains($value, '"\'')) {
+            throw new ToolCallMistakeException(\sprintf("%s: the value of --%s starts with - and contains '' or \"' — the console cannot pass that unchanged. Leave out the leading - or the quotes.", $command, $name));
+        }
+
+        return '--' . $name . '=' . self::quote($value);
+    }
+
+    private static function text(mixed $value): string
+    {
+        return \is_bool($value) ? ($value ? '1' : '0') : (string) $value;
+    }
+
+    private static function quote(string $value): string
+    {
+        return '"' . addcslashes($value, '"\\') . '"';
     }
 
     /**

@@ -59,12 +59,21 @@ class CoreAnswerKindTest extends TestCase
         return $tool->call($command);
     }
 
-    public function testARefusalStaysARefusalWithItsMessage(): void
+    public function testARefusalStaysARefusalWithItsMessageButWithoutTheClass(): void
     {
-        $this->expectException(ToolRefusedException::class);
-        $this->expectExceptionMessage('Tool "probe" abgelehnt: InvalidArgumentException: A website root belongs at the top level.');
+        try {
+            $this->answer(['status' => 'error', 'message' => 'InvalidArgumentException: A website root belongs at the top level.', 'code' => 1]);
+            $this->fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            // The class means nothing to an editor (chat test on c5, 2026-10-10).
+            $this->assertSame('Tool "probe" abgelehnt: A website root belongs at the top level.', $e->getMessage());
+        }
+    }
 
-        $this->answer(['status' => 'error', 'message' => 'InvalidArgumentException: A website root belongs at the top level.', 'code' => 1]);
+    public function testOnlyTheLeadingClassOfARefusalGoes(): void
+    {
+        $this->assertSame('Seite 9 nicht gefunden.', AbstractCoreCommandTool::withoutRefusalClass('Seite 9 nicht gefunden.'));
+        $this->assertSame('x InvalidArgumentException: y', AbstractCoreCommandTool::withoutRefusalClass('x InvalidArgumentException: y'));
     }
 
     public function testADefectIsAFailedToolWithAReport(): void

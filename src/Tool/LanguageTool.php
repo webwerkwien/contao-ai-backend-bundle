@@ -127,7 +127,9 @@ class LanguageTool extends AbstractCoreCommandTool
     }
 
     /**
-     * The field the core will write — the same rule as its ChangeLanguageLinks.
+     * The field the core will write — a copy of `ChangeLanguageLinks::field()` in
+     * core-bundle v1.4.0, kept on purpose: this bundle allows older cores and is
+     * developed against one, so it cannot call the class (review K8). Change both.
      */
     private function field(string $table, int $id): string
     {

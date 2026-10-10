@@ -21,6 +21,15 @@ simply not offered.
   Contao's `TableAccessVoter`); one that names no tables is for admins only. A contract
   that states something `irreversible` asks the user first, as the delete tools do.
   Commands under `contao:` stay out — the core's own have dedicated tools.
+- **A command name, argument or option that does not exist goes back to the model**, with
+  the names it may use, and the model calls again — as wrong parameters do since v0.12.0.
+  In the chat test the model invented `product:list`; the refusal ended the turn. For a
+  user the wording is the same whether a command does not exist or is not theirs.
+- **Values reach the command unchanged.** Options come first and as their own token,
+  arguments behind `--`: an argument like `--root=9` or `-5` stays an argument, and `''`
+  in an option value is no longer swallowed by Symfony's `StringInput`. An option value
+  that starts with `-` and contains `''` or `"'` cannot be passed faithfully and goes back
+  to the model.
 - **Translation links (terminal42/contao-changelanguage): `language_link` and
   `language_check`.** `language_link` links a page, article, news item, event or FAQ —
   or an archive — to its counterpart in the fallback language, or unlinks it with
@@ -35,12 +44,15 @@ simply not offered.
   end does (`oncreate`, `onsubmit`, `oncut`, `oncopy`, `ondelete`, save callbacks) and
   versions are written by Contao's `Versions` class. Nothing changes in the bundle for
   that; the core does it for every caller.
+- **A refusal no longer starts with `InvalidArgumentException:`** — the core puts the
+  class in front of every message, which tells an editor nothing. Applies to every tool.
 
 ### Fixed
 
 - **An extension command whose refusal Symfony also logs** put a log line before the JSON
   answer in the same output (seen with a Consho command missing `--root`). `ext_run`
-  reads the last JSON line as the answer, so the refusal reaches the model as one.
+  takes the last line as the answer if it is JSON — only the last, so a text answer
+  that echoes data cannot have a line of it taken for the answer.
 
 ## v0.12.0 — 2026-10-10
 

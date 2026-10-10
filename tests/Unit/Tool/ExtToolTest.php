@@ -5,6 +5,11 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputDefinition;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\StringInput;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\TableAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -132,7 +137,7 @@ class ExtToolTest extends TestCase
         $this->assertSame(['consho:connect:products'], array_column($answer['commands'], 'name'));
     }
 
-    public function testTheCommandLineKeepsTheArgumentOrderQuotesValuesAndPassesTheOperator(): void
+    public function testTheCommandLinePutsOptionsFirstArgumentsBehindTheSeparatorAndPassesTheOperator(): void
     {
         $answer = self::decode($this->tool($this->user(true), $this->console())->runCommandLine(
             'consho:connect:products',
@@ -142,7 +147,7 @@ class ExtToolTest extends TestCase
 
         $run = end($this->runs);
         $this->assertSame('contao:ai:run', $run['command']);
-        $this->assertSame('consho:connect:products "9" --root="Shop \"Wien\"" --dry-run', $run['--command-line']);
+        $this->assertSame('consho:connect:products --root "Shop \"Wien\"" --dry-run -- "9"', $run['--command-line']);
         $this->assertSame('editor', $run['--operator']);
         $this->assertSame('ok', $answer['status']);
     }
@@ -151,12 +156,58 @@ class ExtToolTest extends TestCase
     {
         $this->tool($this->user(true), $this->console())->runCommandLine('consho:connect:products', '{"product":"9"}', '{"root":"122"}');
 
-        $this->assertSame('consho:connect:products "9" --root="122"', end($this->runs)['--command-line']);
+        $this->assertSame('consho:connect:products --root "122" -- "9"', end($this->runs)['--command-line']);
+    }
+
+    /**
+     * What Symfony makes of the line, not what the line looks like (review S1): it is
+     * parsed here with the StringInput contao:ai:run uses. Before, an argument
+     * `--root=9` became the option, `-5` an unknown option, and `''` in an option
+     * value vanished.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function awkwardValues(): iterable
+    {
+        yield 'argument that looks like an option' => ['--root=9', '7'];
+        yield 'negative argument'                  => ['-5', '7'];
+        yield 'doubled quotes'                     => ["Men's ''Classic''", "Men's ''Classic''"];
+        yield 'quote pairs'                        => ['a"\'b\'"c""d', 'a"\'b\'"c""d'];
+        yield 'backslashes'                        => ['c:\\temp\\new', 'c:\\temp\\new \\"'];
+        yield 'negative option value'              => ['9', '-7'];
+        yield 'empty'                              => ['', ''];
+        yield 'line break'                         => ["a\nb", "a\tb"];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('awkwardValues')]
+    public function testEveryValueArrivesUnchanged(string $argument, string $option): void
+    {
+        $this->tool($this->user(true), $this->console())->runCommandLine('consho:connect:products', ['product' => $argument], ['root' => $option]);
+
+        $input = new StringInput(end($this->runs)['--command-line']);
+        $input->bind(new InputDefinition([
+            new InputArgument('command', InputArgument::REQUIRED),
+            new InputArgument('product', InputArgument::OPTIONAL),
+            new InputOption('root', null, InputOption::VALUE_REQUIRED),
+            new InputOption('dry-run', null, InputOption::VALUE_NONE),
+        ]));
+
+        $this->assertSame($argument, $input->getArgument('product'));
+        $this->assertSame($option, $input->getOption('root'));
+        $this->assertFalse($input->getOption('dry-run'));
+    }
+
+    public function testANegativeOptionValueWithQuotePairsIsRefusedAsTheModelsMistake(): void
+    {
+        $this->expectException(ToolCallMistakeException::class);
+        $this->expectExceptionMessage('the value of --root starts with -');
+
+        $this->tool($this->user(true), $this->console())->runCommandLine('consho:connect:products', [], ['root' => "-a''b"]);
     }
 
     public function testACommandTheUserMayNotRunIsRefusedWithWhatHeMay(): void
     {
-        $this->expectException(ToolRefusedException::class);
+        $this->expectException(ToolCallMistakeException::class);
         $this->expectExceptionMessage('"consho:url:prune" is no command this user may run here. Available: consho:connect:products.');
 
         $this->tool($this->user(false), $this->console(), ['tl_consho_product', 'tl_consho_price'])->runCommandLine('consho:url:prune');
@@ -169,7 +220,7 @@ class ExtToolTest extends TestCase
         try {
             $tool->runCommandLine('consho:connect:products', [], ['country' => 'AT']);
             $this->fail('expected a refusal');
-        } catch (ToolRefusedException $e) {
+        } catch (ToolCallMistakeException $e) {
             $this->assertStringContainsString('has no option country. Options: root, dry-run.', $e->getMessage());
         }
 
@@ -206,6 +257,16 @@ class ExtToolTest extends TestCase
         $this->expectExceptionMessage('--root must be a start point id.');
 
         $this->tool($this->user(true), $this->console($output))->runCommandLine('consho:connect:products');
+    }
+
+    public function testAJsonLineInTheMiddleOfATextAnswerIsNotTheAnswer(): void
+    {
+        $output = "Synced:\n{\"status\":\"error\",\"message\":\"echoed from a product title\"}\nDone.";
+
+        $answer = self::decode($this->tool($this->user(true), $this->console($output))->runCommandLine('acme:sync'));
+
+        $this->assertSame('ok', $answer['status']);
+        $this->assertSame($output, $answer['output']);
     }
 
     public function testATextAnswerComesBackAsText(): void

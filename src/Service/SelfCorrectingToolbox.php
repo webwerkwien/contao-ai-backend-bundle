@@ -9,12 +9,14 @@ use Symfony\AI\Agent\Toolbox\ToolboxInterface;
 use Symfony\AI\Agent\Toolbox\ToolResult;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Tool\Tool;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 
 /**
  * Hands the model's own mistakes back to the model instead of ending the turn.
  *
- * Two of them, and only these: arguments that do not fit the tool, and a tool
- * name no tool has. Arguments arrive in two forms — symfony/ai's
+ * Three of them, and only these: arguments that do not fit the tool, a tool
+ * name no tool has, and a value the tool itself names as the model's mistake
+ * (`ToolCallMistakeException`: a command name ext_run does not offer, v0.13.0). Arguments arrive in two forms — symfony/ai's
  * `InvalidToolCallArgumentsException` (a missing parameter, a string where an
  * int belongs), and, for an `array` parameter its denormalizer does not check,
  * PHP's TypeError at the call of the tool method (`fields` as a string). Both
@@ -64,6 +66,13 @@ final class SelfCorrectingToolbox implements ToolboxInterface
             // 2026-10-10, page_update). Only that call counts — a TypeError deeper
             // in our own code is a defect.
             $previous = $e->getPrevious();
+
+            // A value inside a parameter that the tool itself found wrong — a command
+            // name ext_run does not offer this user (chat test on c5, 2026-10-10).
+            if ($previous instanceof ToolCallMistakeException) {
+                return new ToolResult($toolCall, self::tryAgain(rtrim($previous->getMessage(), '.') . '.'));
+            }
+
             $metadata = $this->metadataFor($toolCall->getName());
             if (!$previous instanceof \TypeError || null === $metadata || !self::isArgumentTypeError($previous, $metadata)) {
                 throw $e;
