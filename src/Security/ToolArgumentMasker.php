@@ -73,8 +73,18 @@ final class ToolArgumentMasker
             }
         }
 
+        // A whole value that is `name=…` — an element of ext_run's `set` list — goes
+        // after the `=` entirely: a passphrase may contain spaces (review 3).
+        if (1 === preg_match('/^\s*(' . self::NAME . ')\s*=/i', $text, $whole)) {
+            return $whole[1] . '=' . self::MASK;
+        }
+
+        // "name": value — JSON the decoder refused (a trailing comma, single quotes),
+        // which ExtTool rejects only after this entry was written.
+        $text = preg_replace('/(["\']?)(' . self::NAME . ')\1\s*:\s*' . self::VALUE . '/i', '$1$2$1: ' . self::MASK, $text);
+
         // name=value
-        $text = preg_replace('/(?<![\w.-])(' . self::NAME . ')=' . self::VALUE . '/i', '$1=' . self::MASK, $text);
+        $text = null === $text ? null : preg_replace('/(?<![\w.-])(' . self::NAME . ')=' . self::VALUE . '/i', '$1=' . self::MASK, $text);
 
         // --name value, unless the next word is an option itself
         $text = null === $text ? null : preg_replace('/(--' . self::NAME . ')(\s+)(?!-)' . self::VALUE . '/i', '$1$2' . self::MASK, $text);

@@ -57,6 +57,21 @@ class ToolArgumentMaskerTest extends TestCase
         $this->assertNotSame('', $text);
     }
 
+    public function testAPassphraseWithSpacesInASetElementGoesWhole(): void
+    {
+        // Review 3 before v0.14.1: the value pattern stopped at the first space.
+        $masked = ToolArgumentMasker::mask(['options' => ['set' => ['passphrase=correct horse S3CRET staple', 'title=Mein Laden']]]);
+
+        $this->assertSame(['passphrase=***', 'title=Mein Laden'], $masked['options']['set']);
+    }
+
+    public function testJsonTheDecoderRefusesIsMaskedToo(): void
+    {
+        foreach (['{"password": "S3CRET",}', "{'password': 'S3CRET'}", 'options {"api-key":"S3CRET"} kaputt'] as $text) {
+            $this->assertStringNotContainsString('S3CRET', ToolArgumentMasker::maskText($text), $text);
+        }
+    }
+
     public function testTheToolboxLoggerGetsMaskedContext(): void
     {
         $inner = new class extends AbstractLogger {
