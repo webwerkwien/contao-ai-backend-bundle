@@ -25,6 +25,8 @@ you for either, something is wrong with the checkout, not with your invocation.
 ## Verifying your work
 
 Run `composer ci` before reporting any task complete, and paste the output.
+Read the result before committing — never run it and the commit in one chained
+command; a red run commits anyway.
 
 Healthy output has two halves, PHPStan first and PHPUnit second:
 
