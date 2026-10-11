@@ -11,7 +11,8 @@ All notable changes to this project are documented here. The project adheres to 
   a wall of `**` and `##` before. A small renderer of our own in the page, no library:
   it builds every element with `createElement`/`textContent`, so HTML in an answer stays
   visible text. A link opens only for http(s) and paths on this host, in a new tab.
-  Error messages stay plain text.
+  Error messages stay plain text. Code in a table cell stays on one line; a wide table
+  scrolls sideways instead of breaking command names mid-word.
 - **The chat follows the back end's light and dark scheme.** Its colours come from
   Contao's theme variables (5.7 and 6.0); in dark mode the frame stayed white and the
   answers were pale grey on pale grey.
