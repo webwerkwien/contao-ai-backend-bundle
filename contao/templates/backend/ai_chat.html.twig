@@ -43,21 +43,49 @@
         <p class="tl_error">{{ blocker|default('tl_user.ai_api_key.1'|trans({}, 'contao_tl_user')) }}</p>
     </div>
 {% else %}
+    {#
+       Colours come from Contao's back-end theme variables, so the chat follows the
+       user's light or dark scheme (`html[data-color-scheme=dark]` switches them, in
+       5.7 and 6.0 alike). Until v0.14.0 they were fixed light values: in dark mode the
+       frame stayed white and the answers were pale grey on pale grey (chat test,
+       2026-10-10). The second value of each var() is only the fallback for a theme
+       without them.
+    #}
     <style{% if csp_nonce('style-src') is defined %} nonce="{{ csp_nonce('style-src') }}"{% endif %}>
-        .ai-chat { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; border: 1px solid #ccc; border-radius: 6px; padding: 1rem; background: #fff; }
-        .ai-chat__transcript { min-height: 12rem; max-height: 28rem; overflow-y: auto; padding: .5rem; border: 1px solid #eee; border-radius: 4px; background: #fafafa; font-size: .95rem; line-height: 1.4; }
+        .ai-chat { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; border: 1px solid var(--content-border, #ccc); border-radius: 6px; padding: 1rem; background: var(--content-bg, #fff); color: var(--text, #222); }
+        .ai-chat__transcript { min-height: 12rem; max-height: 28rem; overflow-y: auto; padding: .5rem; border: 1px solid var(--border, #eee); border-radius: 4px; background: var(--body-bg, #fafafa); font-size: .95rem; line-height: 1.45; }
         .ai-chat__msg { margin: 0 0 .75rem; padding: .5rem .75rem; border-radius: 4px; word-break: break-word; white-space: pre-wrap; }
-        .ai-chat__msg--user { background: #e6f3ff; }
-        .ai-chat__msg--assistant { background: #f3f3f3; }
-        .ai-chat__msg--error { background: #fbe9e9; color: #8a1f1f; }
-        .ai-chat__report { margin: -.25rem 0 .75rem; padding: .5rem .75rem; background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px; }
+        .ai-chat__msg--user { background: var(--info-bg, #e6f3ff); }
+        .ai-chat__msg--assistant { background: var(--panel-bg, #f3f3f3); }
+        .ai-chat__msg--error { background: var(--error-bg, #fbe9e9); color: var(--red, #8a1f1f); }
+        .ai-chat__msg--md { white-space: normal; }
+        .ai-chat__msg--md > :first-child { margin-top: 0; }
+        .ai-chat__msg--md > :last-child { margin-bottom: 0; }
+        .ai-chat__msg--md p, .ai-chat__msg--md ul, .ai-chat__msg--md ol, .ai-chat__msg--md pre, .ai-chat__msg--md table, .ai-chat__msg--md blockquote { margin: 0 0 .6rem; }
+        .ai-chat__msg--md h3, .ai-chat__msg--md h4, .ai-chat__msg--md h5, .ai-chat__msg--md h6 { margin: .8rem 0 .4rem; font-size: 1em; font-weight: 600; }
+        .ai-chat__msg--md h3 { font-size: 1.1em; }
+        .ai-chat__msg--md ul, .ai-chat__msg--md ol { padding-left: 1.4rem; }
+        .ai-chat__msg--md ul { list-style: disc; }
+        .ai-chat__msg--md ol { list-style: decimal; }
+        .ai-chat__msg--md li { margin: .15rem 0; }
+        .ai-chat__msg--md li > ul, .ai-chat__msg--md li > ol { margin: .15rem 0 0; }
+        .ai-chat__msg--md code { padding: .05rem .3rem; border-radius: 3px; background: var(--code-bg, #eee); font-size: .9em; }
+        .ai-chat__msg--md pre { padding: .5rem; border-radius: 4px; background: var(--code-bg, #eee); overflow-x: auto; white-space: pre; }
+        .ai-chat__msg--md pre code { padding: 0; background: none; }
+        .ai-chat__msg--md table { border-collapse: collapse; display: block; overflow-x: auto; }
+        .ai-chat__msg--md th, .ai-chat__msg--md td { padding: .25rem .5rem; border: 1px solid var(--border, #ddd); text-align: left; vertical-align: top; }
+        .ai-chat__msg--md th { background: var(--table-header, #f6f6f8); font-weight: 600; }
+        .ai-chat__msg--md blockquote { padding-left: .75rem; border-left: 3px solid var(--border, #ddd); color: var(--gray, #666); }
+        .ai-chat__msg--md hr { border: 0; border-top: 1px solid var(--border, #ddd); margin: .6rem 0; }
+        .ai-chat__msg--md a { color: var(--blue, #006494); text-decoration: underline; }
+        .ai-chat__report { margin: -.25rem 0 .75rem; padding: .5rem .75rem; background: var(--panel-bg, #f7f7f7); border: 1px solid var(--border, #ddd); border-radius: 4px; }
         .ai-chat__report summary { cursor: pointer; font-weight: 600; }
-        .ai-chat__report pre { margin: .5rem 0; padding: .5rem; background: #fff; border: 1px solid #e5e5e5; border-radius: 3px; overflow-x: auto; white-space: pre; font-size: .85em; }
+        .ai-chat__report pre { margin: .5rem 0; padding: .5rem; background: var(--code-bg, #fff); border: 1px solid var(--border, #e5e5e5); border-radius: 3px; overflow-x: auto; white-space: pre; font-size: .85em; }
         .ai-chat__form { display: flex; flex-direction: column; gap: .5rem; }
-        .ai-chat__form textarea { width: 100%; resize: vertical; font-family: inherit; font-size: .95rem; padding: .5rem; border: 1px solid #ccc; border-radius: 4px; }
-        .ai-chat__form textarea:disabled { background: #fafafa; color: #888; }
+        .ai-chat__form textarea { width: 100%; resize: vertical; font-family: inherit; font-size: .95rem; padding: .5rem; border: 1px solid var(--form-border, #ccc); border-radius: 4px; background: var(--form-bg, #fff); color: var(--text, #222); }
+        .ai-chat__form textarea:disabled { background: var(--form-bg-hover, #fafafa); color: var(--form-text-disabled, #888); }
         .ai-chat__form-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-        .ai-chat__hint { color: #666; }
+        .ai-chat__hint { color: var(--gray, #666); }
     </style>
 
     <div class="ai-chat" id="ai-chat-root"
@@ -180,6 +208,195 @@
                 selection.addRange(range);
             };
 
+            /* markdown:start */
+            /**
+             * The model's answer as Markdown (v0.14.0) — a small renderer of our own,
+             * decided with the maintainer on 2026-10-11 over a library.
+             *
+             * Every node is built with createElement and filled with textContent;
+             * there is no innerHTML anywhere on this page, so HTML in an answer — an
+             * answer can quote page content, i.e. text this installation did not
+             * author — stays visible text. Covered: headings, paragraphs, **bold**,
+             * *italic*, `code`, fenced code blocks, lists (one level of nesting),
+             * tables, quotes, rules, links. A link opens only for http(s) and for
+             * paths on this host; anything else stays text.
+             */
+            const renderMarkdown = (source) => {
+                const doc = document;
+                const frag = doc.createDocumentFragment();
+                const lines = String(source).replace(/\r\n?/g, '\n').split('\n');
+
+                const el = (tag, text) => {
+                    const node = doc.createElement(tag);
+                    if (text !== undefined) node.textContent = text;
+                    return node;
+                };
+
+                const safeHref = (url) => {
+                    const u = url.trim();
+                    if (/^https?:\/\//i.test(u)) return u;
+                    if (u.startsWith('/') && !u.startsWith('//')) return u;
+                    return null;
+                };
+
+                // Inline: the earliest match wins; code first, its content is literal.
+                const INLINE = [
+                    { re: /`([^`\n]+)`/, make: (m) => el('code', m[1]) },
+                    { re: /\[([^\]\n]+)\]\(([^)\s]+)\)/, make: (m) => {
+                        const href = safeHref(m[2]);
+                        if (!href) return doc.createTextNode(`${m[1]} (${m[2]})`);
+                        const a = el('a');
+                        a.href = href;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        inline(a, m[1]);
+                        return a;
+                    } },
+                    { re: /\*\*([^*\n]+?)\*\*|__([^_\n]+?)__/, make: (m) => { const s = el('strong'); inline(s, m[1] ?? m[2]); return s; } },
+                    { re: /(?<![\w*])\*([^*\n]+?)\*(?!\w)|(?<![\w_])_([^_\n]+?)_(?![\w])/, make: (m) => { const e = el('em'); inline(e, m[1] ?? m[2]); return e; } },
+                ];
+
+                const inline = (parent, text) => {
+                    let rest = text;
+                    while (rest) {
+                        let best = null;
+                        for (const rule of INLINE) {
+                            const m = rule.re.exec(rest);
+                            if (m && (best === null || m.index < best.m.index)) best = { m, rule };
+                        }
+                        if (!best) { parent.appendChild(doc.createTextNode(rest)); return; }
+                        if (best.m.index > 0) parent.appendChild(doc.createTextNode(rest.slice(0, best.m.index)));
+                        parent.appendChild(best.rule.make(best.m));
+                        rest = rest.slice(best.m.index + best.m[0].length);
+                    }
+                };
+
+                const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+                const isTableSep = (l) => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+                const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+                const LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+
+                let i = 0;
+                let para = [];
+                const flushPara = () => {
+                    if (!para.length) return;
+                    const p = el('p');
+                    para.forEach((line, n) => {
+                        if (n) p.appendChild(el('br'));
+                        inline(p, line);
+                    });
+                    frag.appendChild(p);
+                    para = [];
+                };
+
+                while (i < lines.length) {
+                    const line = lines[i];
+
+                    if (/^\s*```/.test(line)) {
+                        flushPara();
+                        const body = [];
+                        i++;
+                        while (i < lines.length && !/^\s*```/.test(lines[i])) body.push(lines[i++]);
+                        i++; // closing fence (or end of a still streaming answer)
+                        const pre = el('pre');
+                        pre.appendChild(el('code', body.join('\n')));
+                        frag.appendChild(pre);
+                        continue;
+                    }
+
+                    if (!line.trim()) { flushPara(); i++; continue; }
+
+                    const heading = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+                    if (heading) {
+                        flushPara();
+                        const h = el(`h${Math.min(6, heading[1].length + 2)}`);
+                        inline(h, heading[2]);
+                        frag.appendChild(h);
+                        i++;
+                        continue;
+                    }
+
+                    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flushPara(); frag.appendChild(el('hr')); i++; continue; }
+
+                    if (isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+                        flushPara();
+                        const table = el('table');
+                        const head = el('thead');
+                        const tr = el('tr');
+                        cells(line).forEach((c) => { const th = el('th'); inline(th, c); tr.appendChild(th); });
+                        head.appendChild(tr);
+                        table.appendChild(head);
+                        const body = el('tbody');
+                        i += 2;
+                        while (i < lines.length && isTableRow(lines[i])) {
+                            const row = el('tr');
+                            cells(lines[i]).forEach((c) => { const td = el('td'); inline(td, c); row.appendChild(td); });
+                            body.appendChild(row);
+                            i++;
+                        }
+                        table.appendChild(body);
+                        frag.appendChild(table);
+                        continue;
+                    }
+
+                    if (/^\s*>\s?/.test(line)) {
+                        flushPara();
+                        const quote = el('blockquote');
+                        const quoted = [];
+                        while (i < lines.length && /^\s*>\s?/.test(lines[i])) quoted.push(lines[i++].replace(/^\s*>\s?/, ''));
+                        quoted.forEach((q, n) => { if (n) quote.appendChild(el('br')); inline(quote, q); });
+                        frag.appendChild(quote);
+                        continue;
+                    }
+
+                    if (LIST.test(line)) {
+                        flushPara();
+                        const first = LIST.exec(line);
+                        const ordered = /\d/.test(first[2]);
+                        const list = el(ordered ? 'ol' : 'ul');
+                        const baseIndent = first[1].length;
+                        let item = null;
+                        let sub = null;
+                        while (i < lines.length) {
+                            const m = LIST.exec(lines[i]);
+                            if (m && m[1].length <= baseIndent + 1) {
+                                item = el('li');
+                                inline(item, m[3]);
+                                list.appendChild(item);
+                                sub = null;
+                            } else if (m && item) {
+                                if (!sub) { sub = el(/\d/.test(m[2]) ? 'ol' : 'ul'); item.appendChild(sub); }
+                                const li = el('li');
+                                inline(li, m[3]);
+                                sub.appendChild(li);
+                            } else if (lines[i].trim() && /^\s{2,}\S/.test(lines[i]) && item) {
+                                // An indented line continues the item above it.
+                                const target = sub ? sub.lastChild : item;
+                                target.appendChild(doc.createTextNode(' '));
+                                inline(target, lines[i].trim());
+                            } else {
+                                break;
+                            }
+                            i++;
+                        }
+                        frag.appendChild(list);
+                        continue;
+                    }
+
+                    para.push(line);
+                    i++;
+                }
+                flushPara();
+
+                return frag;
+            };
+            /* markdown:end */
+
+            const showMarkdown = (node, text) => {
+                node.classList.add('ai-chat__msg--md');
+                node.replaceChildren(renderMarkdown(text));
+            };
+
             const trimHistory = () => {
                 if (history.length > HISTORY_HARD_CAP) {
                     history.splice(0, history.length - HISTORY_HARD_CAP);
@@ -275,8 +492,13 @@
                     onEvent: (eventName, data) => {
                         if (eventName === 'message') {
                             assistantBuffer += String(data.content || '');
-                            assistantNode.textContent = assistantBuffer;
+                            // Re-rendered whole on every chunk: a half-arrived
+                            // `**` or table has to become right once the rest comes.
+                            showMarkdown(assistantNode, assistantBuffer);
                         } else if (eventName === 'error') {
+                            // Errors stay plain text: they carry messages this
+                            // installation did not author, and no formatting.
+                            assistantNode.classList.remove('ai-chat__msg--md');
                             assistantNode.classList.add('ai-chat__msg--error');
                             assistantNode.textContent = `[${data.kind || 'error'}] ${data.message || LANG.unknownError}`;
                             // Only tool_failed and agent_failed carry a report;
@@ -302,6 +524,7 @@
                         activeAbort = null;
                     },
                     onFatal: (err) => {
+                        assistantNode.classList.remove('ai-chat__msg--md');
                         assistantNode.classList.add('ai-chat__msg--error');
                         assistantNode.textContent = `[transport] ${err.message || err}`;
                         setBusy(false);

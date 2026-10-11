@@ -1,0 +1,22 @@
+[
+  ["paragraph with line break", "Hallo\nWelt", "<p>Hallo<br></br>Welt</p>"],
+  ["bold, italic, code", "**fett** und *kursiv* und `a**b`", "<p><strong>fett</strong> und <em>kursiv</em> und <code>a**b</code></p>"],
+  ["html stays text", "<script>alert(1)</script> **<b>x</b>**", "<p>&lt;script&gt;alert(1)&lt;/script&gt; <strong>&lt;b&gt;x&lt;/b&gt;</strong></p>"],
+  ["heading levels", "## 1. **consho:connect:orders**", "<h4>1. <strong>consho:connect:orders</strong></h4>"],
+  ["unordered list nested", "- **Beschreibung:** x\n- **Optionen:**\n  - `--shop`: ID\n  - `--language`: de", "<ul><li><strong>Beschreibung:</strong> x</li><li><strong>Optionen:</strong><ul><li><code>--shop</code>: ID</li><li><code>--language</code>: de</li></ul></li></ul>"],
+  ["ordered list", "1. eins\n2. zwei", "<ol><li>eins</li><li>zwei</li></ol>"],
+  ["fenced code keeps markdown literal", "```bash\n**nicht fett** <x>\n```", "<pre><code>**nicht fett** &lt;x&gt;</code></pre>"],
+  ["unclosed fence while streaming", "```\nabc", "<pre><code>abc</code></pre>"],
+  ["table", "| a | b |\n|---|---|\n| 1 | **2** |", "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td><strong>2</strong></td></tr></tbody></table>"],
+  ["https link", "[Produktseite](https://c5.axeltest.at/x.html)", "<p><a href=\"https://c5.axeltest.at/x.html\" target=\"_blank\" rel=\"noopener noreferrer\">Produktseite</a></p>"],
+  ["path link", "[Seite](/contao?do=page)", "<p><a href=\"/contao?do=page\" target=\"_blank\" rel=\"noopener noreferrer\">Seite</a></p>"],
+  ["javascript link stays text", "[klick](javascript:alert(1))", "<p>klick (javascript:alert(1))</p>"],
+  ["data link stays text", "[x](data:text/html,<b>)", "<p>x (data:text/html,&lt;b&gt;)</p>"],
+  ["html in link text stays text", "[<img src=x onerror=alert(1)>](https://a.example/)", "<p><a href=\"https://a.example/\" target=\"_blank\" rel=\"noopener noreferrer\">&lt;img src=x onerror=alert(1)&gt;</a></p>"],
+  ["half-arrived bold while streaming", "Das ist **fe", "<p>Das ist **fe</p>"],
+  ["protocol-relative link stays text", "[x](//evil.example/a)", "<p>x (//evil.example/a)</p>"],
+  ["quote and rule", "> zitiert\n\n---\nnach", "<blockquote>zitiert</blockquote><hr></hr><p>nach</p>"],
+  ["underscore in identifiers is not italic", "tl_consho_product und tl_news", "<p>tl_consho_product und tl_news</p>"],
+  ["strike price stays as text", "~~8,90 €~~", "<p>~~8,90 €~~</p>"],
+  ["empty", "", ""]
+]
