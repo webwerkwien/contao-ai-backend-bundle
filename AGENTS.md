@@ -20,6 +20,9 @@ you for either, something is wrong with the checkout, not with your invocation.
 page's Markdown renderer from the template with `node`; without it that test is
 *skipped*, and the whole rendering and link-safety promise goes unchecked while
 the run still says OK. If `composer ci` reports a skip there, install Node first.
+Nothing on the chat page may parse a string as HTML — answers quote page content
+nobody here authored; `testThePageParsesNoStringAsHtml` searches the raw template,
+comments included, so don't name those calls in a comment either.
 
 > ⚠️ **A PHPStan run that dies still prints a count.** Hitting the memory limit
 > ends with `[ERROR] Found 2 errors` — a partial number that reads like a nearly

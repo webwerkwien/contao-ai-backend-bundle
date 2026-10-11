@@ -79,6 +79,8 @@ Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry.
 
 The chat sits in the "System" group of the back-end menu, at `/contao/ai-chat`. Its template is `@Contao/backend/ai_chat.html.twig` and can be overridden in `templates/backend/ai_chat.html.twig` like any Contao template.
 
+Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, links) and the chat follows the back end's light and dark scheme. The renderer lives in the template and builds every element as text, so HTML in an answer is never parsed; links open only for http(s) and for paths on this host. An overridden template keeps whatever renderer it was copied with — compare it after an update.
+
 ## Available tools
 
 | Group | Tool names |
