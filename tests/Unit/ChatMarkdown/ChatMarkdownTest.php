@@ -65,13 +65,15 @@ class ChatMarkdownTest extends TestCase
         $this->assertStringContainsString('replaceChildren(renderMarkdown(', $template);
     }
 
-    public function testALinkOpensOnlyForHttpAndPathsOnThisHost(): void
+    public function testALinkOpensInANewTabWithoutTheOpener(): void
     {
         $template = (string) file_get_contents(self::TEMPLATE);
 
-        $this->assertMatchesRegularExpression('#/\^https\?:\\\\/\\\\//i\.test\(u\)#', $template);
-        // Neither "//" nor "/\": the URL parser reads a backslash like a slash.
-        $this->assertStringContainsString('if (/^\/(?![\/\\\\])/.test(u)) return u;', $template);
+        // Which hrefs open is behaviour, checked in cases.json: harness.js resolves
+        // every href like a browser and fails a link that leaves the host. A check
+        // on the wording here would pass a hole next to the line and fail a correct
+        // rewrite of it (Fable review 2 before v0.14.0) — only the tab attributes
+        // stay, the fake DOM keeps them as written.
         $this->assertStringContainsString("a.rel = 'noopener noreferrer'", $template);
     }
 }

@@ -314,9 +314,14 @@
 
                     if (/^\s*```/.test(line)) {
                         flushPara();
+                        // The fence's own indent is not part of the code.
+                        const indent = line.length - line.trimStart().length;
                         const body = [];
                         i++;
-                        while (i < lines.length && !/^\s*```/.test(lines[i])) body.push(lines[i++]);
+                        while (i < lines.length && !/^\s*```/.test(lines[i])) {
+                            const raw = lines[i++];
+                            body.push(raw.slice(Math.min(indent, raw.length - raw.trimStart().length)));
+                        }
                         i++; // closing fence (or end of a still streaming answer)
                         const pre = el('pre');
                         pre.appendChild(el('code', body.join('\n')));

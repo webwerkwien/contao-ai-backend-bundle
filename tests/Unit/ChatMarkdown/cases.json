@@ -29,5 +29,6 @@
   ["spaced markers are not bold", "** nicht fett **", "<p>** nicht fett **</p>"],
   ["backslash escapes", "\\*nicht kursiv\\*", "<p>*nicht kursiv*</p>"],
   ["pipes in code and escaped pipes stay in the cell", "| a | b |\n|---|---|\n| `x|y` | c \\| d |", "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td><code>x|y</code></td><td>c | d</td></tr></tbody></table>"],
+  ["an indented fence drops its indent", "Text\n    ```\n    code\n      more\n    ```", "<p>Text</p><pre><code>code\n  more</code></pre>"],
   ["empty", "", ""]
 ]
