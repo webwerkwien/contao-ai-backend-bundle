@@ -24,7 +24,9 @@ simply not offered.
 - **A command name, argument or option that does not exist goes back to the model**, with
   the names it may use, and the model calls again — as wrong parameters do since v0.12.0.
   In the chat test the model invented `product:list`; the refusal ended the turn. For a
-  user the wording is the same whether a command does not exist or is not theirs.
+  user the wording is the same whether a command does not exist or is not theirs. The
+  same goes for a later argument without the earlier one (it was dropped without a word),
+  a flag given anything but true or false, and arguments or options that are no object.
 - **Values reach the command unchanged.** Options come first and as their own token,
   arguments behind `--`: an argument like `--root=9` or `-5` stays an argument, and `''`
   in an option value is no longer swallowed by Symfony's `StringInput`. An option value

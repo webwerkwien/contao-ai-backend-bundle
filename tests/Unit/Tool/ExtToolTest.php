@@ -49,8 +49,8 @@ class ExtToolTest extends TestCase
             'description' => 'Declares no tables',
             'reachable'   => true,
             'contract'    => ['checked' => [], 'checked_with_statement' => ['writes' => true]],
-            'arguments'   => [],
-            'options'     => [],
+            'arguments'   => ['feed' => ['required' => false, 'description' => 'Only this feed'], 'items' => ['required' => false, 'description' => 'Only these items']],
+            'options'     => ['force' => ['accepts_value' => false, 'description' => 'Also unchanged ones']],
         ],
     ];
 
@@ -203,6 +203,59 @@ class ExtToolTest extends TestCase
         $this->expectExceptionMessage('the value of --root starts with -');
 
         $this->tool($this->user(true), $this->console())->runCommandLine('consho:connect:products', [], ['root' => "-a''b"]);
+    }
+
+    /**
+     * Second pre-release review, M-B: a later argument without the earlier one was
+     * dropped without a word, and the command ran with half its input.
+     */
+    public function testALaterArgumentWithoutTheEarlierOneGoesBackToTheModel(): void
+    {
+        try {
+            $this->tool($this->user(true), $this->console())->runCommandLine('acme:sync', ['items' => '1']);
+            $this->fail('expected the model\'s mistake');
+        } catch (ToolCallMistakeException $e) {
+            $this->assertStringContainsString('the argument items needs feed before it', $e->getMessage());
+        }
+
+        $this->assertSame([], array_filter($this->runs, static fn (array $r): bool => 'contao:ai:run' === $r['command']));
+    }
+
+    /**
+     * @return iterable<string, array{mixed, bool|null}> value => set (null: refused)
+     */
+    public static function flagValues(): iterable
+    {
+        yield 'true'         => [true, true];
+        yield '"1"'          => ['1', true];
+        yield '"true"'       => ['true', true];
+        yield 'false'        => [false, false];
+        yield '"0"'          => ['0', false];
+        yield 'empty'        => ['', false];
+        yield '"yes"'        => ['yes', null];
+        yield 'a list'       => [['a'], null];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('flagValues')]
+    public function testAFlagIsOnOffOrTheModelsMistake(mixed $value, ?bool $set): void
+    {
+        $tool = $this->tool($this->user(true), $this->console('Done.'));
+
+        if (null === $set) {
+            $this->expectException(ToolCallMistakeException::class);
+            $this->expectExceptionMessage('--force of acme:sync is a flag');
+        }
+
+        $tool->runCommandLine('acme:sync', [], ['force' => $value]);
+
+        $this->assertSame($set ? 'acme:sync --force' : 'acme:sync', end($this->runs)['--command-line']);
+    }
+
+    public function testArgumentsThatAreNoObjectGoBackToTheModel(): void
+    {
+        $this->expectException(ToolCallMistakeException::class);
+
+        $this->tool($this->user(true), $this->console())->runCommandLine('acme:sync', 'feed 3');
     }
 
     public function testACommandTheUserMayNotRunIsRefusedWithWhatHeMay(): void

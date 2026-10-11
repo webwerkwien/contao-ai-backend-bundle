@@ -287,8 +287,14 @@ class ExtTool extends AbstractCoreCommandTool
             }
 
             if (!($optionSpecs[$name]['accepts_value'] ?? false)) {
-                if (true === $value || '1' === (string) $value || 'true' === (string) $value) {
+                // A flag is on or off; anything else ("yes", a list) was dropped without
+                // a word before (second pre-release review) and goes back to the model.
+                $flag = \is_scalar($value) || null === $value ? strtolower(var_export($value, true)) : 'list';
+
+                if (\in_array($flag, ['true', "'1'", '1', "'true'"], true)) {
                     $parts[] = '--' . $name;
+                } elseif (!\in_array($flag, ['false', "'0'", '0', "'false'", "''", 'null'], true)) {
+                    throw new ToolCallMistakeException(\sprintf('--%s of %s is a flag: give true or false.', $name, $command));
                 }
 
                 continue;
@@ -300,14 +306,25 @@ class ExtTool extends AbstractCoreCommandTool
         }
 
         $positional = [];
+        $names      = array_keys($argumentSpecs);
 
-        foreach ($argumentSpecs as $name => $spec) {
+        foreach ($names as $index => $name) {
+            $spec = $argumentSpecs[$name];
+
             if (!\array_key_exists($name, $arguments)) {
                 if ($spec['required'] ?? false) {
                     throw new ToolCallMistakeException(\sprintf('%s needs the argument %s.', $command, $name));
                 }
 
-                // Positional: a later argument cannot be given without this one.
+                // Positional: a later argument cannot be given without this one. It was
+                // dropped without a word (second pre-release review, M-B) — a write could
+                // run with half its input.
+                $later = array_values(array_intersect(\array_slice($names, $index + 1), array_keys($arguments)));
+
+                if ([] !== $later) {
+                    throw new ToolCallMistakeException(\sprintf('%s: the argument %s needs %s before it — arguments are positional.', $command, implode(', ', $later), $name));
+                }
+
                 break;
             }
 
@@ -386,7 +403,7 @@ class ExtTool extends AbstractCoreCommandTool
             $decoded = '' === trim($value) ? [] : json_decode($value, true);
 
             if (!\is_array($decoded)) {
-                throw new ToolRefusedException('arguments and options must be objects, e.g. {"root": "122"}.');
+                throw new ToolCallMistakeException('arguments and options must be objects, e.g. {"root": "122"}.');
             }
 
             return $decoded;
