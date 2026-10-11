@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## Unreleased (v0.14.1)
+## v0.14.1 — 2026-10-11
 
 Works with every contao-ai-core-bundle it worked with before.
 
@@ -16,8 +16,9 @@ Works with every contao-ai-core-bundle it worked with before.
   Monolog flushing its buffer after an error in the same request — got `ext_run`'s
   `--set password=…` in plain text. Values under names that read like a secret (password,
   passwd, pass, secret, token, api key, credential) are blanked now: as an argument key
-  (also with a list of values), as `name=value` or `--name value` in a text, and inside
-  options sent as a JSON string.
+  (also with a list of values), as a whole `name=value` value (a `--set` element; spaces
+  in the secret included), as `name=value` or `--name value` in a text, and inside options
+  sent as a JSON string — valid or not.
 - What this does not cover: the model provider receives what the model sent; an
   irreversible `ext_run` keeps its command line in the session until it is confirmed (at
   most five minutes). And the `tl_log` line `contao:ai:run` writes is core-bundle's —
