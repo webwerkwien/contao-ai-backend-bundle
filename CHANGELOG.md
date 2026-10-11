@@ -8,15 +8,20 @@ Works with every contao-ai-core-bundle it worked with before.
 
 ### Fixed
 
-- **A secret in a tool call can no longer reach a log file.** Every tool call is logged
-  with its arguments as context; key formats (`sk-…`, Bearer tokens) were masked, a password
-  was not. With Contao's default logging only the message reaches the system log, but a
-  handler that writes the context — a file handler, or Monolog flushing its buffer after an
-  error in the same request — got `ext_run`'s `--set password=…` in plain text.
-  Values under names that read like a secret (password, secret, token, api key, credential)
-  are blanked now, as an argument key and as `name=value` or `--name value` in a text.
-  core-bundle v1.5.0 does the same for the `tl_log` line of `contao:ai:run`. The model
-  provider still receives what the model sent.
+- **Secrets in tool arguments are masked in every log entry this bundle writes.** Tool
+  calls are logged with their arguments as context — when requested, when failed, and in
+  symfony/ai's own `Executing tool` line. Key formats (`sk-…`, Bearer tokens) were masked
+  in the first only, a password nowhere. With Contao's default logging only the message
+  reaches the system log, but a handler that writes the context — a file handler, or
+  Monolog flushing its buffer after an error in the same request — got `ext_run`'s
+  `--set password=…` in plain text. Values under names that read like a secret (password,
+  passwd, pass, secret, token, api key, credential) are blanked now: as an argument key
+  (also with a list of values), as `name=value` or `--name value` in a text, and inside
+  options sent as a JSON string.
+- What this does not cover: the model provider receives what the model sent; an
+  irreversible `ext_run` keeps its command line in the session until it is confirmed (at
+  most five minutes). And the `tl_log` line `contao:ai:run` writes is core-bundle's —
+  from v1.5.0 it is masked the same way, older versions log the whole line.
 
 ## v0.14.0 — 2026-10-11
 

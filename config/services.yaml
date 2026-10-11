@@ -27,6 +27,9 @@ services:
         # news-bundle, und NewsTool blieb still — weil es unten steht.
         exclude:
             - '../src/{ContaoAiBackendBundle.php,ContaoManager,Exception,Service/AgentInvocation.php,Service/UserAiConfigDto.php,Resources}'
+            # Built where used (v0.14.1): a second LoggerInterface service in the
+            # container would only invite the wrong autowiring.
+            - '../src/Security/{ArgumentMaskingLogger.php,ToolArgumentMasker.php}'
             - '../src/Tool/NewsTool.php'
             - '../src/Tool/EventTool.php'
             - '../src/Tool/FaqTool.php'

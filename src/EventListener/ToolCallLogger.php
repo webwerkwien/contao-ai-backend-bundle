@@ -10,7 +10,7 @@ use Symfony\AI\Agent\Toolbox\Exception\InvalidToolCallArgumentsException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
-use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
+use Webwerkwien\ContaoAiBackendBundle\Security\ToolArgumentMasker;
 
 /**
  * Logs every tool invocation requested by the agent (and its outcome) to the
@@ -20,7 +20,8 @@ use Webwerkwien\ContaoAiCoreBundle\Service\CredentialMasker;
  *
  * Argument values are kept whole except for what looks secret: key formats
  * (CredentialMasker) and, since v0.14.1, values under names that read like a
- * secret — `password=…`, an `api-key` option (maskArguments()).
+ * secret — `password=…`, an `api-key` option (ToolArgumentMasker), for the
+ * requested and the failed call alike.
  *
  * All events are emitted at WARNING level on purpose: the Contao Monolog
  * handler uses a fingers_crossed activation strategy at WARNING, so anything
@@ -93,57 +94,14 @@ class ToolCallLogger implements EventSubscriberInterface
      * Argument ist Text, den ein Benutzer getippt hat, kein Schlüssel, den wir
      * halten.
      *
+     * Since v0.14.1 also by name (ToolArgumentMasker): a password has no key format.
+     *
      * @param  array<mixed> $arguments
      * @return array<mixed>
      */
     private static function maskArguments(array $arguments): array
     {
-        foreach ($arguments as $key => $value) {
-            // An option named like a secret (`api-key` in ext_run's options): the
-            // whole value goes, whatever it looks like.
-            if (\is_string($key) && 1 === preg_match(self::SECRET_NAME, $key) && !\is_array($value)) {
-                $arguments[$key] = self::MASK;
-                continue;
-            }
-
-            if (\is_array($value)) {
-                $arguments[$key] = self::maskArguments($value);
-                continue;
-            }
-
-            if (\is_string($value)) {
-                $arguments[$key] = self::maskNamedSecrets(CredentialMasker::mask($value));
-            }
-        }
-
-        return $arguments;
-    }
-
-    private const MASK = '***';
-
-    /**
-     * Names that read as a secret (v0.14.1) — the same list core-bundle v1.5.0 uses
-     * to blank the tl_log line of contao:ai:run (CommandLineRedactor). Kept here
-     * rather than called there: this bundle runs with older core versions too.
-     * Over-blanking costs a detail in the log, nothing else.
-     */
-    private const SECRET_NAME = '/pass(?:word|wort|phrase)|secret|token|api[-_]?key|credential|private[-_]?key/i';
-
-    /**
-     * `password=…` and `--api-key …` inside a text — ext_run's `--set` pairs, or
-     * options the model handed over as one string. CredentialMasker catches key
-     * formats (sk-…, Bearer); a password has none.
-     */
-    private static function maskNamedSecrets(string $text): string
-    {
-        $name  = '[\w.-]*(?:pass(?:word|wort|phrase)|secret|token|api[-_]?key|credential|private[-_]?key)[\w.-]*';
-        $value = '(?:"(?:[^"\\\\]|\\\\.)*"|\'[^\']*\'|\S+)';
-
-        // name=value
-        $text = (string) preg_replace('/(?<![\w.-])(' . $name . ')=' . $value . '/i', '$1=' . self::MASK, $text);
-
-        // --name value, unless the next word is an option itself
-        return (string) preg_replace('/(--' . $name . ')(\s+)(?!-)' . $value . '/i', '$1$2' . self::MASK, $text);
+        return ToolArgumentMasker::mask($arguments);
     }
 
     public function onRequested(ToolCallRequested $event): void
@@ -189,9 +147,11 @@ class ToolCallLogger implements EventSubscriberInterface
             $event->getException()::class,
         ), [
             'tool'      => $event->getDefinition()->getName(),
-            'arguments' => $event->getArguments(),
+            // The failed call carries the resolved arguments — masked like the
+            // requested one; ext_run fails often, when the model guesses an option.
+            'arguments' => self::maskArguments($event->getArguments()),
             'exception' => $event->getException()::class,
-            'message'   => $event->getException()->getMessage(),
+            'message'   => ToolArgumentMasker::maskText($event->getException()->getMessage()),
         ]);
     }
 }

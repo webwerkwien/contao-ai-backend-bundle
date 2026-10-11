@@ -121,6 +121,20 @@ class ToolCallLoggerTest extends TestCase
         $this->assertSame('acme:shop:connect', $context['arguments']['command']);
     }
 
+    public function testAFailedCallLogsItsArgumentsMaskedToo(): void
+    {
+        // Fable review before v0.14.1: the failed entry logged them whole — and
+        // ext_run fails often, when the model guesses an option name.
+        $context = null;
+        $logger  = $this->createMock(LoggerInterface::class);
+        $logger->method('log')->willReturnCallback(static function (string $level, string $message, array $c) use (&$context): void { $context = $c; });
+
+        (new ToolCallLogger($logger))->onFailed(new ToolCallFailed(new \stdClass(), $this->metadata('ext_run'),
+            ['options' => ['set' => ['password=Geheim1'], 'api-key' => 'Geheim2']], new \RuntimeException('nope')));
+
+        $this->assertStringNotContainsString('Geheim', json_encode($context['arguments']));
+    }
+
     public function testRequestedNamesTheToolInTheMessage(): void
     {
         $listener = new ToolCallLogger($this->logger());

@@ -8,6 +8,7 @@ use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Webwerkwien\ContaoAiBackendBundle\Security\ArgumentMaskingLogger;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
@@ -54,7 +55,8 @@ class AgentFactory
         // call again; refusals, denials and crashes still end the turn (v0.12.0).
         $toolbox  = new SelfCorrectingToolbox(new Toolbox(
             tools: $allowedTools,
-            logger: $this->logger,
+            // The Toolbox logs each call's raw arguments; masked (v0.14.1).
+            logger: new ArgumentMaskingLogger($this->logger),
             eventDispatcher: $this->eventDispatcher,
         ), $allowedToolNames);
         // symfony/ai 0.13 removed Toolbox\AgentProcessor: tool calling is no
