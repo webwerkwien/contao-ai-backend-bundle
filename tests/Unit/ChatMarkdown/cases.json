@@ -18,5 +18,16 @@
   ["quote and rule", "> zitiert\n\n---\nnach", "<blockquote>zitiert</blockquote><hr></hr><p>nach</p>"],
   ["underscore in identifiers is not italic", "tl_consho_product und tl_news", "<p>tl_consho_product und tl_news</p>"],
   ["strike price stays as text", "~~8,90 €~~", "<p>~~8,90 €~~</p>"],
+  ["backslash path stays text", "[x](/\\evil.example/)", "<p>x (/\\evil.example/)</p>"],
+  ["slash-backslash path stays text", "[x](/\\/evil.example)", "<p>x (/\\/evil.example)</p>"],
+  ["loose ordered list stays one list", "1. eins\n\n2. zwei\n\n3. drei", "<ol><li>eins</li><li>zwei</li><li>drei</li></ol>"],
+  ["ordered list keeps its first number", "3. drei\n4. vier", "<ol start=\"3\"><li>drei</li><li>vier</li></ol>"],
+  ["code block inside a list item", "1. eins\n   ```bash\n   code --x\n   ```\n2. zwei", "<ol><li>eins<pre><code>code --x</code></pre></li><li>zwei</li></ol>"],
+  ["fence at the margin ends the list", "- a\n```\nx\n```", "<ul><li>a</li></ul><pre><code>x</code></pre>"],
+  ["bullet and number are two lists", "- a\n1. b", "<ul><li>a</li></ul><ol><li>b</li></ol>"],
+  ["multiplication is not italic", "5 * 3 * 2", "<p>5 * 3 * 2</p>"],
+  ["spaced markers are not bold", "** nicht fett **", "<p>** nicht fett **</p>"],
+  ["backslash escapes", "\\*nicht kursiv\\*", "<p>*nicht kursiv*</p>"],
+  ["pipes in code and escaped pipes stay in the cell", "| a | b |\n|---|---|\n| `x|y` | c \\| d |", "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td><code>x|y</code></td><td>c | d</td></tr></tbody></table>"],
   ["empty", "", ""]
 ]

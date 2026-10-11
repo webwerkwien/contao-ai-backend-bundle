@@ -16,6 +16,11 @@ composer phpunit   # tests alone
 `allow-plugins` entry it needs are both in the repository — if the command asks
 you for either, something is wrong with the checkout, not with your invocation.
 
+**Node.js is a test prerequisite.** `tests/Unit/ChatMarkdown` runs the chat
+page's Markdown renderer from the template with `node`; without it that test is
+*skipped*, and the whole rendering and link-safety promise goes unchecked while
+the run still says OK. If `composer ci` reports a skip there, install Node first.
+
 > ⚠️ **A PHPStan run that dies still prints a count.** Hitting the memory limit
 > ends with `[ERROR] Found 2 errors` — a partial number that reads like a nearly
 > clean result, because 2 is smaller than the real figure. The reason for the

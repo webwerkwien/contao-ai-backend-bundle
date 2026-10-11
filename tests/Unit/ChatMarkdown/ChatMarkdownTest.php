@@ -36,21 +36,28 @@ class ChatMarkdownTest extends TestCase
         $report = implode("\n", $output);
 
         $this->assertSame(0, $code, $report);
-        // A harness that ran nothing would pass as well — count the cases.
-        $this->assertSame(\count(json_decode((string) file_get_contents(__DIR__ . '/cases.json'), true)), substr_count($report, "ok  "), $report);
+        // A harness that ran nothing would pass as well — count the cases, and an
+        // emptied cases.json would match an empty run.
+        $cases = \count(json_decode((string) file_get_contents(__DIR__ . '/cases.json'), true));
+        $this->assertGreaterThanOrEqual(30, $cases);
+        $this->assertSame($cases, substr_count($report, "ok  "), $report);
     }
 
     /**
      * The guard for the decision itself: the renderer builds every node with
      * createElement and textContent. A later "simplification" to innerHTML would
      * turn HTML in an answer into live markup.
+     *
+     * The raw template is searched, comments included: stripping comments by
+     * pattern let a sink between a '/*' and a '*' . '/' in two string literals pass.
+     * The back end loads MooTools, hence its set('html').
      */
     public function testThePageParsesNoStringAsHtml(): void
     {
         $template = (string) file_get_contents(self::TEMPLATE);
 
-        foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'createContextualFragment', 'DOMParser'] as $sink) {
-            $this->assertStringNotContainsString($sink, preg_replace('/\{#.*?#\}|\/\*.*?\*\//s', '', $template), $sink . ' must not be used on the chat page.');
+        foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'createContextualFragment', 'DOMParser', 'srcdoc', 'setAttribute(', "set('html'", 'set("html"', '.html(', 'eval(', 'Function('] as $sink) {
+            $this->assertStringNotContainsString($sink, $template, $sink . ' must not be used on the chat page.');
         }
 
         // Known non-match: the renderer is there and uses the safe calls.
@@ -63,7 +70,8 @@ class ChatMarkdownTest extends TestCase
         $template = (string) file_get_contents(self::TEMPLATE);
 
         $this->assertMatchesRegularExpression('#/\^https\?:\\\\/\\\\//i\.test\(u\)#', $template);
-        $this->assertStringContainsString("u.startsWith('/') && !u.startsWith('//')", $template);
+        // Neither "//" nor "/\": the URL parser reads a backslash like a slash.
+        $this->assertStringContainsString('if (/^\/(?![\/\\\\])/.test(u)) return u;', $template);
         $this->assertStringContainsString("a.rel = 'noopener noreferrer'", $template);
     }
 }
