@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## Unreleased (v0.14.1)
+
+Works with every contao-ai-core-bundle it worked with before.
+
+### Fixed
+
+- **A secret in a tool call no longer reaches the prod log.** Every tool call is logged
+  with its arguments; key formats (`sk-…`, Bearer tokens) were masked, a password was not —
+  `ext_run` with `--set password=…` or an `api-key` option wrote it there in plain text.
+  Values under names that read like a secret (password, secret, token, api key, credential)
+  are blanked now, as an argument key and as `name=value` or `--name value` in a text.
+  core-bundle v1.5.0 does the same for the `tl_log` line of `contao:ai:run`. The model
+  provider still receives what the model sent.
+
 ## v0.14.0 — 2026-10-11
 
 Works with every contao-ai-core-bundle it worked with before. Only the chat page changed;

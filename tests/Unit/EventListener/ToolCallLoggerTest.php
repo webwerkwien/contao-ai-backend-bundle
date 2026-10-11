@@ -89,6 +89,38 @@ class ToolCallLoggerTest extends TestCase
         return new Tool(new ExecutionReference('SomeTool'), $name, 'description');
     }
 
+    /**
+     * ext_run hands options over as a map or as text; a password there reached the
+     * prod log whole — CredentialMasker knows key formats (sk-…, Bearer), not names
+     * (v0.14.1, after core v1.5.0 began blanking the same in tl_log).
+     */
+    public function testSecretsInToolArgumentsAreBlankedByName(): void
+    {
+        $context = null;
+        $logger  = $this->createMock(LoggerInterface::class);
+        $logger->method('warning')->willReturnCallback(static function (string $message, array $c) use (&$context): void { $context = $c; });
+
+        (new ToolCallLogger($logger))->onRequested(new ToolCallRequested(
+            new ToolCall('call_1', 'ext_run', [
+                'command'   => 'acme:shop:connect',
+                'arguments' => ['5'],
+                'options'   => ['set' => ['password=Geheim1', 'title=Laden'], 'api-key' => 'Geheim2', 'note' => '--client-secret Geheim3 --dry-run'],
+            ]),
+            $this->metadata('ext_run'),
+        ));
+
+        $logged = json_encode($context['arguments']);
+
+        foreach (['Geheim1', 'Geheim2', 'Geheim3'] as $secret) {
+            $this->assertStringNotContainsString($secret, $logged);
+        }
+
+        $this->assertSame(['password=***', 'title=Laden'], $context['arguments']['options']['set']);
+        $this->assertSame('***', $context['arguments']['options']['api-key']);
+        $this->assertSame('--client-secret *** --dry-run', $context['arguments']['options']['note']);
+        $this->assertSame('acme:shop:connect', $context['arguments']['command']);
+    }
+
     public function testRequestedNamesTheToolInTheMessage(): void
     {
         $listener = new ToolCallLogger($this->logger());
