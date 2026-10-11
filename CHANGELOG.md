@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## v0.13.0 — 2026-10-10
+## v0.13.0 — 2026-10-11
 
 Works with every contao-ai-core-bundle it worked with before. The translation-link tools
 need core-bundle **v1.4.0** and terminal42/contao-changelanguage; without them they are
