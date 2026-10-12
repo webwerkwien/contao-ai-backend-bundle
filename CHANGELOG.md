@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.16.1 — 2026-10-12
+
+### Fixed
+
+- **An editor without admin rights reaches an extension's commands in the chat.** In a
+  chat test with an editor account, a request about a shop's data was refused without a
+  single tool call, though `ext_list` and `ext_run` were in the editor's tool list. Two
+  rules in the system prompt said "refuse at once, look nothing up" and named no exception,
+  and the list of tables the editor may name — fixed to the content modules — made the
+  shop's data look as if it did not exist. Both rules now name the exception (call
+  `ext_list` first when it is in the list), and the prompt says the table list is the scope
+  of `record_list` and the `dca_*` tools only, not of what extensions offer. Nothing changes in what an editor may do — `ext_run` still runs only the commands
+  the core lets this user run.
+
 ## v0.16.0 — 2026-10-12
 
 Works with every contao-ai-core-bundle it worked with before; the two new tools need

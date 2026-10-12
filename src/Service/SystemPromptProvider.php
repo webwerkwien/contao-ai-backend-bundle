@@ -111,7 +111,7 @@ class SystemPromptProvider
         $denied = $deniedNames ? '- ' . implode("\n- ", $deniedNames) : '(none)';
 
         $tables = $this->accessibleTablesFor($user);
-        $accessibleTables = $tables ? '- ' . implode("\n- ", $tables) : '(none — record_list/dca_schema not usable)';
+        $accessibleTables = $tables ? '- ' . implode("\n- ", $tables) : '(none — record_list and the dca_* tools not usable)';
 
         return strtr($this->loadTemplate(), [
             '{{username}}'           => $username,
