@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.15.0 — 2026-10-12
+
+Works with every contao-ai-core-bundle it worked with before; the new part needs
+core-bundle v1.6.0.
+
+### Added
+
+- **A refusal carries what the callbacks told the editor.** core-bundle v1.6.0 answers
+  Contao's messages from DCA callbacks (`Message::addError()` …) as `messages`. A success
+  reaches the model as the whole JSON, so they were there already; a refusal became
+  `tool_refused` with the `message` only, and a callback's reason — often given only
+  there — was lost. It is appended now: `… — Contao meldet: Fehler: …; Hinweis: …`
+  (at most five, each cut at 500 characters).
+
 ## v0.14.1 — 2026-10-11
 
 Works with every contao-ai-core-bundle it worked with before.
