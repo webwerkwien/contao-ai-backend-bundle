@@ -85,9 +85,12 @@ class ToolArgumentsMatchCommandTest extends TestCase
             $source = file_get_contents($path);
             $file   = basename($path);
 
-            // runCommand($this->xyzCommand, [ 'key' => …, '--opt' => … ], 'tool')
+            // runCommand($this->xyzCommand, [ 'key' => …, '--opt' => … ], 'tool'), also through
+            // the guard of an optional command: runCommand($this->requireCommand($this->xyzCommand,
+            // 'tool'), [ … ], 'tool') — dca_palette/dca_options escaped this scan until the
+            // review before v0.16.0.
             preg_match_all(
-                "/runCommand\\(\\s*\\\$this->(\\w+Command)\\s*,\\s*\\[(.*?)\\]\\s*,\\s*'([^']+)'/s",
+                "/runCommand\\(\\s*(?:\\\$this->requireCommand\\(\\s*)?\\\$this->(\\w+Command)(?:\\s*,\\s*'[^']*'\\s*\\))?\\s*,\\s*\\[(.*?)\\]\\s*,\\s*'([^']+)'/s",
                 $source,
                 $calls,
                 PREG_SET_ORDER,
@@ -161,7 +164,8 @@ class ToolArgumentsMatchCommandTest extends TestCase
             return null;
         }
 
-        $pattern = '/(?:private|protected|public)\s+readonly\s+(\w+)\s+\$'.preg_quote($property, '/').'\b/';
+        // `?` too: an optional command (v0.16.0) is nullable.
+        $pattern = '/(?:private|protected|public)\s+readonly\s+\??(\w+)\s+\$'.preg_quote($property, '/').'\b/';
 
         return preg_match($pattern, $source, $m) ? $m[1] : null;
     }

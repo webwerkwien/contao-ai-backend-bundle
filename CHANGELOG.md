@@ -5,8 +5,8 @@ All notable changes to this project are documented here. The project adheres to 
 ## v0.16.0 — 2026-10-12
 
 Works with every contao-ai-core-bundle it worked with before; the two new tools need
-core-bundle v1.1.0 (they refuse with that message on an older one), the tool names in
-refusals core-bundle v1.6.1.
+core-bundle v0.16.0 (they refuse with that message on an older one), the tool names in
+refusals core-bundle v1.6.1 (its wording of the lookup).
 
 ### Added
 

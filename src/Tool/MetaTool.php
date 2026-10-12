@@ -141,8 +141,8 @@ class MetaTool extends AbstractCoreCommandTool
      */
     private function requireCommand(?object $command, string $toolName): object
     {
-        // The core bundle has the command since v1.1.0; the backend allows older cores.
-        return $command ?? throw new ToolRefusedException(\sprintf('%s braucht contao-ai-core-bundle v1.1.0 oder neuer.', $toolName));
+        // The core bundle has the command since v0.16.0; the backend allows older cores.
+        return $command ?? throw new ToolRefusedException(\sprintf('%s braucht contao-ai-core-bundle v0.16.0 oder neuer.', $toolName));
     }
 
     /**

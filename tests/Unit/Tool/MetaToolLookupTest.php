@@ -136,6 +136,47 @@ class MetaToolLookupTest extends TestCase
         $this->tool()->dcaOptions('tl_content', 'password');
     }
 
+    public function testOnACoreWithoutTheCommandsTheToolsSaySo(): void
+    {
+        $tokens = $this->createStub(TokenChecker::class);
+        $tokens->method('hasBackendUser')->willReturn(true);
+
+        $tool = new MetaTool(
+            $this->createMock(ToolAccessChecker::class),
+            $tokens,
+            $this->createMock(DcaSchemaCommand::class),
+            $this->createMock(ListingConfigCommand::class),
+            $this->createMock(SearchQueryCommand::class),
+        );
+        $user = $this->createMock(BackendUser::class);
+        $user->method('__get')->willReturnCallback(static fn (string $key): mixed => 'isAdmin' === $key ? true : null);
+        $tool->setActingUserOverride($user);
+
+        $this->expectException(\Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException::class);
+        $this->expectExceptionMessage('v0.16.0');
+
+        $tool->dcaPalette('tl_content', ['type' => 'text']);
+    }
+
+    public function testAControlCharacterInTheRecordIsRefused(): void
+    {
+        $this->expectException(\Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException::class);
+
+        $this->tool()->dcaOptions('tl_content', 'customTpl', ['type' => "text\n--set=x"]);
+    }
+
+    public function testAtMostTwentyRecordValuesAreHandedOver(): void
+    {
+        $record = [];
+        for ($i = 0; $i < 30; ++$i) {
+            $record['f' . $i] = 'v';
+        }
+
+        $this->tool()->dcaPalette('tl_content', $record);
+
+        $this->assertCount(20, $this->input['set'] ?? []);
+    }
+
     public function testARefusalNamesTheToolsInsteadOfTheConsoleCommands(): void
     {
         $message = AbstractCoreCommandTool::withToolNames(

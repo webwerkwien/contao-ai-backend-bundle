@@ -77,10 +77,11 @@ class ToolAccessChecker
         // the module check in MetaTool, so an agent can look up instead of guessing.
         'dca_palette'    => ['module' => '*', 'op' => 'read'],
         'dca_options'    => ['module' => '*', 'op' => 'read'],
-        // Module-gated meta-tools. dca_schema deliberately stays UNMAPPED so
-        // any backend user can query field shapes for the tables they already
-        // have scope on — the system prompt's accessible_tables list bounds
-        // the disclosure surface. search_query / listing_config touch state
+        // Module-gated meta-tools. dca_schema, dca_palette and dca_options are
+        // mapped to '*' above so any backend user can query field shapes for the
+        // tables they already have scope on — the system prompt's accessible_tables
+        // list and MetaTool's table allow-list bound the disclosure surface.
+        // search_query / listing_config touch state
         // beyond a single table (full-text index, listing-module config) and
         // require the page module the same way the regular Contao backend
         // gates them.
@@ -155,8 +156,9 @@ class ToolAccessChecker
     /**
      * Lists ALL #[AsTool] names accessible to the given user. Filters PER tool name
      * (not just per class) so that admin-only sub-tools are excluded for non-admins
-     * even if the parent class is otherwise accessible. Meta-tools (read-only, no
-     * TOOL_MAP entry) are admitted via the parent class's isAccessibleBy() override.
+     * even if the parent class is otherwise accessible. Meta-tools are read-only and
+     * admitted via the parent class's isAccessibleBy() override; their TOOL_MAP entries
+     * ('*' or the page module) decide per name.
      *
      * @return list<string>
      */
