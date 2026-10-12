@@ -159,6 +159,10 @@ go back to the model, which calls again, instead of ending the chat: arguments t
 not fit a tool (a missing parameter, a value the tool's types reject) and a tool name
 that does not exist.
 
+Since v0.15.0 a refusal carries what the DCA callbacks told the editor through Contao's
+messages (with contao-ai-core-bundle v1.6.0 or later): `… — Contao meldet: Fehler: …`.
+A refusing callback often gives its reason only there.
+
 **Who sees what is decided server-side, at the moment the event is emitted.** An
 admin receives the full report including the (masked) exception message; anyone
 else receives the summary with the message stripped, so the H-6 guarantee — the
