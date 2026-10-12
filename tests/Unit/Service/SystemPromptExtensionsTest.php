@@ -36,8 +36,17 @@ class SystemPromptExtensionsTest extends TestCase
         [$capabilities] = explode('# Acting user', $prompt, 2);
         $this->assertStringContainsString('The one exception: if `ext_list` is in your list', $capabilities);
 
-        $denied = substr($prompt, (int) strpos($prompt, 'If a user asks for an action whose tool is in the "NOT available" list'));
-        $this->assertStringContainsString('not one of them while `ext_list` is in your list', $denied);
+        $at = strpos($prompt, 'If a user asks for an action whose tool is in the "NOT available" list');
+        $this->assertNotFalse($at, 'the denied-tools rule is still there under its wording');
+        $this->assertStringContainsString('not one of them while `ext_list` is in your list', substr($prompt, $at));
+    }
+
+    public function testTheExceptionDoesNotReopenADeniedContentTool(): void
+    {
+        [$capabilities] = explode('# Acting user', $this->promptFor(['news'], ['news_read', 'ext_list', 'ext_run']), 2);
+
+        $this->assertStringContainsString('no tool in either list (available or NOT available) is named for', $capabilities);
+        $this->assertStringContainsString('refuse without a lookup', $capabilities);
     }
 
     public function testTheTableListIsScopedToTheTableTools(): void

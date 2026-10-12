@@ -12,9 +12,12 @@ All notable changes to this project are documented here. The project adheres to 
   rules in the system prompt said "refuse at once, look nothing up" and named no exception,
   and the list of tables the editor may name — fixed to the content modules — made the
   shop's data look as if it did not exist. Both rules now name the exception (call
-  `ext_list` first when it is in the list), and the prompt says the table list is the scope
-  of `record_list` and the `dca_*` tools only, not of what extensions offer. Nothing changes in what an editor may do — `ext_run` still runs only the commands
-  the core lets this user run.
+  `ext_list` first when it is in the list, for kinds of records no bundled tool covers — a
+  denied `news_delete` is still refused without a lookup), and the prompt says the table
+  list is the scope of `record_list` and the `dca_*` tools only, not of what extensions
+  offer; the note for an empty list says the same. Nothing changes in what an editor may
+  do: `ext_list` and `ext_run` still offer only the commands whose tables the editor's
+  backend modules reach.
 
 ## v0.16.0 — 2026-10-12
 
