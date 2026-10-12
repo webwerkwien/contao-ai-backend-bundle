@@ -310,7 +310,7 @@ abstract class AbstractCoreCommandTool
         }
 
         if (Command::SUCCESS !== $exitCode || ($decoded['status'] ?? null) === 'error') {
-            $message = self::failureMessage($decoded);
+            $message = self::failureMessage($decoded) . self::contaoMessages($decoded);
 
             // core-bundle v1.3.0 names a defect: `exception` on the answer, or on an
             // entry of a bulk update's `errors`. That is a crash, not a refusal —
@@ -350,6 +350,37 @@ abstract class AbstractCoreCommandTool
     }
 
     private const MAX_REASONS = 5;
+
+    private const MESSAGE_LABELS = ['error' => 'Fehler', 'confirm' => 'Bestätigung', 'new' => 'Neu', 'info' => 'Hinweis', 'raw' => 'Hinweis'];
+
+    /**
+     * What the callbacks told the editor (core-bundle v1.6.0: `messages`), for an answer
+     * that is thrown rather than handed over whole — a callback that refuses often says
+     * why there and nowhere else. A success carries the field in its JSON as it is.
+     *
+     * @param array<mixed> $decoded
+     */
+    public static function contaoMessages(array $decoded): string
+    {
+        $parts = [];
+
+        foreach (\is_array($decoded['messages'] ?? null) ? $decoded['messages'] : [] as $message) {
+            if (!\is_array($message) || !\is_string($message['text'] ?? null) || '' === trim($message['text'])) {
+                continue;
+            }
+
+            $label   = self::MESSAGE_LABELS[(string) ($message['type'] ?? '')] ?? 'Hinweis';
+            $parts[] = $label . ': ' . mb_substr(trim($message['text']), 0, 500);
+        }
+
+        if ([] === $parts) {
+            return '';
+        }
+
+        $more = \count($parts) - self::MAX_REASONS;
+
+        return ' — Contao meldet: ' . implode('; ', \array_slice($parts, 0, self::MAX_REASONS)) . ($more > 0 ? \sprintf(' … und %d weitere', $more) : '');
+    }
 
     /**
      * A refusal's message without the class the core puts in front of it.

@@ -70,6 +70,31 @@ class CoreAnswerKindTest extends TestCase
         }
     }
 
+    /**
+     * core-bundle v1.6.0: what a refusing callback told the editor through Contao's
+     * messages reaches the chat with the refusal; it would be lost otherwise.
+     */
+    public function testARefusalCarriesTheCallbacksMessages(): void
+    {
+        try {
+            $this->answer(['status' => 'error', 'message' => 'InvalidArgumentException: tl_page.onsubmit refused. Nothing was written.', 'code' => 1, 'messages' => [
+                ['type' => 'error', 'text' => 'Startdatum liegt nach dem Enddatum.'],
+                ['type' => 'info', 'text' => 'Sitemap wird neu erstellt.'],
+                ['type' => 'error', 'text' => '  '],
+                'kaputt',
+            ]]);
+            $this->fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            $this->assertSame('Tool "probe" abgelehnt: tl_page.onsubmit refused. Nothing was written. — Contao meldet: Fehler: Startdatum liegt nach dem Enddatum.; Hinweis: Sitemap wird neu erstellt.', $e->getMessage());
+        }
+    }
+
+    public function testWithoutMessagesNothingIsAdded(): void
+    {
+        $this->assertSame('', AbstractCoreCommandTool::contaoMessages(['status' => 'error', 'message' => 'x']));
+        $this->assertSame('', AbstractCoreCommandTool::contaoMessages(['messages' => 'kein Array']));
+    }
+
     public function testOnlyTheLeadingClassOfARefusalGoes(): void
     {
         $this->assertSame('Seite 9 nicht gefunden.', AbstractCoreCommandTool::withoutRefusalClass('Seite 9 nicht gefunden.'));
