@@ -51,6 +51,11 @@ What must hold is the shape: `[OK] No errors`, then `OK`.
 
 A failure is a failure — fix the code, never the test.
 
+**Test against the current core-bundle.** There is no lock file in the repository, and a
+`vendor/` that is never updated keeps whatever core it got: until 2026-10-12 it was
+v0.6.0, and `ToolArgumentsMatchCommandTest` skipped every tool whose core command did not
+exist there — silently. After a core release: `composer update webwerkwien/contao-ai-core-bundle`.
+
 **For a bug fix, write the failing test first.** Reproduce the bug as a test, run
 it, confirm it fails for the reason you expect, and commit that test before
 touching the implementation. Do not edit test files while making the fix. A test

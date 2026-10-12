@@ -29,7 +29,7 @@ class SystemPromptProvider
         'record_list',
         'record_clone',
         'record_rewrite',
-        'dca_schema', 'listing_config', 'search_query',
+        'dca_schema', 'dca_palette', 'dca_options', 'listing_config', 'search_query',
         'ext_list', 'ext_run',
         'language_link', 'language_check',
     ];

@@ -89,7 +89,7 @@ Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, link
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
 | Article | `article_create`, `article_update`, `article_delete`, `article_read` |
 | Content | `content_create`, `content_update`, `content_delete`, `content_read` |
-| Meta    | `dca_schema`, `listing_config`, `search_query`, `record_list` |
+| Meta    | `dca_schema`, `dca_palette`, `dca_options` (v0.16.0), `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 | Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |
 | Translation links | `language_link`, `language_check` — only with terminal42/contao-changelanguage and core-bundle ≥ 1.4.0 |

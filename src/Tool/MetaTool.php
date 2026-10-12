@@ -7,12 +7,17 @@ use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
+use Webwerkwien\ContaoAiCoreBundle\Command\DcaOptionsCommand;
+use Webwerkwien\ContaoAiCoreBundle\Command\DcaPaletteCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\DcaSchemaCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ListingConfigCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\SearchQueryCommand;
 
 #[AsTool('dca_schema',     'Read the DCA field definitions of a Contao table the current user has module access to. The table name MUST come from the explicit per-user list provided in the system prompt — do not pass any other table name.', method: 'dcaSchema')]
+#[AsTool('dca_palette',    'Which fields a record of this kind has, and which of them are mandatory: the palette Contao builds for the record, as the back end would show the form. Pass the values that choose the palette in `record`, e.g. {"type": "text"} for a content element. Ask this before writing fields you have not seen on such a record. Same table list as dca_schema.', method: 'dcaPalette')]
+#[AsTool('dca_options',    'The values a field accepts, resolved on this installation (element types, page types, modules, templates …). Pass what the options depend on in `record`, e.g. {"ptable": "tl_news"}. Ask this instead of guessing a value. Same table list as dca_schema.', method: 'dcaOptions')]
 #[AsTool('listing_config', 'Read the configuration of a Contao listing module (which fields are shown, sorting, filters). Only the user with the page module may use this — refuse otherwise.', method: 'listingConfig')]
 #[AsTool('search_query',   'Run a Contao search query across the indexed content (full-text). Only the user with the page module may use this.', method: 'searchQuery')]
 class MetaTool extends AbstractCoreCommandTool
@@ -23,6 +28,8 @@ class MetaTool extends AbstractCoreCommandTool
         private readonly DcaSchemaCommand $dcaCommand,
         private readonly ListingConfigCommand $listingCommand,
         private readonly SearchQueryCommand $searchCommand,
+        private readonly ?DcaPaletteCommand $paletteCommand = null,
+        private readonly ?DcaOptionsCommand $optionsCommand = null,
     ) {
         parent::__construct($accessChecker, $tokenChecker);
     }
@@ -79,6 +86,92 @@ class MetaTool extends AbstractCoreCommandTool
         $this->assertModuleAccessForTable($table);
 
         return $this->runCommand($this->dcaCommand, ['table' => $table], 'dca_schema');
+    }
+
+    /**
+     * The palette of a record (v0.16.0: "agents should not guess", Michael 2026-10-12).
+     * Same table allow-list and module check as dca_schema; the field names that must
+     * never reach the agent are filtered out of the answer.
+     *
+     * @param string                    $table  Contao table name, e.g. tl_content
+     * @param array<string, scalar|null> $record Values that choose the palette, e.g. {"type": "text"}
+     */
+    #[AiContract(writes: false, trace: [])]
+    public function dcaPalette(string $table, array $record = []): string
+    {
+        $this->assertDcaTable($table, 'dca_palette');
+
+        return $this->runCommand($this->requireCommand($this->paletteCommand, 'dca_palette'), ['table' => $table, '--set' => self::recordOptions($record)], 'dca_palette');
+    }
+
+    /**
+     * The values a field accepts. Not for the fields that must never reach the agent.
+     *
+     * @param string                    $table  Contao table name, e.g. tl_content
+     * @param string                    $field  Field name, e.g. type
+     * @param array<string, scalar|null> $record Values the options depend on, e.g. {"ptable": "tl_news"}
+     */
+    #[AiContract(writes: false, trace: [])]
+    public function dcaOptions(string $table, string $field, array $record = []): string
+    {
+        $this->assertDcaTable($table, 'dca_options');
+
+        if (\in_array($field, self::SENSITIVE_FIELD_NAMES, true)) {
+            throw new ToolAccessDeniedException(\sprintf('Feld "%s" ist für dca_options nicht freigegeben.', $field));
+        }
+
+        return $this->runCommand($this->requireCommand($this->optionsCommand, 'dca_options'), ['table' => $table, 'field' => $field, '--set' => self::recordOptions($record)], 'dca_options');
+    }
+
+    private function assertDcaTable(string $table, string $toolName): void
+    {
+        if (!\in_array($table, self::ALLOWED_DCA_TABLES, true)) {
+            throw new ToolAccessDeniedException(\sprintf('Tabelle "%s" ist für %s nicht freigegeben.', $table, $toolName));
+        }
+
+        $this->assertModuleAccessForTable($table);
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param T|null $command
+     *
+     * @return T
+     */
+    private function requireCommand(?object $command, string $toolName): object
+    {
+        // The core bundle has the command since v1.1.0; the backend allows older cores.
+        return $command ?? throw new ToolRefusedException(\sprintf('%s braucht contao-ai-core-bundle v1.1.0 oder neuer.', $toolName));
+    }
+
+    /**
+     * The record as `--set key=value` pairs. Read-only, so no write allow-list; scalar
+     * values only, without control characters, at most 20.
+     *
+     * @param array<mixed> $record
+     *
+     * @return list<string>
+     */
+    private static function recordOptions(array $record): array
+    {
+        $out = [];
+
+        foreach (self::normalizeFieldsPayload($record) as $key => $value) {
+            if (null === $value || !\is_scalar($value) || !\is_string($key) || 1 !== preg_match('/^[A-Za-z0-9_]+$/', $key)) {
+                continue;
+            }
+
+            $value = (string) $value;
+
+            if (1 === preg_match('/[\x00-\x1F\x7F]/', $value)) {
+                throw new ToolRefusedException(\sprintf('Feld "%s" enthält ungültige Steuerzeichen.', $key));
+            }
+
+            $out[] = $key . '=' . $value;
+        }
+
+        return \array_slice($out, 0, 20);
     }
 
     /**
@@ -140,6 +233,15 @@ class MetaTool extends AbstractCoreCommandTool
                     unset($fields[$name]);
                 }
                 $decoded['fields'] = $fields;
+            }
+            return;
+        }
+
+        if ('dca_palette' === $toolName) {
+            foreach (['fields', 'mandatory'] as $key) {
+                if (\is_array($decoded[$key] ?? null)) {
+                    $decoded[$key] = array_values(array_diff($decoded[$key], self::SENSITIVE_FIELD_NAMES));
+                }
             }
             return;
         }

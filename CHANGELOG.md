@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.16.0 — 2026-10-12
+
+Works with every contao-ai-core-bundle it worked with before; the two new tools need
+core-bundle v1.1.0 (they refuse with that message on an older one), the tool names in
+refusals core-bundle v1.6.1.
+
+### Added
+
+- **The agent can look up instead of guessing** (Michael, 2026-10-12: "in the packages it
+  should be prevented that agents guess input"). Two read-only tools with the table list
+  and module check of `dca_schema`: **`dca_palette`** — the fields a record of a kind has,
+  and the mandatory ones (`record: {"type": "text"}`), and **`dca_options`** — the values a
+  field accepts on this installation (element types, page types, modules …). Field names
+  that never reach the agent are left out of both. The system prompt tells the model to ask
+  them before writing an unfamiliar field or a value from a fixed list, and to pick from
+  the values a refusal names rather than try variations.
+- **A refusal names the tool, not the console command.** core-bundle names its own lookup
+  in a refusal (`contao:dca:options tl_content type`); the chat now reads "the tool
+  dca_options (table: tl_content, field: type)" — likewise `dca_palette` and `dca_schema`.
+
+### Changed
+
+- The development install now tests against core-bundle v1.6.0 instead of v0.6.0, which
+  it had kept since that release; `ToolArgumentsMatchCommandTest` had silently skipped every
+  tool whose command did not exist in v0.6.0. All pass.
+
 ## v0.15.0 — 2026-10-12
 
 Works with every contao-ai-core-bundle it worked with before; the new part needs

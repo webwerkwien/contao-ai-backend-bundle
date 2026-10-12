@@ -310,7 +310,7 @@ abstract class AbstractCoreCommandTool
         }
 
         if (Command::SUCCESS !== $exitCode || ($decoded['status'] ?? null) === 'error') {
-            $message = self::failureMessage($decoded) . self::contaoMessages($decoded);
+            $message = self::withToolNames(self::failureMessage($decoded) . self::contaoMessages($decoded));
 
             // core-bundle v1.3.0 names a defect: `exception` on the answer, or on an
             // entry of a bulk update's `errors`. That is a crash, not a refusal —
@@ -351,7 +351,22 @@ abstract class AbstractCoreCommandTool
 
     private const MAX_REASONS = 5;
 
-    private const MESSAGE_LABELS = ['error' => 'Fehler', 'confirm' => 'Bestätigung', 'new' => 'Neu', 'info' => 'Hinweis', 'raw' => 'Hinweis'];
+    /**
+     * The core names its own console commands as the lookup in a refusal
+     * (`contao:dca:options tl_content type`); in the chat they are tools (v0.16.0,
+     * "agents should not guess", Michael 2026-10-12). A command the chat has no tool
+     * for stays as it is.
+     */
+    public static function withToolNames(string $message): string
+    {
+        $message = (string) preg_replace('/`contao:dca:options ([A-Za-z0-9_]+) ([A-Za-z0-9_]+)`/', 'the tool dca_options (table: $1, field: $2)', $message);
+        $message = (string) preg_replace('/`contao:dca:palette ([A-Za-z0-9_]+) --set ([A-Za-z0-9_]+)=[^`]*`/', 'the tool dca_palette (table: $1, record: {"$2": …})', $message);
+        $message = (string) preg_replace('/`contao:dca:palette ([A-Za-z0-9_]+)`/', 'the tool dca_palette (table: $1)', $message);
+
+        return (string) preg_replace('/`contao:dca:schema ([A-Za-z0-9_]+)`/', 'the tool dca_schema (table: $1)', $message);
+    }
+
+    private const MESSAGE_LABELS =['error' => 'Fehler', 'confirm' => 'Bestätigung', 'new' => 'Neu', 'info' => 'Hinweis', 'raw' => 'Hinweis'];
 
     /**
      * What the callbacks told the editor (core-bundle v1.6.0: `messages`), for an answer

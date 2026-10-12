@@ -73,6 +73,10 @@ class ToolAccessChecker
         // true zurückgab — der Tool-Layer kam gar nicht erst zum Zug.
         'record_list'    => ['module' => '*', 'op' => 'read'],
         'dca_schema'     => ['module' => '*', 'op' => 'read'],
+        // Same scope as dca_schema (v0.16.0): bounded by the table allow-list and
+        // the module check in MetaTool, so an agent can look up instead of guessing.
+        'dca_palette'    => ['module' => '*', 'op' => 'read'],
+        'dca_options'    => ['module' => '*', 'op' => 'read'],
         // Module-gated meta-tools. dca_schema deliberately stays UNMAPPED so
         // any backend user can query field shapes for the tables they already
         // have scope on — the system prompt's accessible_tables list bounds

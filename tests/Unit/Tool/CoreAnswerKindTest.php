@@ -89,6 +89,18 @@ class CoreAnswerKindTest extends TestCase
         }
     }
 
+    /** v0.16.0: the core's console lookup reaches the model as the tool it can call. */
+    public function testARefusalNamesTheLookupToolNotTheConsoleCommand(): void
+    {
+        try {
+            $this->answer(['status' => 'error', 'message' => 'InvalidArgumentException: Not a value Contao offers for tl_content.type: texxt. Nothing was written. Available: text. Look the list up with `contao:dca:options tl_content type`.', 'code' => 1]);
+            $this->fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            $this->assertStringContainsString('the tool dca_options (table: tl_content, field: type)', $e->getMessage());
+            $this->assertStringNotContainsString('contao:dca:options', $e->getMessage());
+        }
+    }
+
     public function testWithoutMessagesNothingIsAdded(): void
     {
         $this->assertSame('', AbstractCoreCommandTool::contaoMessages(['status' => 'error', 'message' => 'x']));
