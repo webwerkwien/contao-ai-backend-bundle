@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.16.2 — 2026-10-12
+
+Works with every contao-ai-core-bundle it worked with before.
+
+### Fixed
+
+- **An extension command learns who acts in the chat.** `ext_run` handed the signed-in
+  user only to `contao:ai:run`, which wrote it into its own log entry and nowhere else;
+  a command that records who changed something fell back to the shell user. In a chat test
+  an editor's change to a manufacturer was stored in `tl_version` under the web server's
+  account with user id 0. A command that defines an option `operator` now gets the
+  signed-in user there.
+- **The model can no longer set that option itself.** `ext_list` offered `operator` like
+  any other option, so the model could have put any user name into the version history.
+  It is left out of the list, and `ext_run` refuses it as the model's mistake before
+  anything runs.
+
 ## v0.16.1 — 2026-10-12
 
 ### Fixed

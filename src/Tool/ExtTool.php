@@ -53,6 +53,13 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 )]
 class ExtTool extends AbstractCoreCommandTool
 {
+    /**
+     * The option through which a command learns who acts (v0.16.2, Consho chat test
+     * 2026-10-12: versions were stored under the shell user). Set here from the signed-in
+     * user, never by the model — it would put any name into the version history.
+     */
+    private const OPERATOR = 'operator';
+
     /** @var array<string, array<string, mixed>>|null name => definition, for the request */
     private ?array $catalog = null;
 
@@ -96,7 +103,7 @@ class ExtTool extends AbstractCoreCommandTool
                 'tables'       => $definition['contract']['checked']['tables'] ?? [],
                 'irreversible' => $statement['irreversible'] ?? null,
                 'arguments'    => $this->describe($definition['arguments'] ?? []),
-                'options'      => $this->describe($definition['options'] ?? []),
+                'options'      => $this->describe(array_diff_key((array) ($definition['options'] ?? []), [self::OPERATOR => true])),
             ];
         }
 
@@ -129,7 +136,7 @@ class ExtTool extends AbstractCoreCommandTool
         }
 
         $definition = $available[$command];
-        $line       = $this->commandLine($command, $definition, $arguments, $options);
+        $line       = $this->commandLine($command, $definition, $arguments, $options, (string) ($user->username ?? ''));
         $statement  = $definition['contract']['checked_with_statement'] ?? [];
 
         if (\is_string($statement['irreversible'] ?? null) && '' !== $statement['irreversible']) {
@@ -262,14 +269,18 @@ class ExtTool extends AbstractCoreCommandTool
      *   would be read as the next option. One of those that also contains `''` or
      *   `"'` cannot be passed faithfully at all and is refused.
      *
+     * A command with an `operator` option gets the signed-in user there; the model can
+     * neither see nor set it (self::OPERATOR).
+     *
      * @param array<string, mixed> $definition
      * @param array<string, mixed> $arguments
      * @param array<string, mixed> $options
      */
-    private function commandLine(string $command, array $definition, array $arguments, array $options): string
+    private function commandLine(string $command, array $definition, array $arguments, array $options, string $operator): string
     {
         $argumentSpecs = (array) ($definition['arguments'] ?? []);
-        $optionSpecs   = (array) ($definition['options'] ?? []);
+        $allOptions    = (array) ($definition['options'] ?? []);
+        $optionSpecs   = array_diff_key($allOptions, [self::OPERATOR => true]);
 
         $unknown = array_diff(array_keys($arguments), array_keys($argumentSpecs));
 
@@ -281,6 +292,10 @@ class ExtTool extends AbstractCoreCommandTool
 
         foreach ($options as $name => $value) {
             $name = ltrim((string) $name, '-');
+
+            if (self::OPERATOR === $name && isset($allOptions[$name])) {
+                throw new ToolCallMistakeException(\sprintf('--%s of %s is set to the signed-in user; leave it out.', $name, $command));
+            }
 
             if (!isset($optionSpecs[$name])) {
                 throw new ToolCallMistakeException(\sprintf('%s has no option %s. Options: %s.', $command, $name, implode(', ', array_keys($optionSpecs)) ?: 'none'));
@@ -303,6 +318,10 @@ class ExtTool extends AbstractCoreCommandTool
             foreach ((array) $value as $one) {
                 $parts[] = self::option($command, $name, self::text($one));
             }
+        }
+
+        if ('' !== $operator && ($allOptions[self::OPERATOR]['accepts_value'] ?? false)) {
+            $parts[] = self::option($command, self::OPERATOR, $operator);
         }
 
         $positional = [];

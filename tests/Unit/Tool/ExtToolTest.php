@@ -52,6 +52,16 @@ class ExtToolTest extends TestCase
             'arguments'   => ['feed' => ['required' => false, 'description' => 'Only this feed'], 'items' => ['required' => false, 'description' => 'Only these items']],
             'options'     => ['force' => ['accepts_value' => false, 'description' => 'Also unchanged ones']],
         ],
+        'consho:manufacturer:update' => [
+            'description' => 'Changes a manufacturer',
+            'reachable'   => true,
+            'contract'    => ['checked' => ['tables' => ['tl_consho_manufacturer']], 'checked_with_statement' => ['writes' => true]],
+            'arguments'   => ['id' => ['required' => true, 'description' => 'The manufacturer']],
+            'options'     => [
+                'set'      => ['accepts_value' => true, 'description' => 'field=value'],
+                'operator' => ['accepts_value' => true, 'description' => 'contao-ai passes the back end user'],
+            ],
+        ],
     ];
 
     private function console(string $runOutput = '{"status":"ok","products":[]}'): ConsoleRunner
@@ -65,6 +75,7 @@ class ExtToolTest extends TestCase
                     ['name' => 'consho:connect:products', 'reachable' => true],
                     ['name' => 'consho:url:prune', 'reachable' => true],
                     ['name' => 'acme:sync', 'reachable' => true],
+                    ['name' => 'consho:manufacturer:update', 'reachable' => true],
                     ['name' => 'contao:page:create', 'reachable' => true],
                     ['name' => 'cache:clear', 'reachable' => false],
                 ]])];
@@ -125,7 +136,7 @@ class ExtToolTest extends TestCase
     {
         $answer = self::decode($this->tool($this->user(true), $this->console())->listCommands());
 
-        $this->assertSame(['consho:connect:products', 'consho:url:prune', 'acme:sync'], array_column($answer['commands'], 'name'));
+        $this->assertSame(['consho:connect:products', 'consho:url:prune', 'acme:sync', 'consho:manufacturer:update'], array_column($answer['commands'], 'name'));
         $this->assertSame(['tl_consho_product', 'tl_consho_price'], $answer['commands'][0]['tables']);
         $this->assertSame('the pruned addresses are deleted', $answer['commands'][1]['irreversible']);
     }
@@ -150,6 +161,56 @@ class ExtToolTest extends TestCase
         $this->assertSame('consho:connect:products --root "Shop \"Wien\"" --dry-run -- "9"', $run['--command-line']);
         $this->assertSame('editor', $run['--operator']);
         $this->assertSame('ok', $answer['status']);
+    }
+
+    /**
+     * The command learns who acts (v0.16.2, Consho chat test 2026-10-12: tl_version said
+     * "web246", userid 0). Parsed the way contao:ai:run parses it, not compared as text.
+     */
+    public function testACommandWithAnOperatorOptionGetsTheSignedInUser(): void
+    {
+        $this->tool($this->user(false), $this->console(), ['tl_consho_manufacturer'])
+            ->runCommandLine('consho:manufacturer:update', ['id' => '5'], ['set' => 'title=Neu']);
+
+        $run   = end($this->runs);
+        $input = new StringInput($run['--command-line']);
+        $input->bind(new InputDefinition([
+            new InputArgument('command', InputArgument::REQUIRED),
+            new InputArgument('id', InputArgument::REQUIRED),
+            new InputOption('set', null, InputOption::VALUE_REQUIRED),
+            new InputOption('operator', null, InputOption::VALUE_REQUIRED),
+        ]));
+
+        $this->assertSame('editor', $input->getOption('operator'));
+        $this->assertSame('5', $input->getArgument('id'));
+        $this->assertSame('editor', $run['--operator'], 'and contao:ai:run logs the same user');
+    }
+
+    public function testACommandWithoutAnOperatorOptionGetsNone(): void
+    {
+        $this->tool($this->user(true), $this->console())->runCommandLine('acme:sync');
+
+        $this->assertSame('acme:sync', end($this->runs)['--command-line']);
+    }
+
+    public function testTheModelNeitherSeesNorSetsTheOperator(): void
+    {
+        $tool    = $this->tool($this->user(false), $this->console(), ['tl_consho_manufacturer']);
+        $listed  = self::decode($tool->listCommands())['commands'];
+        $options = array_column($listed[array_search('consho:manufacturer:update', array_column($listed, 'name'), true)]['options'], 'name');
+
+        $this->assertSame(['set'], $options);
+
+        foreach (['operator', '--operator'] as $name) {
+            try {
+                $tool->runCommandLine('consho:manufacturer:update', ['id' => '5'], [$name => 'admin']);
+                $this->fail('the model set the operator');
+            } catch (ToolCallMistakeException $e) {
+                $this->assertStringContainsString('set to the signed-in user', $e->getMessage());
+            }
+        }
+
+        $this->assertSame([], array_filter($this->runs, static fn (array $run): bool => 'contao:ai:run' === $run['command']), 'nothing ran');
     }
 
     public function testArgumentsAndOptionsMayArriveAsJsonStrings(): void
