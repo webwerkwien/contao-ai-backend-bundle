@@ -321,7 +321,12 @@ class ExtTool extends AbstractCoreCommandTool
         }
 
         if ('' !== $operator && ($allOptions[self::OPERATOR]['accepts_value'] ?? false)) {
-            $parts[] = self::option($command, self::OPERATOR, $operator);
+            try {
+                $parts[] = self::option($command, self::OPERATOR, $operator);
+            } catch (ToolCallMistakeException $e) {
+                // The user name, not the model's input: nothing the model could change.
+                throw new ToolRefusedException(\sprintf('Tool "ext_run" abgelehnt: der Benutzername lässt sich nicht unverändert an %s übergeben.', $command), 0, $e);
+            }
         }
 
         $positional = [];

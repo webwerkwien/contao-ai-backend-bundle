@@ -193,6 +193,16 @@ class ExtToolTest extends TestCase
         $this->assertSame('acme:sync', end($this->runs)['--command-line']);
     }
 
+    /** A flag named operator takes no user; `--operator "editor"` would not bind (review). */
+    public function testAnOperatorFlagGetsNoUser(): void
+    {
+        $this->definitions['acme:sync']['options']['operator'] = ['accepts_value' => false, 'description' => 'Operator mode'];
+
+        $this->tool($this->user(true), $this->console())->runCommandLine('acme:sync');
+
+        $this->assertSame('acme:sync', end($this->runs)['--command-line']);
+    }
+
     public function testTheModelNeitherSeesNorSetsTheOperator(): void
     {
         $tool    = $this->tool($this->user(false), $this->console(), ['tl_consho_manufacturer']);
