@@ -35,9 +35,10 @@ Also installed: [`webwerkwien/contao-ai-core-bundle`](https://github.com/webwerk
 
 ```bash
 composer require "webwerkwien/contao-ai-backend-bundle:>=0.1 <2.0"
-vendor/bin/contao-console contao:migrate           # adds ai_api_key, ai_platform, ai_cli_token to tl_user
-vendor/bin/contao-console assets:install            # publishes the Stimulus controller + CSS
+vendor/bin/contao-console contao:migrate           # adds ai_platform, ai_model, ai_base_url, ai_api_key, ai_cli_token to tl_user
 ```
+
+`contao-ai-cli bundle install backend` does both steps, `contao:migrate` included since CLI v1.7.0.
 
 The Contao Manager auto-discovers the bundle via the `contao-manager-plugin` entry.
 
