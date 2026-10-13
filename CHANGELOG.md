@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.16.3 — 2026-10-13
+
+Works with every contao-ai-core-bundle it worked with before; contao-ai-cli v1.8.0 names
+the same step in `health` and after `bundle install backend`.
+
+### Changed
+
+- **The generated CLI bridge token comes with the step that completes the setup.**
+  Generating the token looked like the whole setup; contao-ai-cli then reported the bridge
+  as not configured, and nothing in the back end said why (found on a fresh installation).
+  Beneath the token the info box now shows the command with this site's address —
+  `contao-ai-cli --session <name> bridge configure --url https://… --test`, which asks for
+  the token with hidden input, so it never stands in a command line — and says that it is
+  optional: only `bridge clone` / `bridge rewrite` from the terminal use the token, the chat
+  does not. The field's help text says the same.
+- **README:** `assets:install` is gone from the installation steps (the bundle has no
+  public assets), and the `contao:migrate` line names all five `tl_user` columns.
+
 ## v0.16.2 — 2026-10-12
 
 Works with every contao-ai-core-bundle it worked with before.

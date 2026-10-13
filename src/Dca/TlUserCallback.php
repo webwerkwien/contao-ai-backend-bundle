@@ -97,7 +97,7 @@ class TlUserCallback
         $clearUrl   = $this->urlGenerator->generate('contao_ai_backend_cli_token_clear',  ['userId' => $userId]);
 
         $label        = $this->t('tl_user.ai_cli_token.0',         'CLI-Bridge-Token');
-        $description  = $this->t('tl_user.ai_cli_token.1',         'Bearer-Token für den Python-CLI-Agent. Nach Klick auf „Generieren" wird der Klartext einmalig hier angezeigt — bitte sofort kopieren, danach ist nur der Hash in der DB.');
+        $description  = $this->t('tl_user.ai_cli_token.1',         'Optional: nur für „bridge clone" und „bridge rewrite" von contao-ai-cli aus dem Terminal — der Chat braucht ihn nicht. Nach Klick auf „Generieren" wird der Klartext einmalig hier angezeigt, mit dem nächsten Schritt im Terminal; danach ist nur der Hash in der DB.');
         $statusLabel  = $hasToken
             ? $this->t('tl_user.ai_cli_token_status_set',   'Token gesetzt (Hash gespeichert)')
             : $this->t('tl_user.ai_cli_token_status_empty', 'Kein Token gesetzt');
@@ -138,12 +138,14 @@ class TlUserCallback
                 .   '<button type="button" class="tl_submit" style="white-space:nowrap;" '
                 .     'onclick="var b=this;navigator.clipboard.writeText(document.getElementById(&#039;ai_cli_token_oneshot&#039;).textContent).then(function(){b.textContent=%s;setTimeout(function(){b.textContent=%s;},2000);});">%s</button>'
                 . '</div>'
+                . '%s'
                 . '</div>',
                 $this->h($this->t('tl_user.ai_cli_token_oneshot_warning', 'Klartext-Token (NUR JETZT sichtbar — bitte kopieren):')),
                 $this->h($oneShotToken),
                 $copiedJs,
                 $copyJs,
                 $this->h($copyLabel),
+                $this->nextStep(),
             );
         }
 
@@ -173,6 +175,32 @@ class TlUserCallback
             $this->h($rotateLabel),
             $clearBtn,
             $this->h($description),
+        );
+    }
+
+    /**
+     * The second half of the bridge, under the token it needs (v0.16.3).
+     *
+     * Generating the token looked like the whole setup; contao-ai-cli then reported the
+     * bridge as not configured and nothing here said why (showcase.conpai.eu,
+     * 2026-10-13). Said as optional — only `bridge clone`/`bridge rewrite` from the
+     * terminal use the token, the chat does not. The command carries this site's address
+     * and no token: without `--token`/`--token-stdin` the CLI asks for it with hidden
+     * input, so it never stands in a command line or the shell history.
+     */
+    private function nextStep(): string
+    {
+        $host    = $this->requestStack->getCurrentRequest()?->getSchemeAndHttpHost() ?? 'https://<site>';
+        $command = \sprintf('contao-ai-cli --session <name> bridge configure --url %s --test', $host);
+
+        return \sprintf(
+            '<p style="margin:1em 0 .4em;">%s</p>'
+            . '<code style="display:block;padding:.4em .6em;background:#fff;border:1px solid #ccc;border-radius:.2em;font-family:monospace;word-break:break-all;user-select:all;">%s</code>',
+            $this->h($this->t(
+                'tl_user.ai_cli_token_next_step',
+                'Optional, nur für „bridge clone" und „bridge rewrite" aus dem Terminal — der Chat braucht den Token nicht. Danach im Terminal ausführen; die CLI fragt verdeckt nach dem Token:',
+            )),
+            $this->h($command),
         );
     }
 

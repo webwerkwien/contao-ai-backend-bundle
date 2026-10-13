@@ -52,7 +52,7 @@ In **System → Users → (user)**, these fields appear in the *AI agent* legend
 | API key | depends | Stored in plain text — see *Security model*. Cloud providers need one; a self-hosted provider takes an endpoint instead. |
 | Endpoint URL | depends | **Administrators only** — not editable under *Personal data*, because it decides where the server sends requests. Only for providers without a fixed endpoint: Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
 | Model | depends | Optional for Anthropic and OpenAI, which ship a default. Required elsewhere. |
-| CLI bridge token | optional | Click *Generate / Rotate* to mint a token for the [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) `bridge` workflow. Cleartext is shown once with a *Copy token* button; only the `password_hash` is stored in the database. *Delete* revokes. |
+| CLI bridge token | optional | Only for `bridge clone` / `bridge rewrite` of [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) from the terminal — the chat does not need it. Click *Generate / Rotate* to mint a token. Cleartext is shown once with a *Copy token* button and, beneath it, the command that completes the setup with this site's address (`contao-ai-cli --session <name> bridge configure --url https://… --test`, which asks for the token with hidden input); only the `password_hash` is stored in the database. *Delete* revokes. |
 
 ## Providers
 
