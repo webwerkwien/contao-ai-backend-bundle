@@ -23,16 +23,21 @@ class TlUserCallbackTest extends TestCase
 {
     private const TOKEN = '7.s3cr3t-token-value';
 
-    private function widget(bool $justGenerated): string
+    private ?RequestStack $stack = null;
+
+    private function widget(bool $justGenerated, string $url = 'https://showcase.example.org/contao?do=user&act=edit&id=7'): string
     {
-        $session = new Session(new MockArraySessionStorage());
-        if ($justGenerated) {
-            $session->set(AiCliTokenController::ONE_SHOT_KEY_PREFIX . 7, self::TOKEN);
+        if (null === $this->stack) {
+            $session = new Session(new MockArraySessionStorage());
+            if ($justGenerated) {
+                $session->set(AiCliTokenController::ONE_SHOT_KEY_PREFIX . 7, self::TOKEN);
+            }
+            $request = Request::create($url);
+            $request->setSession($session);
+            $this->stack = new RequestStack();
+            $this->stack->push($request);
         }
-        $request = Request::create('https://showcase.example.org/contao?do=user&act=edit&id=7');
-        $request->setSession($session);
-        $stack = new RequestStack();
-        $stack->push($request);
+        $stack = $this->stack;
 
         $connection = $this->createMock(Connection::class);
         $connection->method('fetchOne')->willReturn($justGenerated ? 'hash' : '');
@@ -55,7 +60,7 @@ class TlUserCallbackTest extends TestCase
     {
         $html = $this->widget(true);
 
-        $this->assertStringContainsString(self::TOKEN, $html, 'the token itself is still shown once');
+        $this->assertSame(1, substr_count($html, self::TOKEN), 'the token itself is shown exactly once');
         $this->assertStringContainsString(
             'contao-ai-cli --session &lt;name&gt; bridge configure --url https://showcase.example.org --test',
             $html,
@@ -70,6 +75,24 @@ class TlUserCallbackTest extends TestCase
             $this->assertStringNotContainsString(self::TOKEN, $command);
             $this->assertStringNotContainsString('--token', $command);
         }
+    }
+
+    public function testTheTokenAndTheCommandAreGoneOnTheNextRender(): void
+    {
+        $this->widget(true);
+        $again = $this->widget(true);
+
+        $this->assertStringNotContainsString(self::TOKEN, $again);
+        $this->assertStringNotContainsString('bridge configure', $again);
+    }
+
+    /** Review before v0.16.3: behind a TLS proxy without trusted_proxies the request says http. */
+    public function testTheCommandAlwaysUsesHttpsTheOnlySchemeTheCliAccepts(): void
+    {
+        $html = $this->widget(true, 'http://showcase.example.org:8080/contao?do=user&act=edit&id=7');
+
+        $this->assertStringContainsString('--url https://showcase.example.org:8080 --test', $html);
+        $this->assertStringNotContainsString('http://showcase', $html);
     }
 
     public function testWithoutAFreshTokenThereIsNoCommandButTheHelpSaysOptional(): void

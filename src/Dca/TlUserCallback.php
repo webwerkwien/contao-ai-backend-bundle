@@ -14,9 +14,10 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
  * Phase 10.2: DCA input_field_callback für tl_user.ai_cli_token.
  *
  * Ersetzt das normale Eingabefeld komplett: zeigt Status (vorhanden/leer)
- * und zwei POST-Forms (Generate/Rotate, Clear). Klartext-Token wird NIE in
- * diesem Widget gerendert — er erscheint nur einmalig nach erfolgreichem
- * Rotate via Flash-Bag in der BE.info-Box.
+ * und zwei POST-Buttons (Generate/Rotate, Clear). Der Klartext-Token erscheint
+ * genau einmal direkt nach dem Rotate in diesem Widget — aus der Session, die
+ * AiCliTokenController dafür füllt und die hier beim Rendern geleert wird —,
+ * seit v0.16.3 mit dem nächsten Schritt im Terminal darunter.
  */
 class TlUserCallback
 {
@@ -134,7 +135,7 @@ class TlUserCallback
                 '<div style="margin:1em 0;padding:.8em 1em;background:#fff8d8;border:1px solid #d8c060;border-radius:.25em;">'
                 . '<strong style="display:block;margin-bottom:.6em;color:#806000;">%s</strong>'
                 . '<div style="display:flex;gap:1em;align-items:center;">'
-                .   '<code id="ai_cli_token_oneshot" style="flex:1;padding:.4em .6em;background:#fff;border:1px solid #ccc;border-radius:.2em;font-family:monospace;word-break:break-all;user-select:all;">%s</code>'
+                .   '<code id="ai_cli_token_oneshot" style="flex:1;padding:.4em .6em;background:#fff;color:#222;border:1px solid #ccc;border-radius:.2em;font-family:monospace;word-break:break-all;user-select:all;">%s</code>'
                 .   '<button type="button" class="tl_submit" style="white-space:nowrap;" '
                 .     'onclick="var b=this;navigator.clipboard.writeText(document.getElementById(&#039;ai_cli_token_oneshot&#039;).textContent).then(function(){b.textContent=%s;setTimeout(function(){b.textContent=%s;},2000);});">%s</button>'
                 . '</div>'
@@ -187,15 +188,19 @@ class TlUserCallback
      * terminal use the token, the chat does not. The command carries this site's address
      * and no token: without `--token`/`--token-stdin` the CLI asks for it with hidden
      * input, so it never stands in a command line or the shell history.
+     *
+     * Always `https://`: the CLI refuses any other bridge URL, and behind a TLS proxy
+     * without trusted_proxies the request's own scheme reads http (review before v0.16.3).
+     * Fixed text colours: the box keeps its light background in the dark back-end theme.
      */
     private function nextStep(): string
     {
-        $host    = $this->requestStack->getCurrentRequest()?->getSchemeAndHttpHost() ?? 'https://<site>';
-        $command = \sprintf('contao-ai-cli --session <name> bridge configure --url %s --test', $host);
+        $host    = $this->requestStack->getCurrentRequest()?->getHttpHost();
+        $command = \sprintf('contao-ai-cli --session <name> bridge configure --url https://%s --test', $host ?: '<site>');
 
         return \sprintf(
-            '<p style="margin:1em 0 .4em;">%s</p>'
-            . '<code style="display:block;padding:.4em .6em;background:#fff;border:1px solid #ccc;border-radius:.2em;font-family:monospace;word-break:break-all;user-select:all;">%s</code>',
+            '<p style="margin:1em 0 .4em;color:#4a3d00;">%s</p>'
+            . '<code style="display:block;padding:.4em .6em;background:#fff;color:#222;border:1px solid #ccc;border-radius:.2em;font-family:monospace;word-break:break-all;user-select:all;">%s</code>',
             $this->h($this->t(
                 'tl_user.ai_cli_token_next_step',
                 'Optional, nur für „bridge clone" und „bridge rewrite" aus dem Terminal — der Chat braucht den Token nicht. Danach im Terminal ausführen; die CLI fragt verdeckt nach dem Token:',
