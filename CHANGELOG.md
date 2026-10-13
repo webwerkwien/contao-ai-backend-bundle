@@ -16,7 +16,18 @@ the same step in `health` and after `bundle install backend`.
   `contao-ai-cli --session <name> bridge configure --url https://… --test`, which asks for
   the token with hidden input, so it never stands in a command line — and says that it is
   optional: only `bridge clone` / `bridge rewrite` from the terminal use the token, the chat
-  does not. The field's help text says the same.
+  does not. The field's help text says the same. The command always says `https://`, the
+  only scheme contao-ai-cli accepts — behind a TLS proxy without `trusted_proxies` the
+  request itself reads `http`.
+
+### Fixed
+
+- **The token box was hard to read in the dark back-end theme.** It keeps its light yellow
+  background, but its text took the theme's light colour — the token itself included.
+  The text in the box now has fixed dark colours.
+
+### Docs
+
 - **README:** `assets:install` is gone from the installation steps (the bundle has no
   public assets), and the `contao:migrate` line names all five `tl_user` columns.
 
