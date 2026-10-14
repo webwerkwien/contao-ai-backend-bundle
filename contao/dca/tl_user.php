@@ -86,6 +86,12 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_api_key'] = [
         // 🎯 Entfernt statt belassen: ein totes Flag, das Sicherheit suggeriert,
         // ist schlimmer als keines. Wer hier künftig verschlüsseln will, braucht
         // save_callback/load_callback — das Flag kommt nicht zurück.
+        //
+        // hideInput (v0.17.0): Passwortfeld, und Contao lässt das Feld in der
+        // Detailansicht und im Versionsvergleich weg. Den gespeicherten Wert hält
+        // ApiKeyField aus dem Formular heraus — hideInput allein schickte ihn im
+        // value-Attribut weiterhin mit.
+        'hideInput' => true,
     ],
     'sql'       => "varchar(512) NOT NULL default ''",
 ];

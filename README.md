@@ -116,7 +116,28 @@ and lives in the changelog.
 
 ⚠️ **API keys are stored in plain text** in `tl_user.ai_api_key` — Contao 5 has no
 field encryption. Treat read access to the database as equivalent to holding every
-key in it, and grant it accordingly.
+key in it, and grant it accordingly. That includes copies of it:
+
+- **Every database backup holds the keys** — `contao:backup:create`, the backup Contao
+  makes before each migration, any `mysqldump`.
+- **So does the version history of `tl_user`.** A key you replaced stays in the older
+  versions. After changing a key, remove those versions before a backup leaves the
+  server, or treat the old key as known and revoke it.
+- **The back end does not show the key** (since v0.17.0): the user form shows
+  `********` for a stored key, and Contao leaves the field out of the show view and the
+  version diff. Leave the mask to keep the key, enter a new one to replace it, clear the
+  field to disable the AI module for the user.
+
+Encrypting the column with a key from the environment was considered and not done: on a
+server, whoever reads the environment also reads the database credentials, so it would
+only protect a backup that travels without the files.
+
+**What a leaked key costs, and how to cap it.** A provider key opens no door to the
+site; it lets someone use the model on your bill — and, depending on the provider,
+reach files or assistants stored under that key's project. Use **one key per
+installation**, in its own workspace or project **with a low spending limit**, so a
+leaked key is capped and revoking it affects only that site. Revoking and replacing a
+key in the provider's console takes a minute.
 
 ⚠️ **Content the agent reads can try to instruct it.** Tool output is wrapped,
 truncated and declared as untrusted data, destructive operations need a real user

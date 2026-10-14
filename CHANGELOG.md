@@ -36,6 +36,15 @@ editors (non-admins) use the chat or the CLI bridge.**
   - Closed where the rule cannot be read: a field the table's DCA does not know, or a
     table whose DCA did not load, is refused; an unknown field is named as unknown.
 
+- **The user form no longer sends the stored API key to the browser.** `ai_api_key` was a
+  plain text input: anyone allowed to edit users received every other user's key in
+  clear in the form (checked on the test server). The form now shows `********` for a
+  stored key — leave it to keep the key, enter a new one to replace it, clear the field
+  to disable the AI module as before — and `hideInput` keeps the field out of Contao's
+  show view and version diff. The key itself stays in plain text in the database; the
+  README now says that backups and the version history of `tl_user` hold it too, and
+  recommends one key per installation with a spending limit.
+
 ### Changed
 
 - `page_update` and `article_update` no longer offer `keywords`, `content_update` no longer
