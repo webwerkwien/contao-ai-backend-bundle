@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## Unreleased
+
+Describes core-bundle v1.7.4; nothing changes in what the tool does.
+
+### Changed
+
+- **`record_clone` tells the model what a clone is.** The description listed only
+  `title, pageTitle, description, published, hide` for pages, though the core takes
+  `language, urlPrefix, urlSuffix, fallback, dns` for a root since v0.15.0 (the tool always
+  passed them on; cloning a root stays admin-only). It said "to clone without publishing,
+  pass `{"published": ""}`" — from core-bundle v1.7.4 on a cloned page is unpublished
+  anyway, and never the main language by itself. The model is now told to ask which
+  language is the main one before cloning a root into another language.
+
 ## v0.16.3 — 2026-10-13
 
 Works with every contao-ai-core-bundle it worked with before; contao-ai-cli v1.8.0 names
