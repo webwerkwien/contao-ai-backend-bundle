@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## Unreleased
+## v0.16.4 — 2026-10-14
 
 Describes core-bundle v1.7.4; nothing changes in what the tool does.
 
