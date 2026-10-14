@@ -90,6 +90,12 @@ that existed before the fix, and that could not be rewritten, is the proof.
   container voters, `isGranted('contao_dc.<table>', <action>)`, asked with the action
   `DC_Table` builds — `assertCreate($table, $new)`, `assertRead`, `assertUpdate($table, $id,
   self::writtenValues($fields))`, `assertDelete`. Admins are asked too, as in the back end.
+  **Never ask `contao_dc.*` through the global `isGranted()`:** these voters only deny or
+  abstain and `DefaultDataContainerVoter` grants last, which needs the priority strategy;
+  Contao applies it only inside its own firewalls, and the CLI bridge (`/_ai_cli/macro`)
+  runs in none, where the global check allowed everything (measured on c5, 2026-10-14).
+  `DataContainerAccess` decides with its own `AccessDecisionManager` and `PriorityStrategy`
+  over the tagged voters.
   Mind three things the voters assume: the DCA is loaded (the service does it; otherwise
   `TableAccessVoter` abstains silently), `sorting` in a create is non-null (null reads as a
   copy to the page voter), and an update with no values passes `null`, not `[]` (`[]` reads
