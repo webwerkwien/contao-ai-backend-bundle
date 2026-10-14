@@ -23,10 +23,10 @@ editors (non-admins) use the chat or the CLI bridge.**
     value other than the default (another page or element type, a title) needs it.
   - `page_publish`: needs `tl_page::published`, checked before the "take it offline?"
     question.
-  - `record_clone`: every override needs its right — so far `{"published": "1"}` published a
-    clone without it (found in the review of v0.16.4). Not the create rule: a clone copies
-    its source, so `{"hide": ""}` would show a hidden page. A cloned page comes out
-    unpublished anyway (core v1.7.4).
+  - `record_clone`: every override needs its right, a `null` one included (the core writes
+    it as empty) — so far `{"published": "1"}` published a clone without it (found in the
+    review of v0.16.4). Not the create rule: a clone copies its source, so `{"hide": ""}`
+    would show a hidden page. A cloned page comes out unpublished anyway (core v1.7.4).
   - `language_link`: the same check instead of its own (`hasAccess(…, 'alexf')`, which
     skipped Contao's exclusion rule and goes away in Contao 6).
   - `news_create` checks `time` too: the core writes the date into both columns.
@@ -34,7 +34,13 @@ editors (non-admins) use the chat or the CLI bridge.**
     `skipped` with its reason; the other fields of the record are written.
   - The CLI bridge runs the same tools as the token's user, so the same applies there.
   - Closed where the rule cannot be read: a field the table's DCA does not know, or a
-    table whose DCA did not load, is refused.
+    table whose DCA did not load, is refused; an unknown field is named as unknown.
+
+### Changed
+
+- `page_update` and `article_update` no longer offer `keywords`, `content_update` no longer
+  offers `published`: none of them exists in Contao 5 (a content element's visibility is
+  `invisible`), so writing them always failed.
 
   Not covered: what an extension command (`ext_run`) writes. Its contract names tables,
   not fields; whether a user may run it is decided by those tables.

@@ -184,6 +184,18 @@ class FieldPermissionTest extends TestCase
         $this->assertSame(['keywords'], $this->permission(['tl_page::keywords'])->denied($this->user(), 'tl_page', ['keywords']));
     }
 
+    /**
+     * A field the installation does not have is named as such, not as a missing right
+     * (second review: `keywords` was offered by two tools and does not exist in Contao 5).
+     */
+    public function testAnUnknownFieldIsNamedAsUnknown(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessageMatches('/das Feld: tl_page\.published\. .*Unbekannt in dieser Installation: tl_page\.keywords\. Es wurde nichts geschrieben\./s');
+
+        $this->permission()->assertWritable($this->user(), 'tl_page', ['published', 'keywords']);
+    }
+
     public function testATableWithoutDcaRefusesEverything(): void
     {
         $this->expectException(ToolAccessDeniedException::class);

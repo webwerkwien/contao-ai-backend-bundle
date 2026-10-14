@@ -45,6 +45,14 @@ class FieldPermissionContractTest extends TestCase
         foreach (['headline', 'date', 'time', 'published'] as $field) {
             yield "tl_news.{$field}" => ['news-bundle/contao/dca/tl_news.php', $field];
         }
+        foreach (['title', 'startDate', 'published'] as $field) {
+            yield "tl_calendar_events.{$field}" => ['calendar-bundle/contao/dca/tl_calendar_events.php', $field];
+        }
+        foreach (['question', 'answer', 'published'] as $field) {
+            yield "tl_faq.{$field}" => ['faq-bundle/contao/dca/tl_faq.php', $field];
+        }
+        // `master` (language_link) comes from terminal42/contao-changelanguage, which is
+        // not a dependency of this repo; its definition is not pinned here.
     }
 
     /**

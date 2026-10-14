@@ -53,7 +53,8 @@ class PageTool extends AbstractCoreCommandTool
     protected function allowedFields(): array
     {
         return [
-            'title', 'pageTitle', 'language', 'description', 'keywords',
+            // `keywords` was listed until v0.16.4; tl_page has no such field in Contao 5.
+            'title', 'pageTitle', 'language', 'description',
             'published', 'start', 'stop',
         ];
     }

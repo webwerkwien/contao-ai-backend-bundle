@@ -48,7 +48,8 @@ class LanguageToolTest extends TestCase
         $tool->setActingUserOverride($user);
 
         // The field right goes through FieldPermission like every other write (v0.17.0).
-        $this->defineDca(['tl_news_archive' => ['master' => ['inputType' => 'select', 'sql' => 'int(10) unsigned NOT NULL default 0']]]);
+        $master = ['master' => ['inputType' => 'select', 'sql' => 'int(10) unsigned NOT NULL default 0']];
+        $this->defineDca(['tl_news_archive' => $master, 'tl_calendar' => $master]);
         $tool->setFieldPermission($this->fieldPermission($allowedFields));
 
         return $tool;
@@ -92,6 +93,22 @@ class LanguageToolTest extends TestCase
             $this->fail('expected a denial');
         } catch (ToolAccessDeniedException $e) {
             $this->assertStringContainsString('tl_news_archive.master', $e->getMessage());
+        }
+
+        $this->assertSame([], $this->runs);
+    }
+
+    /**
+     * The right of the table linked: a grant on news archives says nothing about
+     * calendars (second review, 2026-10-14).
+     */
+    public function testTheRightIsTheOneOfTheLinkedTable(): void
+    {
+        try {
+            $this->tool(false, true, ['tl_news_archive::master'])->link('tl_calendar', 7, 4);
+            $this->fail('expected a denial');
+        } catch (ToolAccessDeniedException $e) {
+            $this->assertStringContainsString('tl_calendar.master', $e->getMessage());
         }
 
         $this->assertSame([], $this->runs);

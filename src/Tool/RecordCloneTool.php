@@ -188,7 +188,12 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // so {"hide": ""} would show a hidden page in the navigation (Fable review
         // 2026-10-14). The core unpublishes a cloned page by itself; nobody needs to
         // pass {"published": ""}.
-        $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys(array_filter($modifications, static fn ($value): bool => null !== $value))));
+        //
+        // Every key, null included: the core writes a null override too — as '' or, for
+        // a flag, '0' — so {"hide": null} showed a hidden page once nulls were skipped
+        // here (second review, 2026-10-14). Unlike buildSetOptions(), nothing drops them
+        // on the way to the command.
+        $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys($modifications)));
 
         $modsJson = json_encode($modifications, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (false === $modsJson) {

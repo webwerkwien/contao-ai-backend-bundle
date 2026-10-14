@@ -50,7 +50,8 @@ class ArticleTool extends AbstractCoreCommandTool
     protected function allowedFields(): array
     {
         return [
-            'title', 'teaser', 'showTeaser', 'keywords',
+            // `keywords` was listed until v0.16.4; tl_article has no such field in Contao 5.
+            'title', 'teaser', 'showTeaser',
             'published', 'start', 'stop',
         ];
     }

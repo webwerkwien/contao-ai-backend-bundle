@@ -117,12 +117,25 @@ class FieldPermission
             return;
         }
 
-        throw new ToolAccessDeniedException(\sprintf(
-            'Keine Berechtigung für %s: %s. Diese Felder sind für diesen Benutzer nicht freigegeben '
-            . '(Benutzergruppe, „Erlaubte Felder"). Es wurde nichts geschrieben.',
-            1 === \count($denied) ? 'das Feld' : 'die Felder',
-            implode(', ', array_map(static fn (string $field): string => $table . '.' . $field, $denied)),
-        ));
+        $known   = $GLOBALS['TL_DCA'][$table]['fields'] ?? [];
+        $unknown = array_values(array_filter($denied, static fn (string $field): bool => !isset($known[$field])));
+        $locked  = array_values(array_diff($denied, $unknown));
+        $name    = static fn (string $field): string => $table . '.' . $field;
+        $reasons = [];
+
+        if ([] !== $locked) {
+            $reasons[] = \sprintf(
+                'Keine Berechtigung für %s: %s. Diese Felder sind für diesen Benutzer nicht freigegeben (Benutzergruppe, „Erlaubte Felder").',
+                1 === \count($locked) ? 'das Feld' : 'die Felder',
+                implode(', ', array_map($name, $locked)),
+            );
+        }
+
+        if ([] !== $unknown) {
+            $reasons[] = \sprintf('Unbekannt in dieser Installation: %s.', implode(', ', array_map($name, $unknown)));
+        }
+
+        throw new ToolAccessDeniedException(implode(' ', $reasons) . ' Es wurde nichts geschrieben.');
     }
 
     /**

@@ -52,8 +52,10 @@ class ContentTool extends AbstractCoreCommandTool
     protected function allowedFields(): array
     {
         return [
+            // `published` was listed until v0.16.4; a content element's visibility is
+            // `invisible` in Contao 5, so the write always failed. Not replaced here.
             'headline', 'text', 'html', 'addImage',
-            'published', 'start', 'stop',
+            'start', 'stop',
         ];
     }
 

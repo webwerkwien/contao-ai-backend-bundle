@@ -32,6 +32,7 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\PageTool;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordCloneTool;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
+use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
 
 /**
@@ -63,6 +64,7 @@ class FieldRightsWiringTest extends TestCase
             'tl_news' => ['headline' => self::TEXT, 'teaser' => self::TEXT, 'published' => self::FLAG, 'date' => self::DATE, 'time' => self::DATE],
             'tl_calendar_events' => ['title' => self::TEXT, 'published' => self::FLAG, 'startDate' => self::DATE],
             'tl_faq' => ['question' => self::TEXT, 'answer' => ['inputType' => 'textarea', 'sql' => 'text NULL'], 'published' => self::FLAG],
+            'tl_news_archive' => ['title' => self::TEXT],
         ]);
     }
 
@@ -238,6 +240,41 @@ class FieldRightsWiringTest extends TestCase
         }
     }
 
+    /**
+     * Nothing granted: every value a create sets other than its default is named — so a
+     * create that stopped checking one of them (the title, the alias, the headline) is
+     * caught, not only the one field the case above leaves out (second review).
+     *
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, list<mixed>, string}>
+     */
+    public static function createToolsWithoutAnyRight(): iterable
+    {
+        yield 'page'    => [PageTool::class, ['assertPageOperation'], ['Weiterleitung', 'weiter', 'forward', 3], 'tl_page.title, tl_page.alias, tl_page.type'];
+        yield 'article' => [ArticleTool::class, ['assertPageAccess'], ['Kopf', 3, 'header'], 'tl_article.title, tl_article.inColumn'];
+        yield 'news'    => [NewsTool::class, ['assertArchiveAccess'], [1, 'Meldung', '2026-10-14'], 'tl_news.headline, tl_news.date, tl_news.time'];
+        yield 'event'   => [EventTool::class, ['assertCalendarAccess'], [1, 'Termin', '2026-10-14'], 'tl_calendar_events.title, tl_calendar_events.startDate'];
+        yield 'faq'     => [FaqTool::class, ['assertCategoryAccess'], [1, 'Frage', 'Antwort'], 'tl_faq.question, tl_faq.answer'];
+    }
+
+    /**
+     * @dataProvider createToolsWithoutAnyRight
+     *
+     * @param class-string<AbstractCoreCommandTool> $class
+     * @param list<string>                          $stubbed
+     * @param list<mixed>                           $arguments
+     */
+    public function testACreateWithoutAnyRightNamesEveryValueItSets(string $class, array $stubbed, array $arguments, string $refused): void
+    {
+        $tool = $this->tool($class, $stubbed);
+        $this->wire($tool, []);
+        $this->assertTrue(method_exists($tool, 'create'));
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('die Felder: ' . $refused . '.');
+
+        $tool->create(...$arguments);
+    }
+
     public function testAPageCreateWithTheDefaultTypeNeedsOnlyTheTitleRight(): void
     {
         $tool = $this->tool(PageTool::class, ['assertPageOperation'], \Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand::class);
@@ -323,6 +360,36 @@ class FieldRightsWiringTest extends TestCase
         $tool->cloneRecord('tl_page', 4, ['hide' => '']);
     }
 
+    /**
+     * A null override is written by the core too ('' or, for a flag, '0'), so it needs
+     * the right like any other — skipping nulls let {"hide": null} through (second
+     * review, 2026-10-14). Also as a JSON string, the shape the model sometimes sends.
+     */
+    public function testANullCloneOverrideNeedsItsRight(): void
+    {
+        $tool = $this->cloneTool(false);
+        $this->wire($tool, ['tl_page::title']);
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_page.hide, tl_page.description');
+
+        $tool->cloneRecord('tl_page', 4, '{"title": "Kopie", "hide": null, "description": null}');
+    }
+
+    /**
+     * The right is asked for the table cloned, not for tl_page.
+     */
+    public function testACloneOverrideIsCheckedOnTheClonedTable(): void
+    {
+        $tool = $this->cloneTool(false);
+        $this->wire($tool, ['tl_page::title']);
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_news_archive.title');
+
+        $tool->cloneRecord('tl_news_archive', 4, ['title' => 'Archiv EN']);
+    }
+
     public function testACloneWithoutOverridesNeedsNoFieldRight(): void
     {
         $tool = $this->cloneTool(true);
@@ -332,32 +399,49 @@ class FieldRightsWiringTest extends TestCase
     }
 
     /**
-     * Skipped with its reason, not refused: the fields the user may edit are written,
-     * the others appear under `skipped` (Michael, 2026-10-14). On tl_news, so the right
-     * is asked for the table actually rewritten.
+     * @return iterable<string, array{string, class-string<Command>, string, string}>
      */
-    public function testARewriteSkipsTheFieldsWithoutARight(): void
+    public static function rewriteTables(): iterable
     {
-        $update = $this->createMock(NewsUpdateCommand::class);
+        yield 'news' => ['tl_news', NewsUpdateCommand::class, 'headline', 'teaser'];
+        yield 'page' => ['tl_page', PageUpdateCommand::class, 'title', 'description'];
+    }
+
+    /**
+     * Skipped with its reason, not refused: the fields the user may edit are written,
+     * the others appear under `skipped` (Michael, 2026-10-14). On two tables, so the
+     * right is asked for the table actually rewritten (second review).
+     *
+     * @dataProvider rewriteTables
+     *
+     * @param class-string<Command> $commandClass
+     */
+    public function testARewriteSkipsTheFieldsWithoutARight(string $table, string $commandClass, string $granted, string $denied): void
+    {
+        $update = $this->createMock($commandClass);
         $update->method('getDefinition')->willReturn(new InputDefinition());
         $update->expects($this->once())->method('run')->willReturnCallback(
-            function (InputInterface $input, OutputInterface $output): int {
-                $this->assertSame(['headline=New headline'], $input->getParameterOption('--set'));
+            function (InputInterface $input, OutputInterface $output) use ($granted): int {
+                $this->assertSame([$granted . '=New text'], $input->getParameterOption('--set'));
                 $output->write('{"status":"ok","id":5}');
 
                 return 0;
             },
         );
 
-        $rewriter = new class implements EntityRewriterInterface {
+        $rewriter = new class($table, $granted, $denied) implements EntityRewriterInterface {
+            public function __construct(private readonly string $table, private readonly string $granted, private readonly string $denied)
+            {
+            }
+
             public function supports(string $table): bool
             {
-                return 'tl_news' === $table;
+                return $this->table === $table;
             }
 
             public function rewrite(int $id, string $instructions, PlatformInterface $platform, string $model): array
             {
-                return ['id' => $id, 'table' => 'tl_news', 'fields' => ['headline' => 'New headline', 'teaser' => 'New teaser'], 'skipped' => []];
+                return ['id' => $id, 'table' => $this->table, 'fields' => [$this->granted => 'New text', $this->denied => 'Other text'], 'skipped' => []];
             }
         };
 
@@ -376,13 +460,14 @@ class FieldRightsWiringTest extends TestCase
             [$rewriter],
             $resolver,
             $this->createMock(RecordPermissionChecker::class),
-            newsUpdate: $update,
+            newsUpdate: $update instanceof NewsUpdateCommand ? $update : null,
+            pageUpdate: $update instanceof PageUpdateCommand ? $update : null,
         );
-        $this->wire($tool, ['tl_news::headline']);
+        $this->wire($tool, [$table . '::' . $granted]);
 
-        $answer = $tool->rewriteRecord('tl_news', 5, 'auf Englisch');
+        $answer = $tool->rewriteRecord($table, 5, 'auf Englisch');
 
-        $this->assertStringContainsString('"updated":["headline"]', $answer);
-        $this->assertStringContainsString('"teaser":"Kein Recht auf das Feld', $answer);
+        $this->assertStringContainsString('"updated":["' . $granted . '"]', $answer);
+        $this->assertStringContainsString('"' . $denied . '":"Kein Recht auf das Feld', $answer);
     }
 }
