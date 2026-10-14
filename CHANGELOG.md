@@ -25,7 +25,9 @@ refuses them.
 
   Applies to every tool that touches a record: `page_*`, `article_*`, `content_*`,
   `news_*`, `event_*`, `faq_*`, `record_clone`, `record_rewrite`, `language_link`, and the
-  rows `record_list` shows.
+  rows `record_list` shows — in the chat and through the CLI bridge alike. The bundle
+  decides with Contao's priority strategy itself: the bridge runs outside Contao's
+  firewalls, where the global check would let Contao's default voter allow everything.
 - **Admins are asked too**, as in the back end. They hold every right; the voters still
   refuse structures Contao refuses (a regular page on top level, an article on a page
   without an article column).

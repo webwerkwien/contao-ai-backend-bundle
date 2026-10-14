@@ -11,7 +11,11 @@ use Contao\CoreBundle\Security\DataContainer\ReadAction;
 use Contao\CoreBundle\Security\DataContainer\UpdateAction;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\TableNotFoundException;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authorization\AccessDecisionManager;
+use Symfony\Component\Security\Core\Authorization\Strategy\PriorityStrategy;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 
@@ -77,23 +81,53 @@ class DataContainerAccess
         'tl_faq_category'    => 'das Modul FAQ, die erlaubten FAQ-Kategorien und die Kategorierechte (anlegen, löschen)',
     ];
 
+    /**
+     * Contao's decision for these questions: the registered voters, the first one that
+     * does not abstain wins (`PriorityStrategy`).
+     *
+     * Not the global `isGranted()`. The data container voters only vote "denied" or
+     * abstain, and `DefaultDataContainerVoter` grants last — which only works under the
+     * priority strategy. Contao's `ContaoStrategy` applies it while the main request runs
+     * in the `contao_backend` or `contao_frontend` firewall; everywhere else Symfony's
+     * default (affirmative) strategy decides, where one "granted" outvotes every "denied"
+     * and the default voter allows everything. The chat runs in the back-end firewall,
+     * but the CLI bridge (`/_ai_cli/macro`, no `_scope`) runs in none: there the global
+     * check allowed an error page below a regular page and a root anywhere for an editor
+     * (measured on c5 2026-10-14). Deciding here gives the back end's answer in every
+     * context. The voters' own sub-questions (module, page rights) each have one voter,
+     * which answers them the same under either strategy.
+     */
+    private readonly AccessDecisionManager $decisionManager;
+
+    /**
+     * @param iterable<VoterInterface> $voters
+     */
     public function __construct(
         private readonly ContaoFramework $framework,
-        private readonly AuthorizationCheckerInterface $authorizationChecker,
+        private readonly TokenStorageInterface $tokenStorage,
         private readonly Connection $connection,
+        #[AutowireIterator('security.voter')]
+        iterable $voters,
     ) {
+        $this->decisionManager = new AccessDecisionManager($voters, new PriorityStrategy());
     }
 
     /**
      * The voters' answer. The DCA is loaded first: `TableAccessVoter` reads the fields
      * from `$GLOBALS['TL_DCA']` without loading it and abstains when they are missing.
+     * Without a signed-in user nothing is granted.
      */
     public function isGranted(CreateAction|ReadAction|UpdateAction|DeleteAction $action): bool
     {
+        $token = $this->tokenStorage->getToken();
+        if (null === $token) {
+            return false;
+        }
+
         $this->framework->initialize();
         $this->framework->getAdapter(Controller::class)->loadDataContainer($action->getDataSource());
 
-        return $this->authorizationChecker->isGranted(ContaoCorePermissions::DC_PREFIX . $action->getDataSource(), $action);
+        return $this->decisionManager->decide($token, [ContaoCorePermissions::DC_PREFIX . $action->getDataSource()], $action);
     }
 
     /**

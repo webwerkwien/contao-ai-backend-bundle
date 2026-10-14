@@ -11,8 +11,12 @@ use Contao\CoreBundle\Security\DataContainer\UpdateAction;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Driver\Exception as DriverException;
 use Doctrine\DBAL\Exception\TableNotFoundException;
+use Contao\CoreBundle\Security\Voter\DataContainer\DefaultDataContainerVoter;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Authentication\Token\NullToken;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
@@ -32,8 +36,13 @@ class DataContainerAccessTest extends TestCase
     /**
      * @param array<string, array<int, array<string, mixed>>> $rows table => id => row
      */
-    private function access(array $rows, bool $granted = true): DataContainerAccess
+    private function access(array $rows, bool $granted = true, bool $signedIn = true): DataContainerAccess
     {
+        $tokenStorage = new TokenStorage();
+        if ($signedIn) {
+            $tokenStorage->setToken(new NullToken());
+        }
+
         $controller = $this->getMockBuilder(Adapter::class)->disableOriginalConstructor()->addMethods(['loadDataContainer'])->getMock();
         $controller->method('loadDataContainer')->willReturnCallback(function (string $table): void {
             $this->loaded[] = $table;
@@ -41,11 +50,13 @@ class DataContainerAccessTest extends TestCase
         $framework = $this->createMock(ContaoFramework::class);
         $framework->method('getAdapter')->willReturn($controller);
 
-        $auth = $this->createMock(AuthorizationCheckerInterface::class);
-        $auth->method('isGranted')->willReturnCallback(function (string $attribute, mixed $subject) use ($granted): bool {
-            $this->asked[] = [$attribute, $subject];
+        // A Contao data container voter as they all are — "denied" or abstain — in front
+        // of Contao's real DefaultDataContainerVoter, which grants last.
+        $voter = $this->createMock(VoterInterface::class);
+        $voter->method('vote')->willReturnCallback(function (TokenInterface $token, mixed $subject, array $attributes) use ($granted): int {
+            $this->asked[] = [$attributes[0], $subject];
 
-            return $granted;
+            return $granted ? VoterInterface::ACCESS_ABSTAIN : VoterInterface::ACCESS_DENIED;
         });
 
         $connection = $this->createMock(Connection::class);
@@ -58,7 +69,26 @@ class DataContainerAccessTest extends TestCase
             return $rows[$m[1]][(int) $params[0]] ?? false;
         });
 
-        return new DataContainerAccess($framework, $auth, $connection);
+        return new DataContainerAccess($framework, $tokenStorage, $connection, [$voter, new DefaultDataContainerVoter()]);
+    }
+
+    /**
+     * The priority strategy, as in Contao's firewalls, in every context: a voter's
+     * "denied" wins over the default voter's "granted" behind it. Under Symfony's
+     * default strategy — which the global check uses for the CLI bridge, outside any
+     * Contao firewall — the "granted" would win; measured on c5 2026-10-14, where a
+     * console script got "allowed" for everything.
+     */
+    public function testADenialWinsOverTheDefaultVoterBehindIt(): void
+    {
+        self::assertFalse($this->access([], false)->isGranted(new CreateAction('tl_page', ['pid' => 0, 'sorting' => 0, 'type' => 'regular'])));
+        self::assertTrue($this->access([], true)->isGranted(new CreateAction('tl_page', ['pid' => 2, 'sorting' => 0, 'type' => 'regular'])));
+    }
+
+    public function testWithoutASignedInUserNothingIsGranted(): void
+    {
+        self::assertFalse($this->access([], true, false)->isGranted(new CreateAction('tl_page', ['pid' => 1, 'sorting' => 0])));
+        self::assertSame([], $this->asked);
     }
 
     private static function driverException(): DriverException
