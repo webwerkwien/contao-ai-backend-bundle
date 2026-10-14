@@ -255,7 +255,7 @@ class DataContainerAccess
         }
 
         return \sprintf(
-            'Inhaltselemente in "%s" verwaltet im Chat nur ein Admin: Für diese Tabelle hat Contao keine Rechteprüfung, auf die sich der Chat stützen kann.',
+            'Inhaltselemente in "%s" verwaltet im Chat nur ein Admin: Für Redakteure stützt sich der Chat nur auf Contaos Prüfung von Artikeln, News und Events.',
             $ptable,
         );
     }

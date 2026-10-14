@@ -200,6 +200,10 @@ class DataContainerAccessTest extends TestCase
         yield 'another table'            => [['ptable' => 'tl_whatever', 'pid' => 4], [], false];
         yield 'nested below another one' => [['ptable' => 'tl_content', 'pid' => 8], ['tl_content' => [8 => ['id' => 8, 'ptable' => 'tl_form', 'pid' => 4]]], false];
         yield 'nested, parent missing'   => [['ptable' => 'tl_content', 'pid' => 8], [], false];
+        yield 'two levels below a news'  => [['ptable' => 'tl_content', 'pid' => 8], ['tl_content' => [8 => ['id' => 8, 'ptable' => 'tl_content', 'pid' => 9], 9 => ['id' => 9, 'ptable' => 'tl_news', 'pid' => 4]]], true];
+        // An element that is its own parent: the depth limit (Contao's own, ten levels)
+        // ends the walk instead of looping forever (second review 2026-10-14).
+        yield 'its own parent'           => [['ptable' => 'tl_content', 'pid' => 8], ['tl_content' => [8 => ['id' => 8, 'ptable' => 'tl_content', 'pid' => 8]]], false];
     }
 
     /**
@@ -216,5 +220,23 @@ class DataContainerAccessTest extends TestCase
         $denial = $this->access($rows)->contentParentDenial($record);
 
         $allowed ? self::assertNull($denial) : self::assertNotNull($denial);
+    }
+
+    /**
+     * Exactly ten parent lookups, then the walk ends with its own message.
+     */
+    public function testNestingEndsAfterTenLevels(): void
+    {
+        $lookups = 0;
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchAssociative')->willReturnCallback(static function () use (&$lookups): array {
+            ++$lookups;
+
+            return ['id' => 8, 'ptable' => 'tl_content', 'pid' => 8];
+        });
+        $access = new DataContainerAccess($this->createMock(ContaoFramework::class), new TokenStorage(), $connection, []);
+
+        self::assertSame('Inhaltselemente sind tiefer als 10 Ebenen verschachtelt; der Chat bearbeitet sie nicht.', $access->contentParentDenial(['ptable' => 'tl_content', 'pid' => 8]));
+        self::assertSame(10, $lookups);
     }
 }
