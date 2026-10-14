@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## Unreleased
+
+Works with every contao-ai-core-bundle it worked with before. **Security fix — update if
+editors (non-admins) use the chat or the CLI bridge.**
+
+### Security
+
+- **The chat now respects the field rights of the back end** ("Allowed fields" in the
+  user group, `alexf`). It checked module and record access and a fixed list of fields per
+  tool, but not which fields the user may edit: an editor whose group grants no page field
+  could still publish, rename or re-language pages, and set any field on the tool's list
+  in news, events, FAQ, articles and content elements. Only `language_link` checked the
+  right. Contao's rule applies now on every write path, the same in 5.3 to 6.0: a field
+  with an input is editable only when the DCA opens it (`'exclude' => false`) or the
+  user's group grants it.
+  - `*_update`: a field without the right refuses the call, naming every such field;
+    nothing is written.
+  - `*_create`: as in the back end, a new record gets its defaults without any right; a
+    value other than the default (another page or element type, a title) needs it.
+  - `page_publish`: needs `tl_page::published`, checked before the "take it offline?"
+    question.
+  - `record_clone`: an override other than the field's default needs its right — so far
+    `{"published": "1"}` published a clone without it (found in the review of v0.16.4).
+  - `record_rewrite`: a field without the right is not written and appears under
+    `skipped` with its reason; the other fields of the record are written.
+  - The CLI bridge runs the same tools as the token's user, so the same applies there.
+
+  Not covered: what an extension command (`ext_run`) writes. Its contract names tables,
+  not fields; whether a user may run it is decided by those tables.
+
 ## v0.16.4 — 2026-10-14
 
 Describes core-bundle v1.7.4; nothing changes in what the tool does.

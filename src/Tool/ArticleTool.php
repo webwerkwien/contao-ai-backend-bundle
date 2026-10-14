@@ -64,6 +64,8 @@ class ArticleTool extends AbstractCoreCommandTool
         // Articles live under a page — verify CAN_EDIT_ARTICLES on the parent page.
         $this->assertPageAccess($pid);
 
+        $this->assertFieldsCreatable('tl_article', ['title' => $title, 'inColumn' => $inColumn]);
+
         return $this->runCommand($this->createCommand, [
             '--title'    => $title,
             '--pid'      => (string) $pid,
@@ -81,7 +83,7 @@ class ArticleTool extends AbstractCoreCommandTool
         $this->assertRecordAccess($id, 'update');
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields),
+            '--set' => $this->buildSetOptions($fields, 'tl_article'),
         ], 'article_update');
     }
 

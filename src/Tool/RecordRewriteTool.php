@@ -197,6 +197,15 @@ class RecordRewriteTool extends AbstractCoreCommandTool
                 continue;
             }
 
+            // A field the user may not edit in the back end is not written; it joins
+            // the skipped fields with its reason, the rest of the record goes on
+            // (v0.17.0, Michael: skip rather than refuse the record). Its text has been
+            // to the provider by now — reading is not restricted in Contao either.
+            foreach ($this->fieldPermission->denied($user, $targets['rewriter_table'], array_keys($rewritten['fields'])) as $field) {
+                unset($rewritten['fields'][$field]);
+                $rewritten['skipped'][$field] = 'Kein Recht auf das Feld (Benutzergruppe, „Erlaubte Felder")';
+            }
+
             if ([] === $rewritten['fields']) {
                 $results[] = [
                     'id'      => $recordId,

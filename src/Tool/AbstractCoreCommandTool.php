@@ -13,6 +13,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
+use Webwerkwien\ContaoAiBackendBundle\Security\FieldPermission;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
 
@@ -50,6 +51,38 @@ abstract class AbstractCoreCommandTool
     public function setAuthorizationChecker(AuthorizationCheckerInterface $checker): void
     {
         $this->authorizationChecker = $checker;
+    }
+
+    /**
+     * Contao's field rights ("Erlaubte Felder") for every write (v0.17.0). Setter
+     * injection like the two above; unset, a write fails instead of skipping the check.
+     */
+    protected FieldPermission $fieldPermission;
+
+    #[Required]
+    public function setFieldPermission(FieldPermission $fieldPermission): void
+    {
+        $this->fieldPermission = $fieldPermission;
+    }
+
+    /**
+     * @param list<string> $fields
+     *
+     * @throws ToolAccessDeniedException when the user lacks the right to one of them
+     */
+    protected function assertFieldsWritable(string $table, array $fields): void
+    {
+        $this->fieldPermission->assertWritable($this->requireBackendUser(), $table, $fields);
+    }
+
+    /**
+     * @param array<string, scalar|null> $values the values a create sets
+     *
+     * @throws ToolAccessDeniedException when a value other than the default needs a right the user lacks
+     */
+    protected function assertFieldsCreatable(string $table, array $values): void
+    {
+        $this->fieldPermission->assertCreatable($this->requireBackendUser(), $table, $values);
     }
 
     /**
@@ -540,11 +573,12 @@ abstract class AbstractCoreCommandTool
      * NULs or newlines (which could confuse the underlying ArrayInput).
      *
      * @param array<string, scalar|null> $fields
+     * @param string                     $table  checked against the user's field rights
      * @return list<string>
-     * @throws ToolAccessDeniedException on disallowed field name
+     * @throws ToolAccessDeniedException on disallowed field name, or a field the user has no right to
      * @throws ToolExecutionException    on invalid value (control chars, NUL, newline)
      */
-    protected function buildSetOptions(array $fields): array
+    protected function buildSetOptions(array $fields, string $table): array
     {
         $allowed = $this->allowedFields();
 
@@ -574,6 +608,11 @@ abstract class AbstractCoreCommandTool
             }
             $out[] = $key . '=' . $stringValue;
         }
+
+        // The tool's list says which fields the chat may write at all; the user's
+        // group says which of them this user may (v0.17.0, see FieldPermission).
+        $this->assertFieldsWritable($table, array_map('strval', array_keys(array_filter($fields, static fn ($value): bool => null !== $value))));
+
         return $out;
     }
 

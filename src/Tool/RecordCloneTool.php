@@ -181,6 +181,12 @@ class RecordCloneTool extends AbstractCoreCommandTool
         }
         $modifications = self::normalizeFieldsPayload($modifications);
 
+        // An override is a value the clone gets instead of its source's — a write, and
+        // like one in the back end it needs the field right, unless it is the field's
+        // default (v0.17.0). Until then {"published": "1"} published a clone for an
+        // editor whose group grants no `tl_page::published` (Fable review 2026-10-14).
+        $this->assertFieldsCreatable($sourceTable, $modifications);
+
         $modsJson = json_encode($modifications, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (false === $modsJson) {
             $modsJson = '{}';

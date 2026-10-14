@@ -72,6 +72,8 @@ class FaqTool extends AbstractCoreCommandTool
 
         // Inline keys — a null is dropped in runCommand(), which is what keeps
         // this call visible to ToolArgumentsMatchCommandTest.
+        $this->assertFieldsCreatable('tl_faq', ['question' => $question, 'answer' => $answer]);
+
         return $this->runCommand($this->createCommand, [
             '--question' => $question,
             '--pid'      => (string) $pid,
@@ -93,7 +95,7 @@ class FaqTool extends AbstractCoreCommandTool
 
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields),
+            '--set' => $this->buildSetOptions($fields, 'tl_faq'),
         ], 'faq_update');
     }
 

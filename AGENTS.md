@@ -71,10 +71,21 @@ that existed before the fix, and that could not be rewritten, is the proof.
 - Tools extend `AbstractCoreCommandTool` and are auto-tagged via `_instanceof`.
 - **Rights come from Contao, not from a list of our own.** Which tables a user reaches is
   `TableAccess` (BE_MOD plus `hasAccess($module, 'modules')`, the rule of Contao's
-  `TableAccessVoter`); record and field rights are Contao's voters and `alexf`. `ext_run`
+  `TableAccessVoter`); record rights are Contao's voters, field rights are `alexf` through
+  `FieldPermission`. `ext_run`
   offers a foreign command only if every table of its `#[AiContract]` is reachable, none
   named means admin-only. Don't add a configuration allow-list beside it (decided with
   the maintainer, 2026-10-10).
+- **Every write the chat makes passes `FieldPermission`** (v0.17.0): `buildSetOptions($fields,
+  $table)` for updates, `assertFieldsCreatable()` for the values a create sets (a field's
+  default needs no right, as in the back end), `assertFieldsWritable()` for anything else
+  that writes a field (`page_publish` writes `published`). Contao's rule, the same in 5.3
+  to 6.0: a field is editable when it is not excluded or the user is granted it, and
+  `DataContainer::isFieldExcluded()` counts every field with an input as excluded. The
+  tool's own `allowedFields()` only narrows what the chat may write at all; it is not a
+  right. Until v0.16.4 this line above said "field rights are `alexf`" while only
+  `language_link` checked them — an editor whose group grants no page field could
+  publish pages through the chat. A new write path without this call is that bug again.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).

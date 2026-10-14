@@ -88,6 +88,8 @@ class EventTool extends AbstractCoreCommandTool
         // Keys stay inline on purpose — see runCommand(): a null is dropped
         // there, and that is what keeps this call visible to
         // ToolArgumentsMatchCommandTest.
+        $this->assertFieldsCreatable('tl_calendar_events', ['title' => $title, 'startDate' => $startDate]);
+
         return $this->runCommand($this->createCommand, [
             '--title'     => $title,
             '--pid'       => (string) $pid,
@@ -109,7 +111,7 @@ class EventTool extends AbstractCoreCommandTool
 
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields),
+            '--set' => $this->buildSetOptions($fields, 'tl_calendar_events'),
         ], 'event_update');
     }
 

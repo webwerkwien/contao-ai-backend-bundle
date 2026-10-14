@@ -76,6 +76,8 @@ class PageTool extends AbstractCoreCommandTool
             }
         }
 
+        $this->assertFieldsCreatable('tl_page', ['title' => $title, 'alias' => $alias, 'type' => $type]);
+
         return $this->runCommand($this->createCommand, [
             '--title' => $title,
             '--alias' => $alias,
@@ -94,7 +96,7 @@ class PageTool extends AbstractCoreCommandTool
         $this->assertRecordAccess($id, 'update');
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields),
+            '--set' => $this->buildSetOptions($fields, 'tl_page'),
         ], 'page_update');
     }
 
@@ -137,6 +139,9 @@ class PageTool extends AbstractCoreCommandTool
     public function publish(int $id, bool $published): string
     {
         $this->assertRecordAccess($id, 'publish');
+        // In the back end this is the `published` toggle, which needs that field — checked
+        // before the confirmation, so nobody confirms what is then refused (v0.17.0).
+        $this->assertFieldsWritable('tl_page', ['published']);
 
         // Only when taking the page offline. Publishing adds something the
         // owner can see and undo in the same breath; unpublishing removes a
@@ -199,7 +204,7 @@ class PageTool extends AbstractCoreCommandTool
         $this->assertPageOperation($recordId, $permission);
     }
 
-    private function assertPageOperation(int $pageId, string $permission): void
+    protected function assertPageOperation(int $pageId, string $permission): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

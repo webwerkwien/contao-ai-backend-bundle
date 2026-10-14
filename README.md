@@ -97,7 +97,7 @@ Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, link
 
 **Extension commands** are offered per user: a command appears when the user's module rights reach every table its contract names; a command that names no tables is admin-only; one that states something `irreversible` asks the user before it runs.
 
-Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use, and **delete** sub-tools are admin-only regardless of module membership. Per-record checks (page hierarchy, news-archive access, article parent-page, FAQ category access) run via Symfony voters (`ContaoCorePermissions::USER_CAN_*`) before each call.
+Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use, and **delete** sub-tools are admin-only regardless of module membership. Per-record checks (page hierarchy, news-archive access, article parent-page, FAQ category access) run via Symfony voters (`ContaoCorePermissions::USER_CAN_*`) before each call. Every write also respects the user's **field rights** ("Allowed fields" in the user group), exactly as the back-end form does: a field the user may not edit there is refused in the chat too, and when creating a record only a value other than the field's default needs the right (since v0.17.0).
 
 ## CLI bridge — terminal access for admins and agents
 
@@ -128,8 +128,9 @@ take input from outside the editorial team: form submissions, comments, imported
 feeds.
 
 Beyond that: the agent acts as the logged-in backend user and re-checks that
-user's permissions per record, `*_delete` tools are admin-only, write tools accept
-only an explicit allow-list of fields, and every write is attributed to the acting
+user's permissions per record and per field ("Allowed fields", since v0.17.0),
+`*_delete` tools are admin-only, write tools accept only an explicit allow-list of
+fields, and every write is attributed to the acting
 user in `tl_version` and the system log.
 
 ## Streaming

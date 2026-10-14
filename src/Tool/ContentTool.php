@@ -66,6 +66,8 @@ class ContentTool extends AbstractCoreCommandTool
         // For create, the content element doesn't exist yet — verify access via parent.
         $this->assertParentAccess($pid, $ptable);
 
+        $this->assertFieldsCreatable('tl_content', ['type' => $type]);
+
         return $this->runCommand($this->createCommand, [
             '--type'   => $type,
             '--pid'    => (string) $pid,
@@ -83,7 +85,7 @@ class ContentTool extends AbstractCoreCommandTool
         $this->assertRecordAccess($id, 'update');
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields),
+            '--set' => $this->buildSetOptions($fields, 'tl_content'),
         ], 'content_update');
     }
 
