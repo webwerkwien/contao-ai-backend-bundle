@@ -2,16 +2,9 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
-use Contao\ArticleModel;
-use Contao\BackendUser;
-use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\ArticleCreateCommand;
@@ -28,7 +21,6 @@ class ArticleTool extends AbstractCoreCommandTool
     public function __construct(
         ToolAccessChecker $accessChecker,
         TokenChecker $tokenChecker,
-        private readonly ContaoFramework $framework,
         private readonly ArticleCreateCommand $createCommand,
         private readonly ArticleUpdateCommand $updateCommand,
         private readonly ArticleDeleteCommand $deleteCommand,
@@ -62,8 +54,13 @@ class ArticleTool extends AbstractCoreCommandTool
     )]
     public function create(string $title, int $pid, string $inColumn = 'main'): string
     {
-        // Articles live under a page — verify CAN_EDIT_ARTICLES on the parent page.
-        $this->assertPageAccess($pid);
+        // The voters decide (v0.18.0): edit and hierarchy rights for articles on the page,
+        // its type, and a layout with a column for articles. `sorting` non-null, as in
+        // PageTool::create().
+        if (null === $this->dcAccess->fetchRecord('tl_page', $pid)) {
+            throw new ToolRefusedException(\sprintf('Übergeordnete Seite %d nicht gefunden.', $pid));
+        }
+        $this->dcAccess->assertCreate('tl_article', ['pid' => $pid, 'sorting' => 0, 'inColumn' => $inColumn, 'title' => $title]);
 
         $this->assertFieldsCreatable('tl_article', ['title' => $title, 'inColumn' => $inColumn]);
 
@@ -81,7 +78,7 @@ class ArticleTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->dcAccess->assertUpdate('tl_article', $id, self::writtenValues($fields));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
             '--set' => $this->buildSetOptions($fields, 'tl_article'),
@@ -94,12 +91,10 @@ class ArticleTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $article = $this->dcAccess->assertDelete('tl_article', $id);
 
-        $this->framework->initialize();
-        $article = \Contao\ArticleModel::findById($id);
-        $title = null !== $article ? (string) ($article->title ?? 'unbekannt') : 'unbekannt';
-        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => null !== $article ? (int) $article->pid : null];
+        $title = (string) ($article['title'] ?? 'unbekannt');
+        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => (int) $article['pid']];
         $staged = $this->requireConfirmation(
             'article_delete',
             (string) $id,
@@ -116,44 +111,7 @@ class ArticleTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_article'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->dcAccess->assertRead('tl_article', $id);
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'article_read');
-    }
-
-    /**
-     * Per-record permission: article -> parent page; check CAN_EDIT_ARTICLES on the page.
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $article = ArticleModel::findById($recordId);
-        if (null === $article) {
-            throw new ToolRefusedException(\sprintf('Artikel %d nicht gefunden.', $recordId));
-        }
-        $this->assertPageAccess((int) $article->pid);
-    }
-
-    protected function assertPageAccess(int $pageId): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $page = PageModel::findById($pageId);
-        if (null === $page) {
-            throw new ToolRefusedException(\sprintf('Übergeordnete Seite %d nicht gefunden.', $pageId));
-        }
-        if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf Artikel von Seite %d.', $pageId)
-            );
-        }
     }
 }

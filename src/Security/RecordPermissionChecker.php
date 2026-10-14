@@ -2,86 +2,51 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Security;
 
-use Contao\ArticleModel;
 use Contao\BackendUser;
-use Contao\CalendarEventsModel;
-use Contao\CalendarModel;
-use Contao\ContentModel;
-use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\CoreBundle\Security\ContaoCorePermissions;
-use Contao\FaqCategoryModel;
-use Contao\FaqModel;
-use Contao\NewsArchiveModel;
-use Contao\NewsModel;
-use Contao\PageModel;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Contao\CoreBundle\Security\DataContainer\CreateAction;
+use Contao\CoreBundle\Security\DataContainer\DeleteAction;
+use Contao\CoreBundle\Security\DataContainer\ReadAction;
+use Contao\CoreBundle\Security\DataContainer\UpdateAction;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 
 /**
- * Phase 9.5: zentraler Voter-Helper für die Macro-Tools (record_clone /
- * record_rewrite). Bündelt die Per-Record-Voter-Patterns, die in den
- * Single-Record-Tools (NewsTool, PageTool, ArticleTool, ContentTool) seit
- * Phase 5 H-9 schon existieren — Macro-Tools rufen die hier statt eigener
- * Code-Duplikate.
+ * Record rights for the macro tools (record_clone, record_rewrite, language_link).
  *
- * Tabellen-Matrix:
- *   tl_news_archive    → isGranted('contao_user.news',      [$id])
- *   tl_calendar        → isGranted('contao_user.calendars', [$id])
- *   tl_faq_category    → isGranted('contao_user.faqs',      [$id])
+ * Since v0.18.0 a thin layer over DataContainerAccess: Contao's data container voters
+ * decide, asked like DC_Table asks them. Until then this class rebuilt them by hand —
+ * module plus archive (`contao_user.news` …) or page right (`USER_CAN_EDIT_PAGE` …) —
+ * and admins skipped every check. Both are gone: the voters judge admins too, as in the
+ * back end, and they know what the rebuild did not (page and element types, the page
+ * hierarchy, create and delete rights, voters of extensions).
  *
- * 🔴 Bis 2026-09-02 stand hier `hasAccess($id, 'calendar')` bzw. `'faq'` —
- * im Singular. `hasAccess($feld, $array)` liest `$this->$array` am Benutzer,
- * und die Eigenschaften heißen `calendars` und `faqs`: die DCA von Contao sagt
- * `'userRoot' => 'calendars'`. `$this->calendar` gibt es nicht, also fiel die
- * Prüfung durch und **jeder Nicht-Admin wurde abgewiesen**, auch mit legitimen
- * Rechten. Es scheiterte geschlossen, war also kein Loch — aber Kalender und
- * FAQ waren für Redakteure schlicht unbenutzbar.
- *
- * Gleich mit erledigt: `hasAccess()` ist seit Contao 5.2 deprecated und laut
- * eigener Meldung *"will no longer work in Contao 6"*. Der Voter-Weg ist der,
- * den `RecordListTool` ohnehin schon ging — und dort mit den richtigen
- * Feldnamen.
- *   tl_news            → archive-access via news.pid
- *   tl_calendar_events → calendar-access via event.pid
- *   tl_faq             → faq-access via faq.pid
- *   tl_page            → USER_CAN_EDIT_PAGE / _DELETE_PAGE auf row
- *   tl_article         → USER_CAN_EDIT_ARTICLES auf parent-page
- *   tl_content         → USER_CAN_EDIT_ARTICLES auf parent-article→page
- *
- * Container-Anlage (für record_clone):
- *   tl_news_archive    → Voter `contao_user.cud.tl_news_archive::create`
- *   tl_calendar        → Voter `contao_user.cud.tl_calendar::create`
- *   tl_faq_category    → Voter `contao_user.cud.tl_faq_category::create`
- *   tl_page            → USER_CAN_EDIT_PAGE_HIERARCHY auf source.pid
- *
- * **Hinweis:** Contao 5.7 (FieldPermissionMigration Version507) hat die
- * alten `newp`/`calp`/`faqp`-Spalten zugunsten einer zentralen `cud`-Spalte
- * abgeschafft (Format `tablename::operation`). Wir checken via Voter statt
- * Direkt-Zugriff, dann passt's für 5.7+ und ist forward-kompatibel.
+ * What stays ours: the tables the macro tools support, and that a content element must
+ * sit below an article, news or event (DataContainerAccess::contentParentDenial()).
  */
 class RecordPermissionChecker
 {
+    private const TABLES = [
+        'tl_news_archive', 'tl_news',
+        'tl_calendar', 'tl_calendar_events',
+        'tl_faq_category', 'tl_faq',
+        'tl_page', 'tl_article', 'tl_content',
+    ];
+
+    private const CONTAINER_TABLES = ['tl_news_archive', 'tl_calendar', 'tl_faq_category', 'tl_page'];
+
     public function __construct(
-        private readonly ContaoFramework $framework,
-        private readonly AuthorizationCheckerInterface $authorizationChecker,
+        private readonly DataContainerAccess $dcAccess,
     ) {
     }
 
     /**
-     * Hard-assert version: wirft ToolAccessDeniedException bei Verbot.
-     * Verwendet von den Macro-Tools für die Source-Record-Prüfung.
-     *
      * @param string $operation 'read' | 'edit' | 'delete'
+     *
      * @throws ToolAccessDeniedException
-     * @throws ToolExecutionException
+     * @throws ToolRefusedException when the record does not exist
      */
     public function assertRecordAccess(BackendUser $user, string $table, int $id, string $operation): void
     {
-        if ($user->isAdmin) {
-            return;
-        }
         $denial = $this->checkRecordAccess($user, $table, $id, $operation);
         if (null !== $denial) {
             throw new ToolAccessDeniedException($denial);
@@ -89,292 +54,91 @@ class RecordPermissionChecker
     }
 
     /**
-     * Soft-check Variante für recursive-Pfade. Liefert null bei Erlaubnis,
-     * sonst eine kurze Begründung — die Caller stecken die ID + Reason dann
-     * in den `refused`-Array statt hart abzubrechen.
+     * Soft variant for recursive paths: null when allowed, otherwise a short reason the
+     * caller puts into its `refused` list instead of stopping.
      */
     public function recordAccessDenialReason(BackendUser $user, string $table, int $id, string $operation): ?string
     {
-        if ($user->isAdmin) {
-            return null;
-        }
         return $this->checkRecordAccess($user, $table, $id, $operation);
     }
 
     /**
+     * May the user copy this record — the question DC_Table asks when a record goes to
+     * the clipboard for copying (`CreateAction` with the record, `sorting` null). For a
+     * page: edit or hierarchy right on it, access to it, and the right to create pages.
+     */
+    public function recordCopyDenialReason(BackendUser $user, string $table, int $id): ?string
+    {
+        if (!\in_array($table, self::TABLES, true)) {
+            return \sprintf('Tabelle "%s" wird nicht unterstützt.', $table);
+        }
+        $record = $this->dcAccess->fetchRecord($table, $id);
+        if (null === $record) {
+            return \sprintf('Datensatz %d in %s nicht gefunden.', $id, $table);
+        }
+
+        return $this->dcAccess->denialReason(
+            new CreateAction($table, array_replace($record, ['tstamp' => null, 'sorting' => null])),
+            $id,
+        );
+    }
+
+    /**
+     * May the user create the clone of a container: the copy lands next to its source,
+     * so the voters get the source record without its id, as DC_Table's paste does. For
+     * a page that means edit and hierarchy rights on the parent; a root (pid 0) stays
+     * with admins because no editor has a mount above it.
+     *
      * @throws ToolAccessDeniedException
-     * @throws ToolExecutionException
+     * @throws ToolRefusedException when the source does not exist
      */
     public function assertCanCreateContainer(BackendUser $user, string $sourceTable, int $sourceId): void
     {
-        if ($user->isAdmin) {
-            return;
+        if (!\in_array($sourceTable, self::CONTAINER_TABLES, true)) {
+            throw new ToolAccessDeniedException(\sprintf(
+                'Container-Anlage für "%s" wird vom Permission-Checker nicht unterstützt.',
+                $sourceTable
+            ));
         }
 
-        switch ($sourceTable) {
-            case 'tl_news_archive':
-                $this->assertContainerCreate('tl_news_archive');
-                return;
-            case 'tl_calendar':
-                $this->assertContainerCreate('tl_calendar');
-                return;
-            case 'tl_faq_category':
-                $this->assertContainerCreate('tl_faq_category');
-                return;
-            case 'tl_page':
-                $this->assertCanCreatePageBelow($user, $sourceId);
-                return;
-            default:
-                throw new ToolAccessDeniedException(\sprintf(
-                    'Container-Anlage für "%s" wird vom Permission-Checker nicht unterstützt.',
-                    $sourceTable
-                ));
+        $source = $this->dcAccess->fetchRecord($sourceTable, $sourceId);
+        if (null === $source) {
+            throw new ToolRefusedException(\sprintf('Quelle %d in %s nicht gefunden.', $sourceId, $sourceTable));
         }
+
+        unset($source['id']);
+        $source['tstamp'] = 0;
+        // `sorting` stays the source's (non-null): null would read as a copy to the
+        // clipboard, which the page voter judges on the source instead of the parent.
+        if (\array_key_exists('sorting', $source) && null === $source['sorting']) {
+            $source['sorting'] = 0;
+        }
+
+        $this->dcAccess->assertCreate($sourceTable, $source);
     }
 
     private function checkRecordAccess(BackendUser $user, string $table, int $id, string $operation): ?string
     {
-        $this->framework->initialize();
+        if (!\in_array($table, self::TABLES, true)) {
+            return \sprintf('Tabelle "%s" wird nicht unterstützt.', $table);
+        }
 
-        return match ($table) {
-            'tl_news_archive'    => $this->checkNewsArchiveAccess($user, $id),
-            'tl_news'            => $this->checkNewsAccess($user, $id),
-            'tl_calendar'        => $this->checkCalendarAccess($user, $id),
-            'tl_calendar_events' => $this->checkCalendarEventAccess($user, $id),
-            'tl_faq_category'    => $this->checkFaqCategoryAccess($user, $id),
-            'tl_faq'             => $this->checkFaqAccess($user, $id),
-            'tl_page'            => $this->checkPageAccess($user, $id, $operation),
-            'tl_article'         => $this->checkArticleAccess($user, $id),
-            'tl_content'         => $this->checkContentAccess($user, $id),
-            default              => \sprintf('Tabelle "%s" wird nicht unterstützt.', $table),
+        $record = $this->dcAccess->fetchRecord($table, $id);
+        if (null === $record) {
+            return \sprintf('Datensatz %d in %s nicht gefunden.', $id, $table);
+        }
+
+        $action = match ($operation) {
+            'read'   => new ReadAction($table, $record),
+            'delete' => new DeleteAction($table, $record),
+            default  => new UpdateAction($table, $record),
         };
-    }
 
-    private function checkNewsArchiveAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(NewsArchiveModel::class)) {
-            return 'contao/news-bundle ist nicht installiert.';
+        $denial = $this->dcAccess->denialReason($action, $id);
+        if (null !== $denial || 'tl_content' !== $table || $user->isAdmin) {
+            return $denial;
         }
-        if (!\in_array('news', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "news" fehlt.';
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.news', [$id])) {
-            return \sprintf('Kein Zugriff auf News-Archiv %d.', $id);
-        }
-        return null;
-    }
 
-    private function checkNewsAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(NewsModel::class)) {
-            return 'contao/news-bundle ist nicht installiert.';
-        }
-        if (!\in_array('news', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "news" fehlt.';
-        }
-        $news = NewsModel::findById($id);
-        if (null === $news) {
-            return \sprintf('News-Eintrag %d nicht gefunden.', $id);
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.news', [(int) $news->pid])) {
-            return \sprintf('Kein Zugriff auf News-Archiv %d.', (int) $news->pid);
-        }
-        return null;
-    }
-
-    private function checkCalendarAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(CalendarModel::class)) {
-            return 'contao/calendar-bundle ist nicht installiert.';
-        }
-        if (!\in_array('calendar', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "calendar" fehlt.';
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.calendars', [$id])) {
-            return \sprintf('Kein Zugriff auf Kalender %d.', $id);
-        }
-        return null;
-    }
-
-    private function checkCalendarEventAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(CalendarEventsModel::class)) {
-            return 'contao/calendar-bundle ist nicht installiert.';
-        }
-        if (!\in_array('calendar', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "calendar" fehlt.';
-        }
-        $event = CalendarEventsModel::findById($id);
-        if (null === $event) {
-            return \sprintf('Kalender-Eintrag %d nicht gefunden.', $id);
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.calendars', [(int) $event->pid])) {
-            return \sprintf('Kein Zugriff auf Kalender %d.', (int) $event->pid);
-        }
-        return null;
-    }
-
-    private function checkFaqCategoryAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(FaqCategoryModel::class)) {
-            return 'contao/faq-bundle ist nicht installiert.';
-        }
-        if (!\in_array('faq', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "faq" fehlt.';
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.faqs', [$id])) {
-            return \sprintf('Kein Zugriff auf FAQ-Kategorie %d.', $id);
-        }
-        return null;
-    }
-
-    private function checkFaqAccess(BackendUser $user, int $id): ?string
-    {
-        if (!class_exists(FaqModel::class)) {
-            return 'contao/faq-bundle ist nicht installiert.';
-        }
-        if (!\in_array('faq', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "faq" fehlt.';
-        }
-        $faq = FaqModel::findById($id);
-        if (null === $faq) {
-            return \sprintf('FAQ-Eintrag %d nicht gefunden.', $id);
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.faqs', [(int) $faq->pid])) {
-            return \sprintf('Kein Zugriff auf FAQ-Kategorie %d.', (int) $faq->pid);
-        }
-        return null;
-    }
-
-    private function checkPageAccess(BackendUser $user, int $id, string $operation): ?string
-    {
-        if (!\in_array('page', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "page" fehlt.';
-        }
-        $page = PageModel::findById($id);
-        if (null === $page) {
-            return \sprintf('Seite %d nicht gefunden.', $id);
-        }
-        $permission = match ($operation) {
-            'delete' => ContaoCorePermissions::USER_CAN_DELETE_PAGE,
-            default  => ContaoCorePermissions::USER_CAN_EDIT_PAGE,
-        };
-        if (!$this->authorizationChecker->isGranted($permission, $page->row())) {
-            return \sprintf('Kein Zugriff auf Seite %d.', $id);
-        }
-        return null;
-    }
-
-    private function checkArticleAccess(BackendUser $user, int $id): ?string
-    {
-        if (!\in_array('article', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "article" fehlt.';
-        }
-        $article = ArticleModel::findById($id);
-        if (null === $article) {
-            return \sprintf('Artikel %d nicht gefunden.', $id);
-        }
-        $page = PageModel::findById((int) $article->pid);
-        if (null === $page) {
-            return \sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $id);
-        }
-        if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
-            return \sprintf('Kein Zugriff auf Artikel %d.', $id);
-        }
-        return null;
-    }
-
-    private function checkContentAccess(BackendUser $user, int $id): ?string
-    {
-        if (!\in_array('article', (array) ($user->modules ?? []), true)) {
-            return 'Backend-Modul "article" fehlt.';
-        }
-        $content = ContentModel::findById($id);
-        if (null === $content) {
-            return \sprintf('Inhaltselement %d nicht gefunden.', $id);
-        }
-        $ptable = (string) ($content->ptable ?? 'tl_article');
-        $pid    = (int) $content->pid;
-        // Nested content (ptable=tl_content): rekursiv bis zum Article auflösen.
-        $guard = 0;
-        while ('tl_content' === $ptable && $guard++ < 10) {
-            $parent = ContentModel::findById($pid);
-            if (null === $parent) {
-                return \sprintf('Eltern-Inhaltselement %d nicht gefunden.', $pid);
-            }
-            $ptable = (string) ($parent->ptable ?? 'tl_article');
-            $pid    = (int) $parent->pid;
-        }
-        if ('tl_article' !== $ptable) {
-            return \sprintf('Inhaltselemente in "%s" können nur von Admins verwaltet werden.', $ptable);
-        }
-        $article = ArticleModel::findById($pid);
-        if (null === $article) {
-            return \sprintf('Artikel %d nicht gefunden.', $pid);
-        }
-        $page = PageModel::findById((int) $article->pid);
-        if (null === $page) {
-            return \sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $pid);
-        }
-        if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
-            return \sprintf('Kein Zugriff auf Artikel %d für Inhaltselement-Operationen.', $pid);
-        }
-        return null;
-    }
-
-    /**
-     * Pfad (a) — Container-Anlage-Permission: der Voter
-     * `contao_user.cud.<table>::create` (zentrale `cud`-Liste, Contao 5.7+).
-     *
-     * Bis v0.10.0 fiel eine Ablehnung auf die alten `newp`/`calp`/`faqp`-Arrays
-     * von Contao 5.3–5.6 zurück. Seit v0.10.0 setzt das Bundle 5.7 voraus, wo
-     * eine Migration diese Spalten entfernt hat — der Rückfall konnte nie mehr
-     * entscheiden, wäre aber eine zweite Tür gewesen (Review 2026-10-03).
-     * Siehe ContainerCreatePermissionTest.
-     */
-    private function assertContainerCreate(string $sourceTable): void
-    {
-        $subject = 'contao_user.cud.'.$sourceTable.'::create';
-        if ($this->authorizationChecker->isGranted($subject)) {
-            return;
-        }
-        throw new ToolAccessDeniedException(\sprintf(
-            'Kein Anlage-Recht für %s (cud "%s::create" fehlt).',
-            $sourceTable,
-            $sourceTable
-        ));
-    }
-
-    /**
-     * Pfad (c) — Klon einer Seite landet als Geschwister-Seite unter source.pid.
-     * Editor braucht USER_CAN_EDIT_PAGE_HIERARCHY auf dem Eltern-Knoten. Root
-     * (pid=0) ist Admin-Territorium.
-     */
-    private function assertCanCreatePageBelow(BackendUser $user, int $sourceId): void
-    {
-        $this->framework->initialize();
-        $source = PageModel::findById($sourceId);
-        if (null === $source) {
-            throw new ToolRefusedException(\sprintf('Quell-Seite %d nicht gefunden.', $sourceId));
-        }
-        $parentId = (int) $source->pid;
-        if (0 === $parentId) {
-            throw new ToolAccessDeniedException(
-                'Root-Seiten anlegen ist nur für Admins erlaubt.'
-            );
-        }
-        $parent = PageModel::findById($parentId);
-        if (null === $parent) {
-            throw new ToolRefusedException(\sprintf('Eltern-Seite %d nicht gefunden.', $parentId));
-        }
-        if (!$this->authorizationChecker->isGranted(
-            ContaoCorePermissions::USER_CAN_EDIT_PAGE_HIERARCHY,
-            $parent->row()
-        )) {
-            throw new ToolAccessDeniedException(\sprintf(
-                'Kein Recht, Subseiten unter Seite %d anzulegen.',
-                $parentId
-            ));
-        }
+        return $this->dcAccess->contentParentDenial($record);
     }
 }

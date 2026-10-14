@@ -5,7 +5,6 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\PageModel;
 use Contao\StringUtil;
 use Contao\UserModel;
 use Doctrine\DBAL\Connection;
@@ -167,7 +166,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // wir refused-IDs explizit, damit Claude/Operator den Scope anpassen
         // können bevor sie noch mal probieren. Cap = depth 10 / 50 Seiten —
         // identisch zum Core-Cloner.
-        if ($recursive && 'tl_page' === $sourceTable && !$user->isAdmin) {
+        if ($recursive && 'tl_page' === $sourceTable) {
             $this->assertSubtreeAccess($user, $sourceId);
         }
 
@@ -269,7 +268,8 @@ class RecordCloneTool extends AbstractCoreCommandTool
 
     /**
      * BFS über Subseiten (gleicher Cap wie der Core-Cloner: Tiefe 10 / 50
-     * Knoten), pro Knoten USER_CAN_EDIT_PAGE-Voter. Bei einem einzigen Refused
+     * Knoten), pro Knoten die Kopierfrage an Contaos Voter (seit v0.18.0, auch für
+     * Admins; bis dahin USER_CAN_EDIT_PAGE). Bei einem einzigen Refused
      * harter Abbruch mit Liste der ersten N refused-IDs — Editor sieht, was
      * fehlt, statt nach dem Klon eine "Schweizer-Käse"-Struktur zu finden.
      */
@@ -290,9 +290,8 @@ class RecordCloneTool extends AbstractCoreCommandTool
             }
             $visited[$pageId] = true;
 
-            $reason = $this->permissionChecker->recordAccessDenialReason(
-                $user, 'tl_page', $pageId, 'edit'
-            );
+            // The clipboard question of DC_Table (v0.18.0): may this page be copied.
+            $reason = $this->permissionChecker->recordCopyDenialReason($user, 'tl_page', $pageId);
             if (null !== $reason) {
                 $refused[] = ['id' => $pageId, 'reason' => $reason];
                 if (\count($refused) >= 10) {

@@ -19,7 +19,7 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
  * every field with an input as excluded unless its DCA says `'exclude' => false`, so in
  * practice an editor needs each field granted in their group. `DC_Table` checks exactly
  * this before it shows or saves a field (`isFieldExcluded() && !isGranted(alexf)`); the
- * voters do not, which is why this check exists next to RecordPermissionChecker.
+ * record voters do not, which is why this check exists next to DataContainerAccess.
  *
  * Until v0.17.0 the chat checked module and record access and a fixed field list per
  * tool, but not these rights (only `language_link` did). An editor whose group grants

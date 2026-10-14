@@ -2,17 +2,10 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
-use Contao\ArticleModel;
-use Contao\BackendUser;
-use Contao\ContentModel;
-use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentCreateCommand;
@@ -29,7 +22,6 @@ class ContentTool extends AbstractCoreCommandTool
     public function __construct(
         ToolAccessChecker $accessChecker,
         TokenChecker $tokenChecker,
-        private readonly ContaoFramework $framework,
         private readonly ContentCreateCommand $createCommand,
         private readonly ContentUpdateCommand $updateCommand,
         private readonly ContentDeleteCommand $deleteCommand,
@@ -65,8 +57,13 @@ class ContentTool extends AbstractCoreCommandTool
     )]
     public function create(string $type, int $pid, string $ptable = 'tl_article'): string
     {
-        // For create, the content element doesn't exist yet — verify access via parent.
-        $this->assertParentAccess($pid, $ptable);
+        // The voters decide (v0.18.0): the rights on the article, news or event above,
+        // the element type, and whether the parent element takes nested elements.
+        $this->assertVotedParent(['ptable' => $ptable, 'pid' => $pid]);
+        if (null === $this->dcAccess->fetchRecord($ptable, $pid)) {
+            throw new ToolRefusedException(\sprintf('Übergeordneter Datensatz %d in "%s" nicht gefunden.', $pid, $ptable));
+        }
+        $this->dcAccess->assertCreate('tl_content', ['pid' => $pid, 'ptable' => $ptable, 'sorting' => 0, 'type' => $type]);
 
         $this->assertFieldsCreatable('tl_content', ['type' => $type]);
 
@@ -84,7 +81,7 @@ class ContentTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->assertVotedParent($this->dcAccess->assertUpdate('tl_content', $id, self::writtenValues($fields)));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
             '--set' => $this->buildSetOptions($fields, 'tl_content'),
@@ -97,12 +94,11 @@ class ContentTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $element = $this->dcAccess->assertDelete('tl_content', $id);
+        $this->assertVotedParent($element);
 
-        $this->framework->initialize();
-        $element = \Contao\ContentModel::findById($id);
-        $type = null !== $element ? (string) ($element->type ?? 'unbekannt') : 'unbekannt';
-        $stagePayload = ['id' => $id, 'type' => $type, 'pid' => null !== $element ? (int) $element->pid : null];
+        $type = (string) ($element['type'] ?? 'unbekannt');
+        $stagePayload = ['id' => $id, 'type' => $type, 'pid' => (int) $element['pid']];
         $staged = $this->requireConfirmation(
             'content_delete',
             (string) $id,
@@ -119,58 +115,25 @@ class ContentTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_content'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->assertVotedParent($this->dcAccess->assertRead('tl_content', $id));
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'content_read');
     }
 
     /**
-     * Per-record permission: content element -> parent (article or other ptable).
-     * For tl_article parent: lookup article -> page -> CAN_EDIT_ARTICLES.
-     * For other ptables: fall back to admin-only (we don't know the permission model).
+     * Editors only below an article, news or event — the parents Contao's content voters
+     * judge (see DataContainerAccess::contentParentDenial()). Admins keep every one.
+     *
+     * @param array<string, mixed> $record at least `ptable` and `pid`
      */
-    protected function assertRecordAccess(int $recordId, string $operation): void
+    private function assertVotedParent(array $record): void
     {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
+        if ($this->requireBackendUser()->isAdmin) {
             return;
         }
 
-        $this->framework->initialize();
-        $content = ContentModel::findById($recordId);
-        if (null === $content) {
-            throw new ToolRefusedException(\sprintf('Inhaltselement %d nicht gefunden.', $recordId));
-        }
-        $this->assertParentAccess((int) $content->pid, (string) $content->ptable);
-    }
-
-    protected function assertParentAccess(int $pid, string $ptable): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        if ('tl_article' !== $ptable) {
-            // Other parent tables (news, calendar_events, …) have their own permission models
-            // that are not implemented here. Default-deny for non-admins.
-            throw new ToolAccessDeniedException(
-                \sprintf('Inhaltselemente in der Tabelle "%s" können nur von Admins verwaltet werden.', $ptable)
-            );
-        }
-
-        $this->framework->initialize();
-        $article = ArticleModel::findById($pid);
-        if (null === $article) {
-            throw new ToolRefusedException(\sprintf('Artikel %d nicht gefunden.', $pid));
-        }
-        $page = PageModel::findById((int) $article->pid);
-        if (null === $page) {
-            throw new ToolRefusedException(\sprintf('Übergeordnete Seite zu Artikel %d nicht gefunden.', $pid));
-        }
-        if (!$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_ARTICLES, $page->row())) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf Artikel %d für Inhaltselement-Operationen.', $pid)
-            );
+        $denial = $this->dcAccess->contentParentDenial($record);
+        if (null !== $denial) {
+            throw new ToolAccessDeniedException($denial);
         }
     }
 }

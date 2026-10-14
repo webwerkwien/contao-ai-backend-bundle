@@ -2,6 +2,47 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.18.0 — 2026-10-14
+
+Works with every contao-ai-core-bundle it worked with before. **Update if editors
+(non-admins) use the chat or the CLI bridge**: the chat now refuses what the back end
+refuses them.
+
+### Security
+
+- **Record rights come from Contao's data container voters**, the check the back end makes
+  before it creates, shows, saves or deletes a record (`isGranted('contao_dc.<table>', …)`
+  with the action `DC_Table` builds). Until now every tool rebuilt a part of it by hand:
+  module plus news archive, calendar or FAQ category, or page right. What the rebuild
+  missed, the chat now refuses as the back end does:
+  - page types and content element types the user group does not allow,
+  - creating a page or article without the hierarchy right on its parent,
+  - error pages other than directly below a root, a root anywhere but on top,
+  - articles on pages whose layout has no article column,
+  - elements nested in a parent element that does not take them,
+  - creating and deleting archives, calendars and FAQ categories without that right
+    (`cud`), and whatever voters extensions add.
+
+  Applies to every tool that touches a record: `page_*`, `article_*`, `content_*`,
+  `news_*`, `event_*`, `faq_*`, `record_clone`, `record_rewrite`, `language_link`, and the
+  rows `record_list` shows.
+- **Admins are asked too**, as in the back end. They hold every right; the voters still
+  refuse structures Contao refuses (a regular page on top level, an article on a page
+  without an article column).
+- **`content_*` limits the parent table for editors** to articles, news and events (also
+  through nested elements). Contao's content voters let any parent table pass that they do
+  not know; in the back end the module sets it, in the chat the model does.
+
+### Changed
+
+- **Editors may work on content elements in news and events** when they may edit the news
+  archive or calendar — as in the back end. So far only admins could.
+- **`page_read` and `record_list` follow Contao's read rule**: an editor also sees the
+  pages above their page mounts, read-only, as in the back end's page tree.
+- A refusal now reads "Contao erlaubt Ihnen nicht, Seite 12 zu ändern. Maßgeblich sind die
+  Rechte Ihrer Benutzergruppe: …" with the rights that matter for that table; the voters
+  give no reason of their own. "Not found" stays its own message.
+
 ## v0.17.0 — 2026-10-14
 
 Works with every contao-ai-core-bundle it worked with before. **Security fix — update if

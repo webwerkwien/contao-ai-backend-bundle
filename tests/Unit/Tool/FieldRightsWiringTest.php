@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
@@ -40,8 +41,9 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
  * with the real FieldPermission, and a refused write never runs its command (rule 24:
  * the test calls the place, it does not copy it).
  *
- * The record-level checks (page mounts, archives) are stubbed out; they belong to
- * RecordPermissionChecker and are tested there. Everything else is the real tool.
+ * The record-level checks (Contao's data container voters) go through a granting
+ * DataContainerAccess; they are tested in DataContainerAccessTest and RecordRightsWiringTest.
+ * Everything else is the real tool.
  */
 class FieldRightsWiringTest extends TestCase
 {
@@ -81,7 +83,24 @@ class FieldRightsWiringTest extends TestCase
         $tool->setFieldPermission($this->fieldPermission($granted));
         $tool->setAuthorizationChecker($this->grantingAuthorization($granted));
         $tool->setPendingActionStore($store ?? $this->createMock(PendingActionStore::class));
+        $tool->setDataContainerAccess($this->grantingRecords());
         $tool->setActingUserOverride($this->editor());
+    }
+
+    /**
+     * Contao's record voters, granting everything: every record exists, below an article.
+     */
+    private function grantingRecords(): DataContainerAccess
+    {
+        $row = ['id' => 5, 'pid' => 3, 'ptable' => 'tl_article', 'title' => 'Bestand', 'type' => 'text'];
+        $records = $this->createMock(DataContainerAccess::class);
+        $records->method('fetchRecord')->willReturn($row);
+        $records->method('assertRead')->willReturn($row);
+        $records->method('assertUpdate')->willReturn($row);
+        $records->method('assertDelete')->willReturn($row);
+        $records->method('isGranted')->willReturn(true);
+
+        return $records;
     }
 
     private function editor(): BackendUser
@@ -119,17 +138,16 @@ class FieldRightsWiringTest extends TestCase
     }
 
     /**
-     * The real tool, built from mocks for its constructor; only the record-level checks
-     * are stubbed. Every command it holds must not run unless $runs names it.
+     * The real tool, built from mocks for its constructor. Every command it holds must
+     * not run unless $runs names it.
      *
      * @template T of AbstractCoreCommandTool
      *
      * @param class-string<T> $class
-     * @param list<string>    $stubbed the record-level check methods to switch off
      *
      * @return T
      */
-    private function tool(string $class, array $stubbed, ?string $runs = null): AbstractCoreCommandTool
+    private function tool(string $class, ?string $runs = null): AbstractCoreCommandTool
     {
         $arguments = [$this->createMock(ToolAccessChecker::class), $this->createStub(TokenChecker::class)];
 
@@ -145,31 +163,30 @@ class FieldRightsWiringTest extends TestCase
             }
         }
 
-        return $this->getMockBuilder($class)->setConstructorArgs($arguments)->onlyMethods($stubbed)->getMock();
+        return new $class(...$arguments);
     }
 
     /**
-     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, string, string}>
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, string, string}>
      */
     public static function updateTools(): iterable
     {
-        yield 'page'    => [PageTool::class, ['assertRecordAccess', 'assertPageOperation'], 'tl_page', 'published'];
-        yield 'article' => [ArticleTool::class, ['assertRecordAccess', 'assertPageAccess'], 'tl_article', 'published'];
-        yield 'content' => [ContentTool::class, ['assertRecordAccess', 'assertParentAccess'], 'tl_content', 'headline'];
-        yield 'news'    => [NewsTool::class, ['assertRecordAccess', 'assertArchiveAccess'], 'tl_news', 'published'];
-        yield 'event'   => [EventTool::class, ['assertRecordAccess', 'assertCalendarAccess'], 'tl_calendar_events', 'published'];
-        yield 'faq'     => [FaqTool::class, ['assertRecordAccess', 'assertCategoryAccess'], 'tl_faq', 'published'];
+        yield 'page'    => [PageTool::class, 'tl_page', 'published'];
+        yield 'article' => [ArticleTool::class, 'tl_article', 'published'];
+        yield 'content' => [ContentTool::class, 'tl_content', 'headline'];
+        yield 'news'    => [NewsTool::class, 'tl_news', 'published'];
+        yield 'event'   => [EventTool::class, 'tl_calendar_events', 'published'];
+        yield 'faq'     => [FaqTool::class, 'tl_faq', 'published'];
     }
 
     /**
      * @dataProvider updateTools
      *
      * @param class-string<AbstractCoreCommandTool> $class
-     * @param list<string>                          $stubbed
      */
-    public function testAnUpdateWithoutTheFieldRightRunsNothing(string $class, array $stubbed, string $table, string $field): void
+    public function testAnUpdateWithoutTheFieldRightRunsNothing(string $class, string $table, string $field): void
     {
-        $tool = $this->tool($class, $stubbed);
+        $tool = $this->tool($class);
         $this->wire($tool, []);
 
         $this->expectException(ToolAccessDeniedException::class);
@@ -186,11 +203,10 @@ class FieldRightsWiringTest extends TestCase
      * @dataProvider updateTools
      *
      * @param class-string<AbstractCoreCommandTool> $class
-     * @param list<string>                          $stubbed
      */
-    public function testAListOfPairsIsCheckedLikeAnObject(string $class, array $stubbed, string $table, string $field): void
+    public function testAListOfPairsIsCheckedLikeAnObject(string $class, string $table, string $field): void
     {
-        $tool = $this->tool($class, $stubbed);
+        $tool = $this->tool($class);
         $this->wire($tool, []);
 
         $this->expectException(ToolAccessDeniedException::class);
@@ -204,29 +220,28 @@ class FieldRightsWiringTest extends TestCase
      * What each create writes beyond its link to the parent, with the right granted to
      * all but one value — the one named must be refused.
      *
-     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, list<mixed>, list<string>, string}>
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<mixed>, list<string>, string}>
      */
     public static function createTools(): iterable
     {
-        yield 'page: another type'      => [PageTool::class, ['assertPageOperation'], ['Weiterleitung', '', 'forward', 3], ['tl_page::title'], 'tl_page.type'];
-        yield 'article: another column' => [ArticleTool::class, ['assertPageAccess'], ['Kopf', 3, 'header'], ['tl_article::title'], 'tl_article.inColumn'];
-        yield 'content: another type'   => [ContentTool::class, ['assertParentAccess'], ['html', 3, 'tl_article'], [], 'tl_content.type'];
-        yield 'news: the time'          => [NewsTool::class, ['assertArchiveAccess'], [1, 'Meldung', '2026-10-14'], ['tl_news::headline', 'tl_news::date'], 'tl_news.time'];
-        yield 'event: the start'        => [EventTool::class, ['assertCalendarAccess'], [1, 'Termin', '2026-10-14'], ['tl_calendar_events::title'], 'tl_calendar_events.startDate'];
-        yield 'faq: the answer'         => [FaqTool::class, ['assertCategoryAccess'], [1, 'Frage', 'Antwort'], ['tl_faq::question'], 'tl_faq.answer'];
+        yield 'page: another type'      => [PageTool::class, ['Weiterleitung', '', 'forward', 3], ['tl_page::title'], 'tl_page.type'];
+        yield 'article: another column' => [ArticleTool::class, ['Kopf', 3, 'header'], ['tl_article::title'], 'tl_article.inColumn'];
+        yield 'content: another type'   => [ContentTool::class, ['html', 3, 'tl_article'], [], 'tl_content.type'];
+        yield 'news: the time'          => [NewsTool::class, [1, 'Meldung', '2026-10-14'], ['tl_news::headline', 'tl_news::date'], 'tl_news.time'];
+        yield 'event: the start'        => [EventTool::class, [1, 'Termin', '2026-10-14'], ['tl_calendar_events::title'], 'tl_calendar_events.startDate'];
+        yield 'faq: the answer'         => [FaqTool::class, [1, 'Frage', 'Antwort'], ['tl_faq::question'], 'tl_faq.answer'];
     }
 
     /**
      * @dataProvider createTools
      *
      * @param class-string<AbstractCoreCommandTool> $class
-     * @param list<string>                          $stubbed
      * @param list<mixed>                           $arguments
      * @param list<string>                          $granted
      */
-    public function testACreateNeedsTheRightForWhatItSets(string $class, array $stubbed, array $arguments, array $granted, string $refused): void
+    public function testACreateNeedsTheRightForWhatItSets(string $class, array $arguments, array $granted, string $refused): void
     {
-        $tool = $this->tool($class, $stubbed);
+        $tool = $this->tool($class);
         $this->wire($tool, $granted);
 
         $this->assertTrue(method_exists($tool, 'create'));
@@ -245,27 +260,26 @@ class FieldRightsWiringTest extends TestCase
      * create that stopped checking one of them (the title, the alias, the headline) is
      * caught, not only the one field the case above leaves out (second review).
      *
-     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, list<mixed>, string}>
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<mixed>, string}>
      */
     public static function createToolsWithoutAnyRight(): iterable
     {
-        yield 'page'    => [PageTool::class, ['assertPageOperation'], ['Weiterleitung', 'weiter', 'forward', 3], 'tl_page.title, tl_page.alias, tl_page.type'];
-        yield 'article' => [ArticleTool::class, ['assertPageAccess'], ['Kopf', 3, 'header'], 'tl_article.title, tl_article.inColumn'];
-        yield 'news'    => [NewsTool::class, ['assertArchiveAccess'], [1, 'Meldung', '2026-10-14'], 'tl_news.headline, tl_news.date, tl_news.time'];
-        yield 'event'   => [EventTool::class, ['assertCalendarAccess'], [1, 'Termin', '2026-10-14'], 'tl_calendar_events.title, tl_calendar_events.startDate'];
-        yield 'faq'     => [FaqTool::class, ['assertCategoryAccess'], [1, 'Frage', 'Antwort'], 'tl_faq.question, tl_faq.answer'];
+        yield 'page'    => [PageTool::class, ['Weiterleitung', 'weiter', 'forward', 3], 'tl_page.title, tl_page.alias, tl_page.type'];
+        yield 'article' => [ArticleTool::class, ['Kopf', 3, 'header'], 'tl_article.title, tl_article.inColumn'];
+        yield 'news'    => [NewsTool::class, [1, 'Meldung', '2026-10-14'], 'tl_news.headline, tl_news.date, tl_news.time'];
+        yield 'event'   => [EventTool::class, [1, 'Termin', '2026-10-14'], 'tl_calendar_events.title, tl_calendar_events.startDate'];
+        yield 'faq'     => [FaqTool::class, [1, 'Frage', 'Antwort'], 'tl_faq.question, tl_faq.answer'];
     }
 
     /**
      * @dataProvider createToolsWithoutAnyRight
      *
      * @param class-string<AbstractCoreCommandTool> $class
-     * @param list<string>                          $stubbed
      * @param list<mixed>                           $arguments
      */
-    public function testACreateWithoutAnyRightNamesEveryValueItSets(string $class, array $stubbed, array $arguments, string $refused): void
+    public function testACreateWithoutAnyRightNamesEveryValueItSets(string $class, array $arguments, string $refused): void
     {
-        $tool = $this->tool($class, $stubbed);
+        $tool = $this->tool($class);
         $this->wire($tool, []);
         $this->assertTrue(method_exists($tool, 'create'));
 
@@ -277,7 +291,7 @@ class FieldRightsWiringTest extends TestCase
 
     public function testAPageCreateWithTheDefaultTypeNeedsOnlyTheTitleRight(): void
     {
-        $tool = $this->tool(PageTool::class, ['assertPageOperation'], \Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand::class);
+        $tool = $this->tool(PageTool::class, \Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand::class);
         $this->wire($tool, ['tl_page::title']);
 
         $this->assertStringContainsString('"status":"ok"', $tool->create('Über uns', '', 'regular', 3));
@@ -285,7 +299,7 @@ class FieldRightsWiringTest extends TestCase
 
     public function testAnUpdateWithTheRightRuns(): void
     {
-        $tool = $this->tool(PageTool::class, ['assertRecordAccess'], \Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand::class);
+        $tool = $this->tool(PageTool::class, \Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand::class);
         $this->wire($tool, ['tl_page::title', 'tl_page::published']);
 
         $this->assertStringContainsString('"status":"ok"', $tool->update(5, ['title' => 'Neu', 'published' => '1']));
@@ -300,7 +314,7 @@ class FieldRightsWiringTest extends TestCase
         $store = $this->createMock(PendingActionStore::class);
         $store->expects($this->never())->method($this->anything());
 
-        $tool = $this->tool(PageTool::class, ['assertRecordAccess']);
+        $tool = $this->tool(PageTool::class);
         $this->wire($tool, ['tl_page::title'], $store);
 
         $this->expectException(ToolAccessDeniedException::class);
@@ -311,7 +325,7 @@ class FieldRightsWiringTest extends TestCase
 
     public function testPagePublishWithTheRightRuns(): void
     {
-        $tool = $this->tool(PageTool::class, ['assertRecordAccess'], \Webwerkwien\ContaoAiCoreBundle\Command\PagePublishCommand::class);
+        $tool = $this->tool(PageTool::class, \Webwerkwien\ContaoAiCoreBundle\Command\PagePublishCommand::class);
         $this->wire($tool, ['tl_page::published']);
 
         $this->assertStringContainsString('"status":"ok"', $tool->publish(5, true));

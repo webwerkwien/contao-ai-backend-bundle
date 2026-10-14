@@ -6,7 +6,6 @@ use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\FaqModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
@@ -68,7 +67,11 @@ class FaqTool extends AbstractCoreCommandTool
     )]
     public function create(int $pid, string $question, ?string $answer = null): string
     {
-        $this->assertCategoryAccess($pid);
+        // The voters decide (v0.18.0): the FAQ module and the right on the category.
+        if (null === $this->dcAccess->fetchRecord('tl_faq_category', $pid)) {
+            throw new ToolRefusedException(\sprintf('FAQ-Kategorie %d nicht gefunden.', $pid));
+        }
+        $this->dcAccess->assertCreate('tl_faq', ['pid' => $pid, 'sorting' => 0, 'question' => $question]);
 
         // Inline keys — a null is dropped in runCommand(), which is what keeps
         // this call visible to ToolArgumentsMatchCommandTest.
@@ -91,7 +94,7 @@ class FaqTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->dcAccess->assertUpdate('tl_faq', $id, self::writtenValues($fields));
 
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
@@ -105,7 +108,7 @@ class FaqTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $this->dcAccess->assertDelete('tl_faq', $id);
 
         $this->framework->initialize();
         $faq = FaqModel::findById($id);
@@ -131,47 +134,8 @@ class FaqTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_faq'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->dcAccess->assertRead('tl_faq', $id);
 
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'faq_read');
-    }
-
-    /**
-     * Per-record permission: an FAQ belongs to a category (pid), and the editor
-     * needs access to that category.
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $faq = FaqModel::findById($recordId);
-        if (null === $faq) {
-            throw new ToolRefusedException(\sprintf('FAQ-Eintrag %d nicht gefunden.', $recordId));
-        }
-
-        $this->assertCategoryAccess((int) $faq->pid);
-    }
-
-    /**
-     * ⚠️ `contao_user.faqs` — plural. The permission field on the user is named
-     * by the DCA's `'userRoot' => 'faqs'`, and a singular `hasAccess($id, 'faq')`
-     * reads a property that does not exist and therefore denies every non-admin.
-     * That is exactly what stood in `RecordPermissionChecker` until 2026-09-02.
-     */
-    protected function assertCategoryAccess(int $categoryId): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.faqs', [$categoryId])) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf FAQ-Kategorie %d.', $categoryId)
-            );
-        }
     }
 }

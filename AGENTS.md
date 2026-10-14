@@ -86,6 +86,18 @@ that existed before the fix, and that could not be rewritten, is the proof.
   right. Until v0.16.4 this line above said "field rights are `alexf`" while only
   `language_link` checked them — an editor whose group grants no page field could
   publish pages through the chat. A new write path without this call is that bug again.
+- **Every record the chat touches passes `DataContainerAccess`** (v0.18.0): Contao's data
+  container voters, `isGranted('contao_dc.<table>', <action>)`, asked with the action
+  `DC_Table` builds — `assertCreate($table, $new)`, `assertRead`, `assertUpdate($table, $id,
+  self::writtenValues($fields))`, `assertDelete`. Admins are asked too, as in the back end.
+  Mind three things the voters assume: the DCA is loaded (the service does it; otherwise
+  `TableAccessVoter` abstains silently), `sorting` in a create is non-null (null reads as a
+  copy to the page voter), and an update with no values passes `null`, not `[]` (`[]` reads
+  as "only moved", which needs no edit right). The content voters let any parent table
+  pass that they do not know, so `ptable` from the model is limited to
+  `DataContainerAccess::VOTED_CONTENT_PARENTS` for editors. Until v0.17.0 every tool
+  rebuilt a part of this by hand (module plus archive or page right), and admins skipped
+  it; don't add such a rebuild back.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).

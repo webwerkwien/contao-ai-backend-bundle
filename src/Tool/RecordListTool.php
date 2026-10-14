@@ -6,7 +6,7 @@ use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\PageModel;
+use Contao\CoreBundle\Security\DataContainer\ReadAction;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
@@ -214,38 +214,14 @@ class RecordListTool extends AbstractCoreCommandTool
         $this->framework->initialize();
 
         return match ($table) {
-            'tl_news', 'tl_news_archive' => array_filter(
+            // Since v0.18.0 the question the back end asks before it lists a record:
+            // `ReadAction` with the full row (the list may carry fewer columns than the
+            // voters read — pid, ptable, type). Until then a rebuild per table; one of
+            // them (M-1, audit 2026-09-02) let the calendar module show every calendar.
+            'tl_news', 'tl_news_archive', 'tl_page', 'tl_article', 'tl_content',
+            'tl_calendar', 'tl_calendar_events', 'tl_faq_category', 'tl_faq' => array_filter(
                 $results,
-                fn ($row) => $this->canSeeNewsRow($table, $row, $user),
-            ),
-            'tl_page' => array_filter(
-                $results,
-                fn ($row) => \is_array($row) && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $row),
-            ),
-            'tl_article' => array_filter(
-                $results,
-                fn ($row) => $this->canSeeArticleRow($row, $user),
-            ),
-            'tl_content' => array_filter(
-                $results,
-                fn ($row) => $this->canSeeContentRow($row, $user),
-            ),
-
-            // 🔴 M-1 (Audit 2026-09-02): hier stand
-            //   `// tl_calendar / tl_files: module check (above) already enforced.`
-            //   `default => $results,`
-            // Das war eine niedergeschriebene Annahme, die nicht trägt. Das
-            // Backend-Modul `calendar` erlaubt in Contao NICHT jeden Kalender —
-            // `tl_user.calendars` entscheidet je Kalender, genau wie
-            // `tl_user.news` je Archiv. `record_list` zeigte damit Datensätze,
-            // die derselbe Benutzer im Backend nicht zu sehen bekommt.
-            'tl_calendar', 'tl_calendar_events' => array_filter(
-                $results,
-                fn ($row) => $this->canSeeMountedRow($row, 'tl_calendar' === $table ? 'id' : 'pid', 'contao_user.calendars'),
-            ),
-            'tl_faq_category', 'tl_faq' => array_filter(
-                $results,
-                fn ($row) => $this->canSeeMountedRow($row, 'tl_faq_category' === $table ? 'id' : 'pid', 'contao_user.faqs'),
+                fn ($row) => $this->canRead($table, $row),
             ),
             // Dateien hängen an einem Pfad, nicht an einer ID. Contao prüft dabei
             // auch Unterordner eines Mounts (Präfix-Vergleich im Voter), deshalb
@@ -268,88 +244,18 @@ class RecordListTool extends AbstractCoreCommandTool
         };
     }
 
-    /**
-     * Row visible when the referenced container is mounted for this user.
-     *
-     * Uses the generic `contao_user.<feld>`-Voter statt `BackendUser::hasAccess()`,
-     * das seit Contao 5.2 deprecated ist und in Contao 6 entfällt. Der Voter
-     * beantwortet jedes Attribut mit diesem Präfix gegen `tl_user.<feld>`, also
-     * auch `calendars` und `faqs` — ohne dass die zugehörigen Bundles installiert
-     * sein müssen.
-     *
-     * @param array<string, mixed>|mixed $row
-     */
-    private function canSeeMountedRow(mixed $row, string $idField, string $permission): bool
+    private function canRead(string $table, mixed $row): bool
     {
-        if (!\is_array($row)) {
+        if (!\is_array($row) || 0 === (int) ($row['id'] ?? 0)) {
+            return false;
+        }
+        $record = $this->dcAccess->fetchRecord($table, (int) $row['id']);
+        if (null === $record || !$this->dcAccess->isGranted(new ReadAction($table, $record))) {
             return false;
         }
 
-        $containerId = (int) ($row[$idField] ?? 0);
-
-        if (0 === $containerId) {
-            return false;
-        }
-
-        return $this->authorizationChecker->isGranted($permission, [$containerId]);
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function canSeeNewsRow(string $table, mixed $row, BackendUser $user): bool
-    {
-        if (!\is_array($row)) {
-            return false;
-        }
-        // tl_news_archive: id IS the archive id; tl_news: pid points to the archive.
-        $archiveId = (int) ('tl_news_archive' === $table ? ($row['id'] ?? 0) : ($row['pid'] ?? 0));
-        if (0 === $archiveId) {
-            return false;
-        }
-        return $this->authorizationChecker->isGranted('contao_user.news', [$archiveId]);
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function canSeeArticleRow(mixed $row, BackendUser $user): bool
-    {
-        if (!\is_array($row)) {
-            return false;
-        }
-        $pageId = (int) ($row['pid'] ?? 0);
-        if (0 === $pageId) {
-            return false;
-        }
-        $page = PageModel::findById($pageId);
-        return null !== $page && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $page->row());
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function canSeeContentRow(mixed $row, BackendUser $user): bool
-    {
-        if (!\is_array($row)) {
-            return false;
-        }
-        $ptable = (string) ($row['ptable'] ?? 'tl_article');
-        $pid    = (int) ($row['pid'] ?? 0);
-        if (0 === $pid) {
-            return false;
-        }
-        // Most content elements live below an article. Resolve to the page.
-        if ('tl_article' === $ptable) {
-            $article = \Contao\ArticleModel::findById($pid);
-            if (null === $article) {
-                return false;
-            }
-            $page = PageModel::findById((int) $article->pid);
-            return null !== $page && $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_PAGE, $page->row());
-        }
-        // Unknown ptable (custom modules) — be conservative.
-        return false;
+        // Content below a parent Contao's voters do not judge stays hidden, as before.
+        return 'tl_content' !== $table || null === $this->dcAccess->contentParentDenial($record);
     }
 
     /**

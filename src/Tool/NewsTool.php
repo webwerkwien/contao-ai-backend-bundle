@@ -7,8 +7,6 @@ use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\NewsModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\NewsCreateCommand;
@@ -64,8 +62,11 @@ class NewsTool extends AbstractCoreCommandTool
     )]
     public function create(int $pid, string $headline, ?string $date = null): string
     {
-        // For create, the record doesn't exist yet — check archive access directly.
-        $this->assertArchiveAccess($pid);
+        // The voters decide (v0.18.0): the news module and the right on the archive.
+        if (null === $this->dcAccess->fetchRecord('tl_news_archive', $pid)) {
+            throw new ToolRefusedException(\sprintf('News-Archiv %d nicht gefunden.', $pid));
+        }
+        $this->dcAccess->assertCreate('tl_news', ['pid' => $pid, 'headline' => $headline]);
 
         // 🔴 Inline since 2026-09-02. The variable form was invisible to
         // ToolArgumentsMatchCommandTest, so `news_create` had never been checked
@@ -92,7 +93,7 @@ class NewsTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->dcAccess->assertUpdate('tl_news', $id, self::writtenValues($fields));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
             '--set' => $this->buildSetOptions($fields, 'tl_news'),
@@ -105,7 +106,7 @@ class NewsTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $this->dcAccess->assertDelete('tl_news', $id);
 
         // Two-step confirmation. First call stages, returns a question for
         // the user; second call within 5 minutes (after the user said yes)
@@ -144,41 +145,9 @@ class NewsTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_news'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->dcAccess->assertRead('tl_news', $id);
         return $this->runCommand($this->readCommand, [
             'id' => (string) $id,
         ], 'news_read');
-    }
-
-    /**
-     * Per-record permission: news belongs to a news archive (pid). Editor must
-     * have backend access to that archive (`contao_user.news`-Voter).
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $news = NewsModel::findById($recordId);
-        if (null === $news) {
-            throw new ToolRefusedException(\sprintf('News-Eintrag %d nicht gefunden.', $recordId));
-        }
-        $this->assertArchiveAccess((int) $news->pid);
-    }
-
-    protected function assertArchiveAccess(int $archiveId): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.news', [$archiveId])) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf News-Archiv %d.', $archiveId)
-            );
-        }
     }
 }

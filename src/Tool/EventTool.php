@@ -6,7 +6,6 @@ use Contao\CalendarEventsModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
@@ -82,8 +81,11 @@ class EventTool extends AbstractCoreCommandTool
     )]
     public function create(int $pid, string $title, ?string $startDate = null): string
     {
-        // The record does not exist yet, so the calendar is what gets checked.
-        $this->assertCalendarAccess($pid);
+        // The voters decide (v0.18.0): the calendar module and the right on the calendar.
+        if (null === $this->dcAccess->fetchRecord('tl_calendar', $pid)) {
+            throw new ToolRefusedException(\sprintf('Kalender %d nicht gefunden.', $pid));
+        }
+        $this->dcAccess->assertCreate('tl_calendar_events', ['pid' => $pid, 'title' => $title]);
 
         // Keys stay inline on purpose — see runCommand(): a null is dropped
         // there, and that is what keeps this call visible to
@@ -107,7 +109,7 @@ class EventTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->dcAccess->assertUpdate('tl_calendar_events', $id, self::writtenValues($fields));
 
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
@@ -121,7 +123,7 @@ class EventTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $this->dcAccess->assertDelete('tl_calendar_events', $id);
 
         // Two-step confirmation, exactly as for news: the first call stages and
         // returns the question, the second one — after the user answered —
@@ -150,42 +152,8 @@ class EventTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_calendar_events'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->dcAccess->assertRead('tl_calendar_events', $id);
 
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'event_read');
-    }
-
-    /**
-     * Per-record permission: an event belongs to a calendar (pid), and the editor
-     * needs back end access to that calendar — the same rule Contao applies in
-     * the calendar module.
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $event = CalendarEventsModel::findById($recordId);
-        if (null === $event) {
-            throw new ToolRefusedException(\sprintf('Termin %d nicht gefunden.', $recordId));
-        }
-
-        $this->assertCalendarAccess((int) $event->pid);
-    }
-
-    protected function assertCalendarAccess(int $calendarId): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-        if (!$this->authorizationChecker->isGranted('contao_user.calendars', [$calendarId])) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf Kalender %d.', $calendarId)
-            );
-        }
     }
 }

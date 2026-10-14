@@ -13,6 +13,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
+use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\FieldPermission;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
@@ -66,6 +67,18 @@ abstract class AbstractCoreCommandTool
     }
 
     /**
+     * Contao's record rights (v0.18.0): the data container voters, asked like `DC_Table`
+     * asks them. Setter injection like the others.
+     */
+    protected DataContainerAccess $dcAccess;
+
+    #[Required]
+    public function setDataContainerAccess(DataContainerAccess $dcAccess): void
+    {
+        $this->dcAccess = $dcAccess;
+    }
+
+    /**
      * @param list<string> $fields
      *
      * @throws ToolAccessDeniedException when the user lacks the right to one of them
@@ -73,6 +86,28 @@ abstract class AbstractCoreCommandTool
     protected function assertFieldsWritable(string $table, array $fields): void
     {
         $this->fieldPermission->assertWritable($this->requireBackendUser(), $table, $fields);
+    }
+
+    /**
+     * The values a write sets, as the record voters compare them with the stored row:
+     * normalized, without the nulls buildSetOptions() drops, as strings. Null for an
+     * empty write — an UpdateAction with `[]` reads as "only moved" to the page voter,
+     * which needs no edit right; null asks for the edit right like opening the form.
+     *
+     * @param array<int|string, mixed> $fields
+     *
+     * @return array<string, string>|null
+     */
+    protected static function writtenValues(array $fields): ?array
+    {
+        $values = [];
+        foreach (self::normalizeFieldsPayload($fields) as $key => $value) {
+            if (null !== $value) {
+                $values[(string) $key] = (string) $value;
+            }
+        }
+
+        return [] === $values ? null : $values;
     }
 
     /**
@@ -131,23 +166,6 @@ abstract class AbstractCoreCommandTool
     public function isAccessibleBy(BackendUser $user): bool
     {
         return $this->accessChecker->canUseTool($user, $this->getToolName());
-    }
-
-    /**
-     * Per-record permission check (H-9). Verifies the current backend user is
-     * allowed to perform $operation on the record identified by $recordId.
-     *
-     * Default: no-op (read-only meta-tools without per-record semantics).
-     * Subclasses MUST override for tools that touch user-content tables
-     * (news archives, page mounts, article/content trees) and call Contao's
-     * BackendUser::hasAccess() / isAllowed() with the right scope.
-     *
-     * @param string $operation One of: 'read', 'create', 'update', 'delete', 'publish'
-     * @throws ToolAccessDeniedException
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        // Default: trust the class-level isAccessibleBy() decision.
     }
 
     /**

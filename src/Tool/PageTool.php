@@ -2,15 +2,9 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 
-use Contao\BackendUser;
-use Contao\CoreBundle\Framework\ContaoFramework;
-use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\PageModel;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand;
@@ -29,7 +23,6 @@ class PageTool extends AbstractCoreCommandTool
     public function __construct(
         ToolAccessChecker $accessChecker,
         TokenChecker $tokenChecker,
-        private readonly ContaoFramework $framework,
         private readonly PageCreateCommand $createCommand,
         private readonly PageUpdateCommand $updateCommand,
         private readonly PageDeleteCommand $deleteCommand,
@@ -65,17 +58,14 @@ class PageTool extends AbstractCoreCommandTool
     )]
     public function create(string $title, string $alias, string $type, int $pid): string
     {
-        // For create, the new page does not exist yet — verify the user is
-        // allowed to add a sub-page below the parent (CAN_EDIT_PAGE on parent).
-        if (0 !== $pid) {
-            $this->assertPageOperation($pid, ContaoCorePermissions::USER_CAN_EDIT_PAGE_HIERARCHY);
-        } else {
-            // Root pages: admin only.
-            $user = $this->requireBackendUser();
-            if (!$user->isAdmin) {
-                throw new ToolAccessDeniedException('Root-Seiten anlegen ist nur für Admins erlaubt.');
-            }
+        // The voters decide (v0.18.0): edit and hierarchy rights on the parent, the page
+        // type, a root only on top and nothing else there, error pages only below a root.
+        // `sorting` must not be null — null is how the page voter recognises a copy. The
+        // core picks the position; 0 is what DC_Table's own "new" button asks with.
+        if (0 !== $pid && null === $this->dcAccess->fetchRecord('tl_page', $pid)) {
+            throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $pid));
         }
+        $this->dcAccess->assertCreate('tl_page', ['pid' => $pid, 'sorting' => 0, 'type' => $type, 'title' => $title, 'alias' => $alias]);
 
         $this->assertFieldsCreatable('tl_page', ['title' => $title, 'alias' => $alias, 'type' => $type]);
 
@@ -94,7 +84,7 @@ class PageTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->assertRecordAccess($id, 'update');
+        $this->dcAccess->assertUpdate('tl_page', $id, self::writtenValues($fields));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
             '--set' => $this->buildSetOptions($fields, 'tl_page'),
@@ -107,12 +97,10 @@ class PageTool extends AbstractCoreCommandTool
     )]
     public function delete(int $id): string
     {
-        $this->assertRecordAccess($id, 'delete');
+        $page = $this->dcAccess->assertDelete('tl_page', $id);
 
-        $this->framework->initialize();
-        $page = PageModel::findById($id);
-        $title = null !== $page ? (string) ($page->title ?? 'unbekannt') : 'unbekannt';
-        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => null !== $page ? (int) $page->pid : null];
+        $title = (string) ($page['title'] ?? 'unbekannt');
+        $stagePayload = ['id' => $id, 'title' => $title, 'pid' => (int) $page['pid']];
         $staged = $this->requireConfirmation(
             'page_delete',
             (string) $id,
@@ -129,7 +117,7 @@ class PageTool extends AbstractCoreCommandTool
     #[AiContract(writes: false, tables: ['tl_page'], trace: [])]
     public function read(int $id): string
     {
-        $this->assertRecordAccess($id, 'read');
+        $this->dcAccess->assertRead('tl_page', $id);
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'page_read');
     }
 
@@ -139,7 +127,7 @@ class PageTool extends AbstractCoreCommandTool
     )]
     public function publish(int $id, bool $published): string
     {
-        $this->assertRecordAccess($id, 'publish');
+        $this->dcAccess->assertUpdate('tl_page', $id, ['published' => $published ? '1' : '']);
         // In the back end this is the `published` toggle, which needs that field — checked
         // before the confirmation, so nobody confirms what is then refused (v0.17.0).
         $this->assertFieldsWritable('tl_page', ['published']);
@@ -174,53 +162,5 @@ class PageTool extends AbstractCoreCommandTool
             'id'     => (string) $id,
             'action' => $published ? 'publish' : 'unpublish',
         ], 'page_publish');
-    }
-
-    /**
-     * Per-record permission via Symfony Security voters with the
-     * ContaoCorePermissions::USER_CAN_* string subjects. Reads the page row
-     * first, then asks the voter — same path the regular Contao 5 backend
-     * uses for every page operation. Replaces the legacy
-     * BackendUser::isAllowed(CAN_*) call which no longer exists in Contao 5.
-     */
-    protected function assertRecordAccess(int $recordId, string $operation): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $page = PageModel::findById($recordId);
-        if (null === $page) {
-            throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $recordId));
-        }
-
-        // ContaoCorePermissions strings — Contao 5 voter-based permission system.
-        $permission = match ($operation) {
-            'delete'           => ContaoCorePermissions::USER_CAN_DELETE_PAGE,
-            'update', 'publish', 'read' => ContaoCorePermissions::USER_CAN_EDIT_PAGE,
-            default            => ContaoCorePermissions::USER_CAN_EDIT_PAGE,
-        };
-        $this->assertPageOperation($recordId, $permission);
-    }
-
-    protected function assertPageOperation(int $pageId, string $permission): void
-    {
-        $user = $this->requireBackendUser();
-        if ($user->isAdmin) {
-            return;
-        }
-
-        $this->framework->initialize();
-        $page = PageModel::findById($pageId);
-        if (null === $page) {
-            throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $pageId));
-        }
-        if (!$this->authorizationChecker->isGranted($permission, $page->row())) {
-            throw new ToolAccessDeniedException(
-                \sprintf('Kein Zugriff auf Seite %d für diese Operation.', $pageId)
-            );
-        }
     }
 }

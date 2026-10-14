@@ -322,19 +322,18 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         // schreiben, das nur transitiv per Container-Lookup auftaucht. Skip
         // mit Note statt Hart-Abbruch — Caller bekommt `refused: [...]` und
         // führt die erlaubten Children aus.
+        // Admins too since v0.18.0 — the voters judge them as in the back end.
         $refused = [];
-        if (!$user->isAdmin) {
-            $kept = [];
-            foreach ($ids as $childId) {
-                $reason = $this->permissionChecker->recordAccessDenialReason($user, $childTable, $childId, 'edit');
-                if (null === $reason) {
-                    $kept[] = $childId;
-                } else {
-                    $refused[] = ['id' => $childId, 'reason' => $reason];
-                }
+        $kept = [];
+        foreach ($ids as $childId) {
+            $reason = $this->permissionChecker->recordAccessDenialReason($user, $childTable, $childId, 'edit');
+            if (null === $reason) {
+                $kept[] = $childId;
+            } else {
+                $refused[] = ['id' => $childId, 'reason' => $reason];
             }
-            $ids = $kept;
         }
+        $ids = $kept;
 
         return ['ids' => $ids, 'rewriter_table' => $childTable, 'capped' => $capped, 'refused' => $refused];
     }
