@@ -124,9 +124,11 @@ key in it, and grant it accordingly. That includes copies of it:
   versions. After changing a key, remove those versions before a backup leaves the
   server, or treat the old key as known and revoke it.
 - **The back end does not show the key** (since v0.17.0): the user form shows
-  `********` for a stored key, and Contao leaves the field out of the show view and the
-  version diff. Leave the mask to keep the key, enter a new one to replace it, clear the
-  field to disable the AI module for the user.
+  `********` for a stored key, and Contao leaves the field out of the show view, the
+  version diff, the undo view and "edit multiple"; a duplicated user does not get it.
+  Leave the mask to keep the key, enter a new one to replace it, clear the field to
+  disable the AI module for the user. Saving the form records a new version of the user,
+  with the key in it.
 
 Encrypting the column with a key from the environment was considered and not done: on a
 server, whoever reads the environment also reads the database credentials, so it would

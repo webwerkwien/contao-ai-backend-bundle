@@ -87,11 +87,15 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_api_key'] = [
         // ist schlimmer als keines. Wer hier künftig verschlüsseln will, braucht
         // save_callback/load_callback — das Flag kommt nicht zurück.
         //
-        // hideInput (v0.17.0): Passwortfeld, und Contao lässt das Feld in der
-        // Detailansicht und im Versionsvergleich weg. Den gespeicherten Wert hält
-        // ApiKeyField aus dem Formular heraus — hideInput allein schickte ihn im
-        // value-Attribut weiterhin mit.
+        // v0.17.0, siehe ApiKeyField: hideInput macht ein Passwortfeld und lässt das
+        // Feld in Detailansicht und Versionsvergleich weg; doNotShow auch in der
+        // Undo-Ansicht (tl_undo prüft nur doNotShow); doNotCopy nimmt den Key beim
+        // Duplizieren eines Benutzers nicht mit, wie beim ai_cli_token. Den
+        // gespeicherten Wert hält ApiKeyField aus dem Formular — hideInput allein
+        // schickte ihn im value-Attribut weiterhin mit.
         'hideInput' => true,
+        'doNotShow' => true,
+        'doNotCopy' => true,
     ],
     'sql'       => "varchar(512) NOT NULL default ''",
 ];

@@ -40,10 +40,14 @@ editors (non-admins) use the chat or the CLI bridge.**
   plain text input: anyone allowed to edit users received every other user's key in
   clear in the form (checked on the test server). The form now shows `********` for a
   stored key — leave it to keep the key, enter a new one to replace it, clear the field
-  to disable the AI module as before — and `hideInput` keeps the field out of Contao's
-  show view and version diff. The key itself stays in plain text in the database; the
-  README now says that backups and the version history of `tl_user` hold it too, and
-  recommends one key per installation with a spending limit.
+  to disable the AI module as before. The field is now also left out of Contao's show
+  view, version diff and undo view (`hideInput`, `doNotShow`) and of "edit multiple", and
+  a duplicated user no longer gets the key (`doNotCopy`). An unchanged mask keeps the key
+  read from the database, so a write through contao-ai-core-bundle with
+  `--set ai_api_key=********` cannot store the mask either. Saving the form rewrites the
+  unchanged key and so records a new version of the user. The key itself stays in plain
+  text in the database; the README now says that backups and the version history of
+  `tl_user` hold it too, and recommends one key per installation with a spending limit.
 
 ### Changed
 
