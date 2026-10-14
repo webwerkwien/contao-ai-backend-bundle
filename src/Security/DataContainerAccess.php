@@ -72,7 +72,7 @@ class DataContainerAccess
     private const RIGHTS = [
         'tl_page'            => 'Module, Seitenfreigaben (Pagemounts), Seitenrechte und erlaubte Seitentypen',
         'tl_article'         => 'Module, Seitenfreigaben (Pagemounts) und Artikelrechte',
-        'tl_content'         => 'Module, Rechte auf den Artikel, die News oder das Event darüber und erlaubte Elementtypen',
+        'tl_content'         => 'Module, Rechte auf den übergeordneten Artikel, die News oder das Event und erlaubte Elementtypen',
         'tl_news'            => 'das Modul News und die erlaubten News-Archive',
         'tl_news_archive'    => 'das Modul News, die erlaubten News-Archive und die Archivrechte (anlegen, löschen)',
         'tl_calendar'        => 'das Modul Events, die erlaubten Kalender und die Kalenderrechte (anlegen, löschen)',
@@ -114,7 +114,9 @@ class DataContainerAccess
 
     /**
      * The voters' answer. The DCA is loaded first: `TableAccessVoter` reads the fields
-     * from `$GLOBALS['TL_DCA']` without loading it and abstains when they are missing.
+     * from `$GLOBALS['TL_DCA']` without loading it; without them it treats every field as
+     * excluded and refuses an editor who lacks the right on all fields of the table (its
+     * own comment says "abstains", the code denies — Fable review 2026-10-14).
      * Without a signed-in user nothing is granted.
      */
     public function isGranted(CreateAction|ReadAction|UpdateAction|DeleteAction $action): bool
@@ -209,10 +211,18 @@ class DataContainerAccess
     }
 
     /**
-     * Parent tables whose content Contao's voters check: articles (core), news and
-     * events (their bundles), each also through nested elements.
+     * Parent tables whose content Contao's voters check — each only while the voter that
+     * judges it is installed: articles (core), news and events (their bundles), each also
+     * through nested elements. A `tl_news` table left behind by a removed news bundle
+     * has nobody to judge it (Fable review 2026-10-14).
      */
-    public const VOTED_CONTENT_PARENTS = ['tl_article', 'tl_news', 'tl_calendar_events'];
+    private const VOTED_CONTENT_PARENTS = [
+        'tl_article'         => 'Contao\CoreBundle\Security\Voter\DataContainer\ArticleContentVoter',
+        'tl_news'            => 'Contao\NewsBundle\Security\Voter\NewsContentVoter',
+        'tl_calendar_events' => 'Contao\CalendarBundle\Security\Voter\CalendarContentVoter',
+    ];
+
+    private const MAX_NESTING = 10;
 
     /**
      * The content voters only judge the parent tables they know and let any other pass
@@ -227,8 +237,10 @@ class DataContainerAccess
     {
         $ptable = (string) (($record['ptable'] ?? '') ?: 'tl_article');
         $pid = (int) ($record['pid'] ?? 0);
-        $guard = 0;
-        while ('tl_content' === $ptable && $guard++ < 10) {
+        for ($depth = 0; 'tl_content' === $ptable; ++$depth) {
+            if ($depth >= self::MAX_NESTING) {
+                return \sprintf('Inhaltselemente sind tiefer als %d Ebenen verschachtelt; der Chat bearbeitet sie nicht.', self::MAX_NESTING);
+            }
             $parent = $this->fetchRecord('tl_content', $pid);
             if (null === $parent) {
                 return \sprintf('Eltern-Inhaltselement %d nicht gefunden.', $pid);
@@ -237,7 +249,8 @@ class DataContainerAccess
             $pid = (int) $parent['pid'];
         }
 
-        if (\in_array($ptable, self::VOTED_CONTENT_PARENTS, true)) {
+        $voter = self::VOTED_CONTENT_PARENTS[$ptable] ?? null;
+        if (null !== $voter && class_exists($voter)) {
             return null;
         }
 

@@ -59,6 +59,12 @@ class ContentTool extends AbstractCoreCommandTool
     {
         // The voters decide (v0.18.0): the rights on the article, news or event above,
         // the element type, and whether the parent element takes nested elements.
+        // A missing parent element is "not found" for everyone, as elsewhere — not a
+        // denial for editors only (Fable review 2026-10-14). Other parent tables are
+        // judged first, so an editor's foreign table is never looked up.
+        if ('tl_content' === $ptable && null === $this->dcAccess->fetchRecord($ptable, $pid)) {
+            throw new ToolRefusedException(\sprintf('Eltern-Inhaltselement %d nicht gefunden.', $pid));
+        }
         $this->assertVotedParent(['ptable' => $ptable, 'pid' => $pid]);
         if (null === $this->dcAccess->fetchRecord($ptable, $pid)) {
             throw new ToolRefusedException(\sprintf('Übergeordneter Datensatz %d in "%s" nicht gefunden.', $pid, $ptable));

@@ -315,6 +315,20 @@ class RecordRightsWiringTest extends TestCase
         self::assertSame([], $this->asked, 'refused before any lookup');
     }
 
+    /**
+     * A missing parent element is "not found" for an editor too, not a denial (Fable
+     * review 2026-10-14: the bridge answered 403 instead of 422).
+     */
+    public function testAMissingParentElementIsNotFoundForAnEditor(): void
+    {
+        $tool = $this->tool(ContentTool::class, $this->records(true, null));
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('Eltern-Inhaltselement 8 nicht gefunden.');
+
+        $tool->create('text', 8, 'tl_content');
+    }
+
     public function testAnAdminKeepsEveryParentTable(): void
     {
         $tool = $this->tool(ContentTool::class, $this->records(true), ContentCreateCommand::class, true);

@@ -318,7 +318,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
                 $refused
             ));
             throw new ToolAccessDeniedException(\sprintf(
-                'Recursive Clone abgebrochen — keine Edit-Rechte auf folgenden Subseiten: %s. '
+                'Recursive Clone abgebrochen — kein Recht, folgende Unterseiten zu kopieren: %s. '
                 .'Nutze recursive=false oder bitte einen Admin um Zugriff.',
                 $list
             ));

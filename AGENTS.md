@@ -97,11 +97,13 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `DataContainerAccess` decides with its own `AccessDecisionManager` and `PriorityStrategy`
   over the tagged voters.
   Mind three things the voters assume: the DCA is loaded (the service does it; otherwise
-  `TableAccessVoter` abstains silently), `sorting` in a create is non-null (null reads as a
-  copy to the page voter), and an update with no values passes `null`, not `[]` (`[]` reads
-  as "only moved", which needs no edit right). The content voters let any parent table
-  pass that they do not know, so `ptable` from the model is limited to
-  `DataContainerAccess::VOTED_CONTENT_PARENTS` for editors. Until v0.17.0 every tool
+  `TableAccessVoter` treats every field as excluded and refuses editors without the right
+  on all fields — its own comment says "abstains"), `sorting` in a create is non-null (null
+  reads as a copy to the page voter), and an update with no values passes `null`, not `[]`
+  (`[]` reads as "only moved", which needs no edit right). The content voters let any
+  parent table pass that they do not know, so `ptable` from the model is limited for
+  editors to the parents whose voter is installed
+  (`DataContainerAccess::contentParentDenial()`). Until v0.17.0 every tool
   rebuilt a part of this by hand (module plus archive or page right), and admins skipped
   it; don't add such a rebuild back.
 - **A tool for an optional extension is offered only when its command exists**
