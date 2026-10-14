@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## Unreleased
+## v0.17.0 — 2026-10-14
 
 Works with every contao-ai-core-bundle it worked with before. **Security fix — update if
 editors (non-admins) use the chat or the CLI bridge.**
