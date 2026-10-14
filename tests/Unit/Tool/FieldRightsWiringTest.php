@@ -3,10 +3,8 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Tool;
 
 use Contao\BackendUser;
-use Contao\CoreBundle\Framework\Adapter;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,9 +13,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
-use Webwerkwien\ContaoAiBackendBundle\Security\FieldPermission;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
@@ -25,52 +21,54 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformDescriptor;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ResolvedPlatform;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface;
+use Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Support\BuildsFieldPermission;
 use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
+use Webwerkwien\ContaoAiBackendBundle\Tool\ArticleTool;
+use Webwerkwien\ContaoAiBackendBundle\Tool\ContentTool;
+use Webwerkwien\ContaoAiBackendBundle\Tool\EventTool;
+use Webwerkwien\ContaoAiBackendBundle\Tool\FaqTool;
+use Webwerkwien\ContaoAiBackendBundle\Tool\NewsTool;
 use Webwerkwien\ContaoAiBackendBundle\Tool\PageTool;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordCloneTool;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
-use Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand;
-use Webwerkwien\ContaoAiCoreBundle\Command\PageDeleteCommand;
-use Webwerkwien\ContaoAiCoreBundle\Command\PagePublishCommand;
-use Webwerkwien\ContaoAiCoreBundle\Command\PageReadCommand;
-use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
+use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
 
 /**
- * The field rights reach the tools: each write path is called through the real tool,
+ * The field rights reach every tool: each write path is called through the real tool
  * with the real FieldPermission, and a refused write never runs its command (rule 24:
  * the test calls the place, it does not copy it).
  *
- * The record-level checks (page mounts, archives) are switched off in the tool
- * subclasses below; they are RecordPermissionChecker's and tested there.
+ * The record-level checks (page mounts, archives) are stubbed out; they belong to
+ * RecordPermissionChecker and are tested there. Everything else is the real tool.
  */
 class FieldRightsWiringTest extends TestCase
 {
-    private mixed $dcaBefore;
+    use BuildsFieldPermission;
+
+    private const TEXT = ['inputType' => 'text', 'sql' => "varchar(255) NOT NULL default ''"];
+    private const FLAG = ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => false]];
+    private const DATE = ['inputType' => 'text', 'sql' => 'int(10) unsigned NULL'];
 
     protected function setUp(): void
     {
-        $this->dcaBefore = $GLOBALS['TL_DCA'] ?? null;
-        $GLOBALS['TL_DCA']['tl_page'] = [
-            'config' => ['dataContainer' => 'Contao\DC_Table'],
-            'fields' => [
-                'title'       => ['inputType' => 'text', 'sql' => "varchar(255) NOT NULL default ''"],
-                'alias'       => ['inputType' => 'text', 'sql' => "varchar(255) BINARY NOT NULL default ''"],
-                'type'        => ['inputType' => 'select', 'sql' => "varchar(64) NOT NULL default 'regular'"],
-                'published'   => ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => false]],
-                'description' => ['inputType' => 'textarea', 'sql' => 'text NULL'],
-                'pageTitle'   => ['inputType' => 'text', 'sql' => "varchar(255) NOT NULL default ''"],
+        $this->defineDca([
+            'tl_page' => [
+                'title' => self::TEXT, 'alias' => self::TEXT, 'pageTitle' => self::TEXT, 'published' => self::FLAG,
+                'hide' => self::FLAG, 'description' => ['inputType' => 'textarea', 'sql' => 'text NULL'],
+                'type' => ['inputType' => 'select', 'sql' => "varchar(64) NOT NULL default 'regular'"],
             ],
-        ];
+            'tl_article' => ['title' => self::TEXT, 'published' => self::FLAG, 'inColumn' => ['inputType' => 'select', 'sql' => "varchar(32) NOT NULL default 'main'"]],
+            'tl_content' => ['headline' => self::TEXT, 'type' => ['inputType' => 'select', 'sql' => ['type' => 'string', 'length' => 64, 'default' => 'text']]],
+            'tl_news' => ['headline' => self::TEXT, 'teaser' => self::TEXT, 'published' => self::FLAG, 'date' => self::DATE, 'time' => self::DATE],
+            'tl_calendar_events' => ['title' => self::TEXT, 'published' => self::FLAG, 'startDate' => self::DATE],
+            'tl_faq' => ['question' => self::TEXT, 'answer' => ['inputType' => 'textarea', 'sql' => 'text NULL'], 'published' => self::FLAG],
+        ]);
     }
 
     protected function tearDown(): void
     {
-        if (null === $this->dcaBefore) {
-            unset($GLOBALS['TL_DCA']);
-        } else {
-            $GLOBALS['TL_DCA'] = $this->dcaBefore;
-        }
+        $this->restoreDca();
     }
 
     /**
@@ -78,17 +76,8 @@ class FieldRightsWiringTest extends TestCase
      */
     private function wire(AbstractCoreCommandTool $tool, array $granted, ?PendingActionStore $store = null): void
     {
-        $adapter = $this->createMock(Adapter::class);
-        $framework = $this->createMock(ContaoFramework::class);
-        $framework->method('getAdapter')->willReturn($adapter);
-
-        $auth = $this->createMock(AuthorizationCheckerInterface::class);
-        $auth->method('isGranted')->willReturnCallback(
-            static fn (string $attribute, mixed $subject = null): bool => ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE === $attribute && \in_array($subject, $granted, true),
-        );
-
-        $tool->setFieldPermission(new FieldPermission($framework, $auth));
-        $tool->setAuthorizationChecker($auth);
+        $tool->setFieldPermission($this->fieldPermission($granted));
+        $tool->setAuthorizationChecker($this->grantingAuthorization($granted));
         $tool->setPendingActionStore($store ?? $this->createMock(PendingActionStore::class));
         $tool->setActingUserOverride($this->editor());
     }
@@ -127,42 +116,139 @@ class FieldRightsWiringTest extends TestCase
         return $command;
     }
 
-    private function pageTool(bool $updateRuns = false, bool $createRuns = false, bool $publishRuns = false): PageTool
+    /**
+     * The real tool, built from mocks for its constructor; only the record-level checks
+     * are stubbed. Every command it holds must not run unless $runs names it.
+     *
+     * @template T of AbstractCoreCommandTool
+     *
+     * @param class-string<T> $class
+     * @param list<string>    $stubbed the record-level check methods to switch off
+     *
+     * @return T
+     */
+    private function tool(string $class, array $stubbed, ?string $runs = null): AbstractCoreCommandTool
     {
-        return new class(
-            $this->createMock(ToolAccessChecker::class),
-            $this->createStub(TokenChecker::class),
-            $this->createMock(ContaoFramework::class),
-            $this->command(PageCreateCommand::class, $createRuns),
-            $this->command(PageUpdateCommand::class, $updateRuns),
-            $this->command(PageDeleteCommand::class, false),
-            $this->command(PageReadCommand::class, false),
-            $this->command(PagePublishCommand::class, $publishRuns),
-        ) extends PageTool {
-            protected function assertRecordAccess(int $recordId, string $operation): void
-            {
-            }
+        $arguments = [$this->createMock(ToolAccessChecker::class), $this->createStub(TokenChecker::class)];
 
-            protected function assertPageOperation(int $pageId, string $permission): void
-            {
+        foreach (\array_slice((new \ReflectionClass($class))->getConstructor()?->getParameters() ?? [], 2) as $parameter) {
+            $type = (string) $parameter->getType();
+
+            if (is_subclass_of($type, Command::class)) {
+                $arguments[] = $this->command($type, $type === $runs);
+            } elseif (class_exists($type) || interface_exists($type)) {
+                $arguments[] = $this->createMock($type);
+            } else {
+                $this->fail("{$class}: cannot build a {$type} for the constructor");
             }
-        };
+        }
+
+        return $this->getMockBuilder($class)->setConstructorArgs($arguments)->onlyMethods($stubbed)->getMock();
     }
 
-    public function testPageUpdateWithoutTheFieldRightRunsNothing(): void
+    /**
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, string, string}>
+     */
+    public static function updateTools(): iterable
     {
-        $tool = $this->pageTool();
-        $this->wire($tool, ['tl_page::title']);
+        yield 'page'    => [PageTool::class, ['assertRecordAccess', 'assertPageOperation'], 'tl_page', 'published'];
+        yield 'article' => [ArticleTool::class, ['assertRecordAccess', 'assertPageAccess'], 'tl_article', 'published'];
+        yield 'content' => [ContentTool::class, ['assertRecordAccess', 'assertParentAccess'], 'tl_content', 'headline'];
+        yield 'news'    => [NewsTool::class, ['assertRecordAccess', 'assertArchiveAccess'], 'tl_news', 'published'];
+        yield 'event'   => [EventTool::class, ['assertRecordAccess', 'assertCalendarAccess'], 'tl_calendar_events', 'published'];
+        yield 'faq'     => [FaqTool::class, ['assertRecordAccess', 'assertCategoryAccess'], 'tl_faq', 'published'];
+    }
+
+    /**
+     * @dataProvider updateTools
+     *
+     * @param class-string<AbstractCoreCommandTool> $class
+     * @param list<string>                          $stubbed
+     */
+    public function testAnUpdateWithoutTheFieldRightRunsNothing(string $class, array $stubbed, string $table, string $field): void
+    {
+        $tool = $this->tool($class, $stubbed);
+        $this->wire($tool, []);
 
         $this->expectException(ToolAccessDeniedException::class);
-        $this->expectExceptionMessageMatches('/tl_page\.published/');
+        $this->expectExceptionMessage("{$table}.{$field}");
 
-        $tool->update(5, ['title' => 'Neu', 'published' => '1']);
+        $this->assertTrue(method_exists($tool, 'update'));
+        $tool->update(5, [$field => '1']);
     }
 
-    public function testPageUpdateWithTheRightRuns(): void
+    /**
+     * The payload shapes the model sends are normalised before the check, so a list of
+     * pairs is checked like an object (review 2026-10-14: no test sent that shape).
+     *
+     * @dataProvider updateTools
+     *
+     * @param class-string<AbstractCoreCommandTool> $class
+     * @param list<string>                          $stubbed
+     */
+    public function testAListOfPairsIsCheckedLikeAnObject(string $class, array $stubbed, string $table, string $field): void
     {
-        $tool = $this->pageTool(updateRuns: true);
+        $tool = $this->tool($class, $stubbed);
+        $this->wire($tool, []);
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage("{$table}.{$field}");
+
+        $this->assertTrue(method_exists($tool, 'update'));
+        $tool->update(5, [['name' => $field, 'value' => '1']]);
+    }
+
+    /**
+     * What each create writes beyond its link to the parent, with the right granted to
+     * all but one value — the one named must be refused.
+     *
+     * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<string>, list<mixed>, list<string>, string}>
+     */
+    public static function createTools(): iterable
+    {
+        yield 'page: another type'      => [PageTool::class, ['assertPageOperation'], ['Weiterleitung', '', 'forward', 3], ['tl_page::title'], 'tl_page.type'];
+        yield 'article: another column' => [ArticleTool::class, ['assertPageAccess'], ['Kopf', 3, 'header'], ['tl_article::title'], 'tl_article.inColumn'];
+        yield 'content: another type'   => [ContentTool::class, ['assertParentAccess'], ['html', 3, 'tl_article'], [], 'tl_content.type'];
+        yield 'news: the time'          => [NewsTool::class, ['assertArchiveAccess'], [1, 'Meldung', '2026-10-14'], ['tl_news::headline', 'tl_news::date'], 'tl_news.time'];
+        yield 'event: the start'        => [EventTool::class, ['assertCalendarAccess'], [1, 'Termin', '2026-10-14'], ['tl_calendar_events::title'], 'tl_calendar_events.startDate'];
+        yield 'faq: the answer'         => [FaqTool::class, ['assertCategoryAccess'], [1, 'Frage', 'Antwort'], ['tl_faq::question'], 'tl_faq.answer'];
+    }
+
+    /**
+     * @dataProvider createTools
+     *
+     * @param class-string<AbstractCoreCommandTool> $class
+     * @param list<string>                          $stubbed
+     * @param list<mixed>                           $arguments
+     * @param list<string>                          $granted
+     */
+    public function testACreateNeedsTheRightForWhatItSets(string $class, array $stubbed, array $arguments, array $granted, string $refused): void
+    {
+        $tool = $this->tool($class, $stubbed);
+        $this->wire($tool, $granted);
+
+        $this->assertTrue(method_exists($tool, 'create'));
+
+        try {
+            $tool->create(...$arguments);
+            $this->fail('expected a refusal');
+        } catch (ToolAccessDeniedException $e) {
+            // exactly this one field is named, not the ones granted or left at the default
+            $this->assertMatchesRegularExpression('/das Feld: ' . preg_quote($refused, '/') . '\. Diese/', $e->getMessage());
+        }
+    }
+
+    public function testAPageCreateWithTheDefaultTypeNeedsOnlyTheTitleRight(): void
+    {
+        $tool = $this->tool(PageTool::class, ['assertPageOperation'], \Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand::class);
+        $this->wire($tool, ['tl_page::title']);
+
+        $this->assertStringContainsString('"status":"ok"', $tool->create('Über uns', '', 'regular', 3));
+    }
+
+    public function testAnUpdateWithTheRightRuns(): void
+    {
+        $tool = $this->tool(PageTool::class, ['assertRecordAccess'], \Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand::class);
         $this->wire($tool, ['tl_page::title', 'tl_page::published']);
 
         $this->assertStringContainsString('"status":"ok"', $tool->update(5, ['title' => 'Neu', 'published' => '1']));
@@ -177,39 +263,21 @@ class FieldRightsWiringTest extends TestCase
         $store = $this->createMock(PendingActionStore::class);
         $store->expects($this->never())->method($this->anything());
 
-        $tool = $this->pageTool();
+        $tool = $this->tool(PageTool::class, ['assertRecordAccess']);
         $this->wire($tool, ['tl_page::title'], $store);
 
         $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_page.published');
 
         $tool->publish(5, false);
     }
 
     public function testPagePublishWithTheRightRuns(): void
     {
-        $tool = $this->pageTool(publishRuns: true);
+        $tool = $this->tool(PageTool::class, ['assertRecordAccess'], \Webwerkwien\ContaoAiCoreBundle\Command\PagePublishCommand::class);
         $this->wire($tool, ['tl_page::published']);
 
         $this->assertStringContainsString('"status":"ok"', $tool->publish(5, true));
-    }
-
-    public function testPageCreateWithAnotherTypeNeedsTheTypeRight(): void
-    {
-        $tool = $this->pageTool();
-        $this->wire($tool, ['tl_page::title']);
-
-        $this->expectException(ToolAccessDeniedException::class);
-        $this->expectExceptionMessageMatches('/tl_page\.type/');
-
-        $tool->create('Weiterleitung', '', 'forward', 3);
-    }
-
-    public function testPageCreateWithTheDefaultTypeNeedsOnlyTheTitleRight(): void
-    {
-        $tool = $this->pageTool(createRuns: true);
-        $this->wire($tool, ['tl_page::title']);
-
-        $this->assertStringContainsString('"status":"ok"', $tool->create('Über uns', '', 'regular', 3));
     }
 
     private function cloneTool(bool $runs): RecordCloneTool
@@ -225,8 +293,8 @@ class FieldRightsWiringTest extends TestCase
     }
 
     /**
-     * Found by the review of 2026-10-14: {"published": "1"} published a clone for an
-     * editor whose group grants no `tl_page::published`.
+     * Found in the review of v0.16.4: {"published": "1"} published a clone for an editor
+     * whose group grants no `tl_page::published`.
      */
     public function testACloneOverrideWithoutTheRightRunsNothing(): void
     {
@@ -234,30 +302,47 @@ class FieldRightsWiringTest extends TestCase
         $this->wire($tool, ['tl_page::title']);
 
         $this->expectException(ToolAccessDeniedException::class);
-        $this->expectExceptionMessageMatches('/tl_page\.published/');
+        $this->expectExceptionMessage('tl_page.published');
 
         $tool->cloneRecord('tl_page', 4, ['title' => 'Kopie', 'published' => '1']);
     }
 
-    public function testACloneThatKeepsTheDefaultsNeedsNoRight(): void
+    /**
+     * A clone copies its source; it is no record with defaults. {"hide": ""} would show a
+     * hidden page in the navigation, so an override needs its right even when it equals
+     * the field's default (review 2026-10-14).
+     */
+    public function testACloneOverrideNeedsItsRightEvenAsTheDefault(): void
+    {
+        $tool = $this->cloneTool(false);
+        $this->wire($tool, []);
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_page.hide');
+
+        $tool->cloneRecord('tl_page', 4, ['hide' => '']);
+    }
+
+    public function testACloneWithoutOverridesNeedsNoFieldRight(): void
     {
         $tool = $this->cloneTool(true);
         $this->wire($tool, []);
 
-        $this->assertStringContainsString('"status":"ok"', $tool->cloneRecord('tl_page', 4, ['published' => '']));
+        $this->assertStringContainsString('"status":"ok"', $tool->cloneRecord('tl_page', 4, []));
     }
 
     /**
      * Skipped with its reason, not refused: the fields the user may edit are written,
-     * the others appear under `skipped` (Michael, 2026-10-14).
+     * the others appear under `skipped` (Michael, 2026-10-14). On tl_news, so the right
+     * is asked for the table actually rewritten.
      */
     public function testARewriteSkipsTheFieldsWithoutARight(): void
     {
-        $update = $this->createMock(PageUpdateCommand::class);
+        $update = $this->createMock(NewsUpdateCommand::class);
         $update->method('getDefinition')->willReturn(new InputDefinition());
         $update->expects($this->once())->method('run')->willReturnCallback(
             function (InputInterface $input, OutputInterface $output): int {
-                $this->assertSame(['title=New title'], $input->getParameterOption('--set'));
+                $this->assertSame(['headline=New headline'], $input->getParameterOption('--set'));
                 $output->write('{"status":"ok","id":5}');
 
                 return 0;
@@ -267,12 +352,12 @@ class FieldRightsWiringTest extends TestCase
         $rewriter = new class implements EntityRewriterInterface {
             public function supports(string $table): bool
             {
-                return 'tl_page' === $table;
+                return 'tl_news' === $table;
             }
 
             public function rewrite(int $id, string $instructions, PlatformInterface $platform, string $model): array
             {
-                return ['id' => $id, 'table' => 'tl_page', 'fields' => ['title' => 'New title', 'description' => 'New text'], 'skipped' => []];
+                return ['id' => $id, 'table' => 'tl_news', 'fields' => ['headline' => 'New headline', 'teaser' => 'New teaser'], 'skipped' => []];
             }
         };
 
@@ -291,13 +376,13 @@ class FieldRightsWiringTest extends TestCase
             [$rewriter],
             $resolver,
             $this->createMock(RecordPermissionChecker::class),
-            pageUpdate: $update,
+            newsUpdate: $update,
         );
-        $this->wire($tool, ['tl_page::title']);
+        $this->wire($tool, ['tl_news::headline']);
 
-        $answer = $tool->rewriteRecord('tl_page', 5, 'auf Englisch');
+        $answer = $tool->rewriteRecord('tl_news', 5, 'auf Englisch');
 
-        $this->assertStringContainsString('"updated":["title"]', $answer);
-        $this->assertStringContainsString('"description":"Kein Recht auf das Feld', $answer);
+        $this->assertStringContainsString('"updated":["headline"]', $answer);
+        $this->assertStringContainsString('"teaser":"Kein Recht auf das Feld', $answer);
     }
 }

@@ -11,6 +11,7 @@ use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\TableAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\ConsoleRunner;
+use Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Support\BuildsFieldPermission;
 use Webwerkwien\ContaoAiBackendBundle\Tool\LanguageTool;
 
 /**
@@ -19,6 +20,8 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\LanguageTool;
  */
 class LanguageToolTest extends TestCase
 {
+    use BuildsFieldPermission;
+
     /** @var list<array<string, mixed>> */
     private array $runs = [];
 
@@ -30,7 +33,6 @@ class LanguageToolTest extends TestCase
         $user = $this->createMock(BackendUser::class);
         $user->method('__get')->willReturnCallback(static fn (string $k) => match ($k) { 'isAdmin' => $admin, 'username' => 'editor', default => null });
         $user->method('__isset')->willReturnCallback(static fn (string $k): bool => \in_array($k, ['isAdmin', 'username'], true));
-        $user->method('hasAccess')->willReturnCallback(static fn (string $what, string $field): bool => 'alexf' === $field && \in_array($what, $allowedFields, true));
 
         $console = $this->createMock(ConsoleRunner::class);
         $console->method('run')->willReturnCallback(function (array $input): array {
@@ -45,7 +47,16 @@ class LanguageToolTest extends TestCase
         $tool = new LanguageTool($this->createMock(ToolAccessChecker::class), $this->createStub(TokenChecker::class), $console, $tables, $this->createMock(RecordPermissionChecker::class));
         $tool->setActingUserOverride($user);
 
+        // The field right goes through FieldPermission like every other write (v0.17.0).
+        $this->defineDca(['tl_news_archive' => ['master' => ['inputType' => 'select', 'sql' => 'int(10) unsigned NOT NULL default 0']]]);
+        $tool->setFieldPermission($this->fieldPermission($allowedFields));
+
         return $tool;
+    }
+
+    protected function tearDown(): void
+    {
+        $this->restoreDca();
     }
 
     public function testAnArchiveLinkRunsTheCoreCommandWithTheUserAsOperator(): void

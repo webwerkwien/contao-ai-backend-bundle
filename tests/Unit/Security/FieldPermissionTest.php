@@ -28,7 +28,7 @@ class FieldPermissionTest extends TestCase
     {
         $this->dcaBefore = $GLOBALS['TL_DCA'] ?? null;
 
-        // As in Contao 5.3–6.0; pinned against the real files in FieldPermissionContractTest.
+        // As in Contao 5.7/6.0; the shapes are pinned to the real files in FieldPermissionContractTest.
         $GLOBALS['TL_DCA']['tl_page'] = [
             'config' => ['dataContainer' => 'Contao\DC_Table'],
             'fields' => [
@@ -37,6 +37,8 @@ class FieldPermissionTest extends TestCase
                 'published' => ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => false]],
                 'robotsTxt' => ['inputType' => 'textarea', 'sql' => 'text NULL'],
                 'open'      => ['inputType' => 'text', 'exclude' => false, 'sql' => "varchar(8) NOT NULL default ''"],
+                'useSSL'    => ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => true]],
+                'sorting'   => ['inputType' => 'text', 'sql' => 'int(10) unsigned NOT NULL default 0'],
                 'pid'       => ['sql' => 'int(10) unsigned NOT NULL default 0'],
             ],
         ];
@@ -45,6 +47,7 @@ class FieldPermissionTest extends TestCase
             'sql'       => ['name' => 'type', 'type' => 'string', 'length' => 64, 'default' => 'text'],
         ];
         $GLOBALS['TL_DCA']['tl_news']['fields']['date'] = ['inputType' => 'text', 'default' => 1760000000, 'sql' => 'int(10) unsigned NOT NULL default 0'];
+        $GLOBALS['TL_DCA']['tl_news']['fields']['headline'] = ['inputType' => 'text', 'sql' => "varchar(255) NOT NULL default ''"];
         $GLOBALS['TL_DCA']['tl_settings'] = [
             'config' => ['dataContainer' => DC_File::class],
             'fields' => ['adminEmail' => ['inputType' => 'text']],
@@ -169,6 +172,47 @@ class FieldPermissionTest extends TestCase
         $this->assertSame([], $permission->deniedOnCreate($this->user(), 'tl_page', ['published' => '0']));
         $this->assertSame([], $permission->deniedOnCreate($this->user(), 'tl_content', ['type' => 'text']));
         $this->assertSame([], $permission->deniedOnCreate($this->user(), 'tl_news', ['date' => 1760000000]));
+    }
+
+    /**
+     * Closed where the rule cannot be read (review 2026-10-14): a field the DCA does not
+     * know, and a table whose DCA did not load — isFieldExcluded() would say "not
+     * excluded" for both and let the write through.
+     */
+    public function testAFieldTheDcaDoesNotKnowIsDenied(): void
+    {
+        $this->assertSame(['keywords'], $this->permission(['tl_page::keywords'])->denied($this->user(), 'tl_page', ['keywords']));
+    }
+
+    public function testATableWithoutDcaRefusesEverything(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessageMatches('/tl_unknown.*keine DCA/');
+
+        $this->permission()->denied($this->user(), 'tl_unknown', ['title']);
+    }
+
+    /**
+     * The right asked for is the one of the table written to, not of tl_page.
+     */
+    public function testTheRightIsAskedForTheTableWrittenTo(): void
+    {
+        $permission = $this->permission(['tl_news::headline']);
+
+        $this->assertSame([], $permission->denied($this->user(), 'tl_news', ['headline']));
+        $this->assertSame(['title'], $permission->denied($this->user(), 'tl_page', ['title']));
+    }
+
+    /**
+     * The column default when neither the DCA nor a quoted SQL default names one: the
+     * empty value of the type (0 for an integer), and true for a boolean declared so.
+     */
+    public function testTheUnquotedAndTheTrueDefaultsAreRecognised(): void
+    {
+        $permission = $this->permission();
+
+        $this->assertSame([], $permission->deniedOnCreate($this->user(), 'tl_page', ['sorting' => '0', 'useSSL' => '1']));
+        $this->assertSame(['sorting', 'useSSL'], $permission->deniedOnCreate($this->user(), 'tl_page', ['sorting' => '128', 'useSSL' => '']));
     }
 
     public function testCreatingWithOtherValuesNeedsTheRight(): void

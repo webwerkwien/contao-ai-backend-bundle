@@ -137,7 +137,7 @@ class ArticleTool extends AbstractCoreCommandTool
         $this->assertPageAccess((int) $article->pid);
     }
 
-    private function assertPageAccess(int $pageId): void
+    protected function assertPageAccess(int $pageId): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

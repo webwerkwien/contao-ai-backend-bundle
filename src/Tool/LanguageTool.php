@@ -90,9 +90,9 @@ class LanguageTool extends AbstractCoreCommandTool
 
         $field = $this->field($table, $id);
 
-        if (!$user->isAdmin && !$user->hasAccess($table . '::' . $field, 'alexf')) {
-            throw new ToolAccessDeniedException(\sprintf('Das Feld %s.%s ist für diesen Benutzer nicht freigegeben (Erlaubte Felder).', $table, $field));
-        }
+        // The same rule as every other write (v0.17.0); `hasAccess(…, 'alexf')` checked
+        // the right without Contao's exclusion rule and goes away in Contao 6.
+        $this->assertFieldsWritable($table, [$field]);
 
         [$code, $output] = $this->console->run([
             'command'    => 'contao:language:link',

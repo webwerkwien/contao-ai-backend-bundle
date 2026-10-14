@@ -182,10 +182,13 @@ class RecordCloneTool extends AbstractCoreCommandTool
         $modifications = self::normalizeFieldsPayload($modifications);
 
         // An override is a value the clone gets instead of its source's — a write, and
-        // like one in the back end it needs the field right, unless it is the field's
-        // default (v0.17.0). Until then {"published": "1"} published a clone for an
-        // editor whose group grants no `tl_page::published` (Fable review 2026-10-14).
-        $this->assertFieldsCreatable($sourceTable, $modifications);
+        // like any write it needs the field right (v0.17.0). Until then {"published": "1"}
+        // published a clone for an editor whose group grants no `tl_page::published`.
+        // Not the create rule: a clone copies its source, it is no record with defaults,
+        // so {"hide": ""} would show a hidden page in the navigation (Fable review
+        // 2026-10-14). The core unpublishes a cloned page by itself; nobody needs to
+        // pass {"published": ""}.
+        $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys(array_filter($modifications, static fn ($value): bool => null !== $value))));
 
         $modsJson = json_encode($modifications, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (false === $modsJson) {

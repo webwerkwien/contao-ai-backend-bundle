@@ -162,7 +162,7 @@ class FaqTool extends AbstractCoreCommandTool
      * reads a property that does not exist and therefore denies every non-admin.
      * That is exactly what stood in `RecordPermissionChecker` until 2026-09-02.
      */
-    private function assertCategoryAccess(int $categoryId): void
+    protected function assertCategoryAccess(int $categoryId): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

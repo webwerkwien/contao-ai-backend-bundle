@@ -176,7 +176,7 @@ class EventTool extends AbstractCoreCommandTool
         $this->assertCalendarAccess((int) $event->pid);
     }
 
-    private function assertCalendarAccess(int $calendarId): void
+    protected function assertCalendarAccess(int $calendarId): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

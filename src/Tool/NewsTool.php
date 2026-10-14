@@ -72,7 +72,8 @@ class NewsTool extends AbstractCoreCommandTool
         // against `NewsCreateCommand` — not a defect in itself, but the same
         // blind spot that let `page_publish` ship broken. A null is dropped in
         // runCommand().
-        $this->assertFieldsCreatable('tl_news', ['headline' => $headline, 'date' => $date]);
+        // NewsCreateCommand writes --date into both `date` and `time`.
+        $this->assertFieldsCreatable('tl_news', ['headline' => $headline, 'date' => $date, 'time' => $date]);
 
         return $this->runCommand($this->createCommand, [
             '--headline' => $headline,
@@ -168,7 +169,7 @@ class NewsTool extends AbstractCoreCommandTool
         $this->assertArchiveAccess((int) $news->pid);
     }
 
-    private function assertArchiveAccess(int $archiveId): void
+    protected function assertArchiveAccess(int $archiveId): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

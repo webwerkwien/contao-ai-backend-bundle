@@ -141,7 +141,7 @@ class ContentTool extends AbstractCoreCommandTool
         $this->assertParentAccess((int) $content->pid, (string) $content->ptable);
     }
 
-    private function assertParentAccess(int $pid, string $ptable): void
+    protected function assertParentAccess(int $pid, string $ptable): void
     {
         $user = $this->requireBackendUser();
         if ($user->isAdmin) {

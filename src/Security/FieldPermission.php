@@ -49,10 +49,19 @@ class FieldPermission
 
         $this->loadDca($table);
 
+        // Closed when the rule cannot be read: without a DCA `isFieldExcluded()` answers
+        // false for every field, and a field the DCA does not know cannot be judged.
+        $definitions = $GLOBALS['TL_DCA'][$table]['fields'] ?? null;
+
+        if (!\is_array($definitions)) {
+            throw new ToolAccessDeniedException(\sprintf('Die Feldrechte für %s lassen sich nicht prüfen (keine DCA geladen). Es wurde nichts geschrieben.', $table));
+        }
+
         return array_values(array_filter(
             $fields,
-            fn (string $field): bool => DataContainer::isFieldExcluded($table, $field)
-                && !$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE, $table . '::' . $field),
+            fn (string $field): bool => !isset($definitions[$field])
+                || (DataContainer::isFieldExcluded($table, $field)
+                    && !$this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE, $table . '::' . $field)),
         ));
     }
 
@@ -143,9 +152,10 @@ class FieldPermission
             return $match[1] === (string) $value;
         }
 
-        // A boolean column is empty as false; the chat sends it as '', '0' or 0.
+        // A boolean column: the chat sends false as '', '0' or 0 and true as '1' or 1. Its
+        // default is false unless the column says otherwise (tl_page.useSSL is true).
         if (\is_array($sql) && 'boolean' === ($sql['type'] ?? null)) {
-            return \in_array($value, [null, false, 0, '0', ''], true);
+            return \in_array($value, empty($sql['default']) ? [null, false, 0, '0', ''] : [true, 1, '1'], true);
         }
 
         return (string) Widget::getEmptyValueByFieldType($sql) === (string) $value;
