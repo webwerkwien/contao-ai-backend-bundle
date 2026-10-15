@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -245,10 +246,14 @@ class RecordCloneNewTablesTest extends TestCase
     private function allowListDb(array &$updates): Connection
     {
         $connection = $this->createMock(Connection::class);
-        $connection->method('fetchAllAssociative')->willReturn([
-            ['id' => 1, 'forms' => serialize(['5'])],
-            ['id' => 4, 'forms' => null],
-        ]);
+        // Only the user's own groups (review: a wrong id list stayed green while the mock
+        // ignored its parameters).
+        $connection->method('fetchAllAssociative')
+            ->with('SELECT id, forms FROM tl_user_group WHERE id IN (?)', [[1, 4]], [ArrayParameterType::INTEGER])
+            ->willReturn([
+                ['id' => 1, 'forms' => serialize(['5'])],
+                ['id' => 4, 'forms' => null],
+            ]);
         $connection->method('fetchAssociative')->willReturn(['id' => 3, 'forms' => serialize(['2'])]);
         $connection->method('update')->willReturnCallback(
             static function (string $table, array $data, array $criteria) use (&$updates): int {
