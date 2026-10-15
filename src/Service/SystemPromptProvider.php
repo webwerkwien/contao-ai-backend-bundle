@@ -18,11 +18,17 @@ class SystemPromptProvider
      * Names of every tool the bundle ships, regardless of who can use it. Used
      * to render the "actions explicitly NOT available to you" section so the
      * model can't extrapolate generic CRUD coverage from training data.
+     * The event, FAQ and image size names were missing until v0.19.1;
+     * ToolMapCoversEveryToolTest now compares this list with the tools.
      *
      * @var list<string>
      */
     private const ALL_KNOWN_TOOL_NAMES = [
         'news_create', 'news_update', 'news_delete', 'news_read',
+        'event_create', 'event_update', 'event_delete', 'event_read',
+        'faq_create', 'faq_update', 'faq_delete', 'faq_read',
+        'image_size_create', 'image_size_update', 'image_size_delete', 'image_size_read',
+        'image_size_item_create', 'image_size_item_update', 'image_size_item_delete', 'image_size_item_read',
         'page_create', 'page_update', 'page_delete', 'page_publish', 'page_read',
         'article_create', 'article_update', 'article_delete', 'article_read',
         'content_create', 'content_update', 'content_delete', 'content_read',

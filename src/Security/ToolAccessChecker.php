@@ -26,7 +26,9 @@ class ToolAccessChecker
         'content_delete',
         // Phase 9.5 (2026-05-06): record_clone und record_rewrite sind nicht
         // mehr admin-only. Editoren mit Modul-Mount + Container-Anlage-Recht
-        // (newp/calp/faqp 'create' bzw. USER_CAN_EDIT_PAGE_HIERARCHY) dürfen
+        // (in 5.3 die Felder newp/calendarp/faqp, in 5.7 das Feld `cud` mit
+        // `contao_user.cud.<tabelle>::create`, gemessen 2026-10-15; bzw.
+        // USER_CAN_EDIT_PAGE_HIERARCHY) dürfen
         // Macro-Tools nutzen. Source-/Container-Voter kommen aus
         // RecordPermissionChecker, der zur Laufzeit pro Aufruf prüft. Die
         // Tools selbst entscheiden via isAccessibleBy(), ob sie überhaupt
@@ -192,10 +194,12 @@ class ToolAccessChecker
                 continue;
             }
             foreach ($tool->getToolNames() as $name) {
-                // For tools without a TOOL_MAP entry (meta-tools), trust the
-                // class-level isAccessibleBy() decision. For mapped tools, run
-                // the per-name check so admin-only sub-tools are filtered.
-                if (isset(self::TOOL_MAP[$name]) && !$this->canUseTool($user, $name)) {
+                // The per-name check filters admin-only sub-tools. A name without a
+                // TOOL_MAP entry used to be listed on the class-level decision alone,
+                // although assertAccess() refuses it for every non-admin; since
+                // v0.19.1 the list says what a call would get, and
+                // ToolMapCoversEveryToolTest keeps every name mapped.
+                if (!$this->canUseTool($user, $name)) {
                     continue;
                 }
                 $allowed[$name] = true;
