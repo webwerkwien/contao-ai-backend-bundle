@@ -5,13 +5,12 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 use Contao\BackendUser;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
-use Contao\StringUtil;
-use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
+use Webwerkwien\ContaoAiBackendBundle\Security\AllowListGrant;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
@@ -315,76 +314,18 @@ class RecordCloneTool extends AbstractCoreCommandTool
             return;
         }
         $user = $this->getCurrentBackendUser();
-        if (null === $user || $user->isAdmin) {
+        if (null === $user) {
             return;
         }
 
         // As Contao's UserRootListener::adjustPermissions() does after a copy in the back
-        // end (v0.19.0). Until then only the user's own list got the id — useless for a
-        // user who inherits only from the group (`inherit = group`): BackendUser then
-        // ignores the user's values for these fields, the editor did not see the clone,
-        // and the answer still said `auto_granted`.
-        //
-        // The merged list first: a group that already grants the record needs nothing.
-        $root = array_map('intval', (array) StringUtil::deserialize($user->{$field}, true));
-        if (\in_array($newId, $root, true)) {
-            return;
+        // end (v0.19.0, AllowListGrant). Until then only the user's own list got the id —
+        // useless for a user who inherits only from the group (`inherit = group`).
+        // Sichtbar im Tool-Result, damit Claude dem User Bescheid geben kann.
+        $granted = AllowListGrant::grant($this->connection, $user, $field, $newId);
+        if (null !== $granted) {
+            $decoded['auto_granted'] = $granted;
         }
-
-        $inherit = (string) ($user->inherit ?? '');
-        $groups  = [];
-        if ('custom' !== $inherit) {
-            $groupIds = array_map('intval', (array) StringUtil::deserialize($user->groups, true));
-            if ([] !== $groupIds) {
-                $rows = $this->connection->fetchAllAssociative(
-                    'SELECT id, ' . $field . ' FROM tl_user_group WHERE id IN (?)',
-                    [$groupIds],
-                    [ArrayParameterType::INTEGER],
-                );
-                foreach ($rows as $row) {
-                    $this->addToAllowList('tl_user_group', $row, $field, $newId);
-                    $groups[] = (int) $row['id'];
-                }
-            }
-        }
-
-        $userLevel = false;
-        if ('group' !== $inherit) {
-            $row = $this->connection->fetchAssociative('SELECT id, ' . $field . ' FROM tl_user WHERE id = ?', [(int) $user->id]);
-            if (false !== $row) {
-                $this->addToAllowList('tl_user', $row, $field, $newId);
-                $userLevel = true;
-            }
-        }
-
-        if (!$userLevel && [] === $groups) {
-            return;
-        }
-
-        // The rest of this request — the chat may act on the clone in the same turn.
-        $root[] = $newId;
-        $user->{$field} = $root;
-
-        // Sichtbar im Tool-Result, damit Claude dem User Bescheid geben kann. A group entry
-        // reaches everyone in that group, as in the back end; the answer says so.
-        $decoded['auto_granted'] = [
-            'user_id'    => (int) $user->id,
-            'username'   => (string) $user->username,
-            'field'      => $field,
-            'added_id'   => $newId,
-            'user_level' => $userLevel,
-            'groups'     => $groups,
-        ];
-    }
-
-    /**
-     * @param array<string, mixed> $row `id` and the allow-list field
-     */
-    private function addToAllowList(string $table, array $row, string $field, int $newId): void
-    {
-        $list = (array) StringUtil::deserialize($row[$field] ?? null, true);
-        $list[] = (string) $newId;
-        $this->connection->update($table, [$field => serialize($list)], ['id' => (int) $row['id']]);
     }
 
     /**

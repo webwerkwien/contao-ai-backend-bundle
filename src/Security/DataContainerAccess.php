@@ -2,7 +2,9 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Security;
 
+use Contao\BackendUser;
 use Contao\Controller;
+use Contao\StringUtil;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\CoreBundle\Security\DataContainer\CreateAction;
@@ -59,6 +61,8 @@ class DataContainerAccess
         'tl_newsletter_channel' => 'Newsletter-Kanal',
         'tl_module'             => 'Modul',
         'tl_layout'             => 'Layout',
+        'tl_image_size'         => 'Bildgröße',
+        'tl_image_size_item'    => 'Bildgrößen-Variante',
     ];
 
     private const NEW_OBJECT = [
@@ -75,6 +79,8 @@ class DataContainerAccess
         'tl_newsletter_channel' => 'einen Newsletter-Kanal',
         'tl_module'             => 'ein Modul',
         'tl_layout'             => 'ein Layout',
+        'tl_image_size'         => 'eine Bildgröße',
+        'tl_image_size_item'    => 'eine Bildgrößen-Variante',
     ];
 
     private const RIGHTS = [
@@ -91,6 +97,8 @@ class DataContainerAccess
         'tl_newsletter_channel' => 'das Modul Newsletter, die erlaubten Kanäle und die Kanalrechte (anlegen, löschen)',
         'tl_module'             => 'das Modul Themes, das Recht auf Frontend-Module und die erlaubten Modultypen',
         'tl_layout'             => 'das Modul Themes und das Recht auf Seitenlayouts',
+        'tl_image_size'         => 'das Modul Themes, das Recht auf Bildgrößen und die erlaubten Bildgrößen',
+        'tl_image_size_item'    => 'das Modul Themes, das Recht auf Bildgrößen und die erlaubten Bildgrößen',
     ];
 
     /**
@@ -141,7 +149,31 @@ class DataContainerAccess
         $this->framework->initialize();
         $this->framework->getAdapter(Controller::class)->loadDataContainer($action->getDataSource());
 
-        return $this->decisionManager->decide($token, [ContaoCorePermissions::DC_PREFIX . $action->getDataSource()], $action);
+        return $this->decisionManager->decide($token, [ContaoCorePermissions::DC_PREFIX . $action->getDataSource()], $action)
+            && self::inAllowList($token->getUser(), $action);
+    }
+
+    /**
+     * A table with a `userRoot` (image sizes, archives, forms, channels …): an editor sees
+     * only the records in their allow-list. The back end enforces that through the list's
+     * root filter (UserRootListener), not through the voters — for most of these tables the
+     * voter asks the same question anyway, for image sizes it does not: `ImageSizeAccessVoter`
+     * checks module and theme right only, so the chat would have reached every size
+     * (v0.19.0). Admins and new records (no id yet) pass.
+     */
+    private static function inAllowList(mixed $user, CreateAction|ReadAction|UpdateAction|DeleteAction $action): bool
+    {
+        if (!$user instanceof BackendUser || $user->isAdmin || $action instanceof CreateAction) {
+            return true;
+        }
+
+        $field = $GLOBALS['TL_DCA'][$action->getDataSource()]['config']['userRoot'] ?? null;
+        $id = (int) $action->getCurrentId();
+        if (!\is_string($field) || '' === $field || 0 === $id) {
+            return true;
+        }
+
+        return \in_array($id, array_map('intval', (array) StringUtil::deserialize($user->{$field}, true)), true);
     }
 
     /**

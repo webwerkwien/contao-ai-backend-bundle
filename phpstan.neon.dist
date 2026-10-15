@@ -21,21 +21,10 @@ parameters:
         - src
         - tests
 
-    # Contao resolves these through `__get()` on the model, driven by the DCA at
-    # runtime. Static analysis cannot see them and never will — they are data,
-    # not declarations.
-    #
-    # Listed one by one on purpose rather than silencing "undefined property" as
-    # a class: a genuine typo in a property name should still be an error. The
-    # four below are the permission fields RecordCloneTool reads from the acting
-    # user (`$user->news`, `$user->faqs`, `$user->calendars`, `$user->newsletters`);
-    # `forms` is core and declared. Read from BackendUser since v0.19.0 (the merged
-    # list of user and groups), from UserModel before.
+    # The allow-list fields RecordCloneTool read from the acting user by name
+    # (`$user->news` …) needed an entry here until v0.19.0; AllowListGrant reads
+    # them by a variable field name now, which static analysis does not resolve.
     ignoreErrors:
-        -
-            message: '#Access to an undefined property Contao\\BackendUser::\$(news|faqs|calendars|newsletters)\.#'
-            path: src/Tool/RecordCloneTool.php
-
         # The factory returns an anonymous subclass that exposes the protected
         # surface through `call*()` wrappers. Declaring `: AbstractEntityRewriter`
         # would read better but hides those methods from analysis — thirteen

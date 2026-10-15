@@ -96,6 +96,15 @@ class ToolAccessChecker
         // permission are checked in LanguageTool, per call.
         'language_link'  => ['module' => '*', 'op' => 'macro'],
         'language_check' => ['module' => 'page', 'op' => 'read'],
+        // v0.19.0: image sizes and their variants live in the theme manager.
+        'image_size_read'        => ['module' => 'themes', 'op' => 'read'],
+        'image_size_create'      => ['module' => 'themes', 'op' => 'create'],
+        'image_size_update'      => ['module' => 'themes', 'op' => 'edit'],
+        'image_size_delete'      => ['module' => 'themes', 'op' => 'delete'],
+        'image_size_item_read'   => ['module' => 'themes', 'op' => 'read'],
+        'image_size_item_create' => ['module' => 'themes', 'op' => 'create'],
+        'image_size_item_update' => ['module' => 'themes', 'op' => 'edit'],
+        'image_size_item_delete' => ['module' => 'themes', 'op' => 'delete'],
     ];
 
     /**

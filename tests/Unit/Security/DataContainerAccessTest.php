@@ -36,11 +36,11 @@ class DataContainerAccessTest extends TestCase
     /**
      * @param array<string, array<int, array<string, mixed>>> $rows table => id => row
      */
-    private function access(array $rows, bool $granted = true, bool $signedIn = true): DataContainerAccess
+    private function access(array $rows, bool $granted = true, bool $signedIn = true, ?TokenInterface $token = null): DataContainerAccess
     {
         $tokenStorage = new TokenStorage();
         if ($signedIn) {
-            $tokenStorage->setToken(new NullToken());
+            $tokenStorage->setToken($token ?? new NullToken());
         }
 
         $controller = $this->getMockBuilder(Adapter::class)->disableOriginalConstructor()->addMethods(['loadDataContainer'])->getMock();
@@ -238,5 +238,62 @@ class DataContainerAccessTest extends TestCase
 
         self::assertSame('Inhaltselemente sind tiefer als 10 Ebenen verschachtelt; der Chat bearbeitet sie nicht.', $access->contentParentDenial(['ptable' => 'tl_content', 'pid' => 8]));
         self::assertSame(10, $lookups);
+    }
+
+    /**
+     * @param list<string> $imageSizes the merged allow-list BackendUser holds
+     */
+    private function signedIn(bool $isAdmin, array $imageSizes): TokenInterface
+    {
+        $user = $this->createMock(\Contao\BackendUser::class);
+        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) {
+            'isAdmin'    => $isAdmin,
+            'imageSizes' => $imageSizes,
+            default      => null,
+        });
+        $user->method('getRoles')->willReturn([]);
+        $user->method('getUserIdentifier')->willReturn('h.lewis');
+
+        $token = new class($user) extends \Symfony\Component\Security\Core\Authentication\Token\AbstractToken {
+            public function __construct(\Contao\BackendUser $user)
+            {
+                parent::__construct([]);
+                $this->setUser($user);
+            }
+        };
+
+        return $token;
+    }
+
+    /**
+     * v0.19.0: Contao's image size voter checks module and theme right only; the back end
+     * keeps an editor to `imageSizes` through its list filter. The chat now does too, for
+     * every table with a `userRoot`.
+     */
+    public function testAnEditorReachesOnlyTheRecordsInTheAllowList(): void
+    {
+        $GLOBALS['TL_DCA']['tl_image_size']['config']['userRoot'] = 'imageSizes';
+        $rows = ['tl_image_size' => [4 => ['id' => 4, 'name' => 'Teaser'], 9 => ['id' => 9, 'name' => 'Hero']]];
+
+        try {
+            $editor = $this->access($rows, token: $this->signedIn(false, ['4']));
+            self::assertTrue($editor->isGranted(new ReadAction('tl_image_size', $rows['tl_image_size'][4])));
+            self::assertFalse($editor->isGranted(new ReadAction('tl_image_size', $rows['tl_image_size'][9])));
+            self::assertFalse($editor->isGranted(new UpdateAction('tl_image_size', $rows['tl_image_size'][9])));
+            self::assertFalse($editor->isGranted(new DeleteAction('tl_image_size', $rows['tl_image_size'][9])));
+            self::assertTrue($editor->isGranted(new CreateAction('tl_image_size', ['pid' => 1])), 'a new record has no id yet');
+
+            $admin = $this->access($rows, token: $this->signedIn(true, []));
+            self::assertTrue($admin->isGranted(new ReadAction('tl_image_size', $rows['tl_image_size'][9])));
+        } finally {
+            unset($GLOBALS['TL_DCA']['tl_image_size']);
+        }
+    }
+
+    public function testATableWithoutUserRootIsLeftToTheVoters(): void
+    {
+        $rows = ['tl_layout' => [9 => ['id' => 9, 'name' => 'Standard']]];
+
+        self::assertTrue($this->access($rows, token: $this->signedIn(false, []))->isGranted(new ReadAction('tl_layout', $rows['tl_layout'][9])));
     }
 }

@@ -773,6 +773,8 @@ abstract class AbstractCoreCommandTool
         'tl_faq'             => 'faq',
         'tl_faq_category'    => 'faq',
         'tl_files'           => 'files',
+        'tl_image_size'      => 'themes',
+        'tl_image_size_item' => 'themes',
     ];
 
     /**

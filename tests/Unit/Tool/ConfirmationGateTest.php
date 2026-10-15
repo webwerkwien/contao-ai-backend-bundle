@@ -40,6 +40,8 @@ class ConfirmationGateTest extends TestCase
         'ContentTool.php'  => ['delete'],
         'EventTool.php'    => ['delete'],
         'FaqTool.php'      => ['delete'],
+        'ImageSizeTool.php'     => ['delete'],
+        'ImageSizeItemTool.php' => ['delete'],
         'NewsTool.php'     => ['delete'],
         'PageTool.php'     => ['delete', 'publish'],
     ];

@@ -20,6 +20,12 @@ against an older one the chat answers that no cloner is registered for the table
   user says yes in a later message** (server-side, like the delete questions). They
   consented to the source channel, not to the copy. Refused for any other table, and against
   a core-bundle older than v1.8.0.
+- **Image sizes in the chat**: `image_size_create|update|delete|read` and the same for their
+  variants (`image_size_item_*`), on the commands core-bundle has had since v0.2.18. Rights
+  as in the back end: the theme manager module and the image size right (Contao's voters),
+  and the allow-list `imageSizes`. A variant counts as editing its size. Deleting asks first.
+  A new size joins the editor's allow-lists. `record_list` reaches `tl_image_size` and
+  `tl_image_size_item` for users with the theme manager.
 - **CLI bridge:** `withRecipients` in the `record_clone` payload. The CLI asks before it
   sends it (contao-ai-cli v1.10.0), so the server does not ask again. **Over the bridge the
   token counts as consent:** whoever holds a user's bridge token can copy recipients without
@@ -35,6 +41,14 @@ against an older one the chat answers that no cloner is registered for the table
   (`inherit = group`) did not see the clone, and the answer still said `auto_granted`. A
   group entry reaches everyone in that group, as in the back end; `auto_granted` now names
   the groups and whether the user's own list was written.
+
+### Security
+
+- **The allow-list of a table with a `userRoot` holds in the chat too.** The back end keeps
+  an editor to the image sizes, archives, forms and channels in their allow-list through
+  its list filter, not through the voters. For most of these tables the voter asks the same
+  anyway; Contao's image size voter does not — it checks module and theme right only. The
+  record rights now ask the allow-list for every such table (admins and new records pass).
 
 ### Changed
 
