@@ -30,9 +30,14 @@ class RecordPermissionChecker
         'tl_calendar', 'tl_calendar_events',
         'tl_faq_category', 'tl_faq',
         'tl_page', 'tl_article', 'tl_content',
+        // Clone sources only (v0.19.0): no other macro tool reaches them.
+        'tl_form', 'tl_newsletter_channel', 'tl_module', 'tl_layout',
     ];
 
-    private const CONTAINER_TABLES = ['tl_news_archive', 'tl_calendar', 'tl_faq_category', 'tl_page'];
+    private const CONTAINER_TABLES = [
+        'tl_news_archive', 'tl_calendar', 'tl_faq_category', 'tl_page',
+        'tl_form', 'tl_newsletter_channel', 'tl_module', 'tl_layout',
+    ];
 
     public function __construct(
         private readonly DataContainerAccess $dcAccess,
@@ -74,7 +79,7 @@ class RecordPermissionChecker
         }
         $record = $this->dcAccess->fetchRecord($table, $id);
         if (null === $record) {
-            return \sprintf('Datensatz %d in %s nicht gefunden.', $id, $table);
+            return $this->notFound($table, $id);
         }
 
         return $this->dcAccess->denialReason(
@@ -103,7 +108,9 @@ class RecordPermissionChecker
 
         $source = $this->dcAccess->fetchRecord($sourceTable, $sourceId);
         if (null === $source) {
-            throw new ToolRefusedException(\sprintf('Quelle %d in %s nicht gefunden.', $sourceId, $sourceTable));
+            throw new ToolRefusedException($this->dcAccess->tableExists($sourceTable)
+                ? \sprintf('Quelle %d in %s nicht gefunden.', $sourceId, $sourceTable)
+                : self::tableMissing($sourceTable));
         }
 
         unset($source['id']);
@@ -125,7 +132,7 @@ class RecordPermissionChecker
 
         $record = $this->dcAccess->fetchRecord($table, $id);
         if (null === $record) {
-            return \sprintf('Datensatz %d in %s nicht gefunden.', $id, $table);
+            return $this->notFound($table, $id);
         }
 
         $action = match ($operation) {
@@ -140,5 +147,21 @@ class RecordPermissionChecker
         }
 
         return $this->dcAccess->contentParentDenial($record);
+    }
+
+    private function notFound(string $table, int $id): string
+    {
+        return $this->dcAccess->tableExists($table)
+            ? \sprintf('Datensatz %d in %s nicht gefunden.', $id, $table)
+            : self::tableMissing($table);
+    }
+
+    /**
+     * News, events, FAQ and newsletters are optional bundles; the tables of one that is
+     * not installed are simply missing.
+     */
+    private static function tableMissing(string $table): string
+    {
+        return \sprintf('Die Tabelle %s gibt es in dieser Installation nicht: Das Contao-Bundle dazu (etwa News, Events, FAQ oder Newsletter) ist nicht installiert.', $table);
     }
 }

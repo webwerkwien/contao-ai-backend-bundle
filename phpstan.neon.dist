@@ -27,11 +27,12 @@ parameters:
     #
     # Listed one by one on purpose rather than silencing "undefined property" as
     # a class: a genuine typo in a property name should still be an error. The
-    # three below are the permission fields RecordCloneTool reads from the acting
-    # user (`$user->news`, `$user->faqs`, `$user->calendars`).
+    # four below are the permission fields RecordCloneTool reads from the acting
+    # user (`$user->news`, `$user->faqs`, `$user->calendars`, `$user->newsletters`);
+    # `forms` is core and declared.
     ignoreErrors:
         -
-            message: '#Access to an undefined property Contao\\UserModel::\$(news|faqs|calendars)\.#'
+            message: '#Access to an undefined property Contao\\UserModel::\$(news|faqs|calendars|newsletters)\.#'
             path: src/Tool/RecordCloneTool.php
 
         # The factory returns an anonymous subclass that exposes the protected

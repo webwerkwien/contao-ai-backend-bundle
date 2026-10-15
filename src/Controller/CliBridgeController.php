@@ -210,10 +210,12 @@ class CliBridgeController extends AbstractController
             $sourceId    = (int)    ($payload['sourceId'] ?? 0);
             $modifications = $payload['modifications'] ?? [];
             $recursive   = (bool)   ($payload['recursive'] ?? false);
+            // The CLI asked before it set this (terminal question or --yes, v0.19.0).
+            $withRecipients = (bool) ($payload['withRecipients'] ?? false);
             if ('' === $sourceTable || $sourceId <= 0) {
                 throw new \InvalidArgumentException('record_clone requires "table" and "sourceId".');
             }
-            return $this->cloneTool->cloneRecord($sourceTable, $sourceId, $modifications, $recursive);
+            return $this->cloneTool->cloneFromBridge($sourceTable, $sourceId, $modifications, $recursive, $withRecipients);
         }
 
         // record_rewrite

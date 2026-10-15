@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## Unreleased
+
+Cloning forms, newsletter channels, modules and layouts needs contao-ai-core-bundle v1.8.0;
+against an older one the chat answers that no cloner is registered for the table.
+
+### Added
+
+- **`record_clone` clones forms (with their fields), newsletter channels (with their
+  newsletters, unsent), front-end modules and page layouts** (both stay in their theme), the
+  cloners of core-bundle v1.8.0. Contao's data container voters decide as in the back end:
+  the form generator module and the right to create forms, the newsletter module and the
+  right to create channels, the theme manager with the right on front-end modules and their
+  types, or on layouts. An editor gets a cloned form or channel added to their allow-list,
+  as with news archives.
+- **A newsletter channel takes its recipients only with `withRecipients`, and only after the
+  user says yes in a later message** (server-side, like the delete questions). They
+  consented to the source channel, not to the copy. Refused for any other table, and against
+  a core-bundle older than v1.8.0.
+- **CLI bridge:** `withRecipients` in the `record_clone` payload. The CLI asks before it
+  sends it (contao-ai-cli v1.10.0), so the server does not ask again.
+
+### Changed
+
+- A clone or record lookup in a table that does not exist — news, events, FAQ and
+  newsletters are optional bundles — now says that the bundle is not installed instead of
+  "record not found".
+
 ## v0.18.0 — 2026-10-14
 
 Works with every contao-ai-core-bundle it worked with before. **Update if editors

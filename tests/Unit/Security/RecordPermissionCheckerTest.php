@@ -37,10 +37,11 @@ class RecordPermissionCheckerTest extends TestCase
     /**
      * @param array<string, mixed>|null $record what every lookup finds
      */
-    private function checker(?array $record, bool $granted = true, ?string $contentDenial = null): RecordPermissionChecker
+    private function checker(?array $record, bool $granted = true, ?string $contentDenial = null, bool $tableExists = true): RecordPermissionChecker
     {
         $access = $this->createMock(DataContainerAccess::class);
         $access->method('fetchRecord')->willReturn($record);
+        $access->method('tableExists')->willReturn($tableExists);
         $access->method('denialReason')->willReturnCallback(function (CreateAction|ReadAction|UpdateAction|DeleteAction $action, ?int $id) use ($granted): ?string {
             $this->asked[] = $action;
 
@@ -117,6 +118,24 @@ class RecordPermissionCheckerTest extends TestCase
         yield 'calendar'     => ['tl_calendar'];
         yield 'faq category' => ['tl_faq_category'];
         yield 'page'         => ['tl_page'];
+        yield 'form'         => ['tl_form'];
+        yield 'channel'      => ['tl_newsletter_channel'];
+        yield 'module'       => ['tl_module'];
+        yield 'layout'       => ['tl_layout'];
+    }
+
+    /**
+     * News, events, FAQ and newsletters are optional bundles. Without one, "record 4 not
+     * found" would send the agent looking for a record instead of a bundle.
+     */
+    public function testAMissingBundleIsNamedAsSuch(): void
+    {
+        self::assertStringContainsString('nicht installiert', (string) $this->checker(null, tableExists: false)->recordAccessDenialReason($this->user(false), 'tl_newsletter_channel', 4, 'edit'));
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('nicht installiert');
+
+        $this->checker(null, tableExists: false)->assertCanCreateContainer($this->user(false), 'tl_newsletter_channel', 4);
     }
 
     /**

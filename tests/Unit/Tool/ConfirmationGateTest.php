@@ -50,7 +50,8 @@ class ConfirmationGateTest extends TestCase
      * `record_clone` creates rather than removes. It is not harmless — v0.2.15
      * of the core bundle exists because a clone put two pages live that were
      * meant to stay unpublished — but the answer there was to report ignored
-     * modifications, not to ask first.
+     * modifications, not to ask first. One clone does ask (v0.19.0): a newsletter channel
+     * with its recipients, whose consent belongs to the source — RecordCloneNewTablesTest.
      */
     private const EXCUSED = ['RecordCloneTool.php' => 'creates, does not remove'];
 

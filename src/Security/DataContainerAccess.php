@@ -55,6 +55,10 @@ class DataContainerAccess
         'tl_calendar_events' => 'Event',
         'tl_faq'             => 'FAQ',
         'tl_faq_category'    => 'FAQ-Kategorie',
+        'tl_form'               => 'Formular',
+        'tl_newsletter_channel' => 'Newsletter-Kanal',
+        'tl_module'             => 'Modul',
+        'tl_layout'             => 'Layout',
     ];
 
     private const NEW_OBJECT = [
@@ -67,6 +71,10 @@ class DataContainerAccess
         'tl_calendar_events' => 'ein Event',
         'tl_faq'             => 'eine FAQ',
         'tl_faq_category'    => 'eine FAQ-Kategorie',
+        'tl_form'               => 'ein Formular',
+        'tl_newsletter_channel' => 'einen Newsletter-Kanal',
+        'tl_module'             => 'ein Modul',
+        'tl_layout'             => 'ein Layout',
     ];
 
     private const RIGHTS = [
@@ -79,6 +87,10 @@ class DataContainerAccess
         'tl_calendar_events' => 'das Modul Events und die erlaubten Kalender',
         'tl_faq'             => 'das Modul FAQ und die erlaubten FAQ-Kategorien',
         'tl_faq_category'    => 'das Modul FAQ, die erlaubten FAQ-Kategorien und die Kategorierechte (anlegen, löschen)',
+        'tl_form'               => 'das Modul Formulargenerator, die erlaubten Formulare und die Formularrechte (anlegen, löschen)',
+        'tl_newsletter_channel' => 'das Modul Newsletter, die erlaubten Kanäle und die Kanalrechte (anlegen, löschen)',
+        'tl_module'             => 'das Modul Themes, das Recht auf Frontend-Module und die erlaubten Modultypen',
+        'tl_layout'             => 'das Modul Themes und das Recht auf Seitenlayouts',
     ];
 
     /**
@@ -151,6 +163,16 @@ class DataContainerAccess
         }
 
         return false === $row ? null : $row;
+    }
+
+    /**
+     * Whether the table is there at all. News, events, FAQ and newsletters come with
+     * optional bundles; without one its tables are missing, and "record 4 not found"
+     * would send the agent looking for the wrong thing.
+     */
+    public function tableExists(string $table): bool
+    {
+        return $this->connection->createSchemaManager()->tablesExist([$table]);
     }
 
     /**

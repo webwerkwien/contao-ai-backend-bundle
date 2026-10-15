@@ -11,6 +11,7 @@ use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
@@ -35,11 +36,12 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
     'record_clone',
     'Clone a Contao container record and its full child cascade in one server-side operation. '
     .'Returns the new root id and the count of cloned children. '
-    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article and their tl_content elements; nested content children inside accordion/colset/grouped layouts are included automatically). '
+    .'Supported sourceTable values: tl_news_archive (cascades to tl_news), tl_calendar (cascades to tl_calendar_events), tl_faq_category (cascades to tl_faq), tl_page (cascades to tl_article and their tl_content elements; nested content children inside accordion/colset/grouped layouts are included automatically), tl_form (cascades to its form fields), tl_newsletter_channel (cascades to its newsletters, which come out unsent; recipients only with withRecipients=true), tl_module and tl_layout (a single record, the copy stays in the same theme). '
+    .'News, events, FAQ and newsletters are optional Contao bundles: when one is not installed, its table is missing and the call says so. '
     .'Set recursive=true on tl_page to also clone the full descendant subpage tree (capped at depth 10 / 50 total pages); ignored for the other tables which have no subtree semantics. '
     .'Cloned pages, articles, news, events and FAQ come out unpublished (content elements keep their visibility) so the operator can review/translate before publishing. '
     .'Use this instead of issuing many individual create calls for bulk-copy workflows. '
-    .'Editor permission rules: caller needs (a) module access on the source container, (b) the create right for the container table (contao_user.cud) for tl_news_archive/tl_calendar/tl_faq_category, or USER_CAN_EDIT_PAGE_HIERARCHY on the source.pid for tl_page. With recursive=true on tl_page every subpage in the source tree must be edit-accessible — the call refuses up-front otherwise (no partial clones).',
+    .'Editor permission rules: Contao decides as in the back end — the caller needs access to the source and the right to create a record of that table next to it (for tl_page: the hierarchy right on the parent; for tl_form, tl_newsletter_channel and the archives: the create right of the user group; for tl_module: the allowed module types; for tl_layout: the layout right). With recursive=true on tl_page every subpage in the source tree must be copyable — the call refuses up-front otherwise (no partial clones).',
     method: 'cloneRecord',
 )]
 class RecordCloneTool extends AbstractCoreCommandTool
@@ -69,10 +71,15 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * deshalb umbenannt statt zusammengelegt.
      */
     private const CONTAINER_MODULE = [
-        'tl_news_archive' => 'news',
-        'tl_calendar'     => 'calendar',
-        'tl_faq_category' => 'faq',
-        'tl_page'         => 'page',
+        'tl_news_archive'       => 'news',
+        'tl_calendar'           => 'calendar',
+        'tl_faq_category'       => 'faq',
+        'tl_page'               => 'page',
+        // v0.19.0, core v1.8.0. Module and layout live in the theme manager.
+        'tl_form'               => 'form',
+        'tl_newsletter_channel' => 'newsletter',
+        'tl_module'             => 'themes',
+        'tl_layout'             => 'themes',
     ];
 
     /**
@@ -86,9 +93,13 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * @var array<string, string>
      */
     private const AUTO_GRANT_FIELD = [
-        'tl_news_archive' => 'news',
-        'tl_calendar'     => 'calendars',
-        'tl_faq_category' => 'faqs',
+        'tl_news_archive'       => 'news',
+        'tl_calendar'           => 'calendars',
+        'tl_faq_category'       => 'faqs',
+        // The `userRoot` of their DCA, as for the three above. Module and layout have
+        // no allow-list: the theme rights are not per record.
+        'tl_form'               => 'forms',
+        'tl_newsletter_channel' => 'newsletters',
     ];
 
     /**
@@ -135,15 +146,36 @@ class RecordCloneTool extends AbstractCoreCommandTool
     /**
      * @param string                              $sourceTable    Container table to clone (tl_news_archive, tl_calendar, tl_faq_category, tl_page)
      * @param int                                 $sourceId       ID of the source container record
-     * @param array<string, scalar|null>|string   $modifications  Field overrides for the cloned root record, e.g. {"title": "Pressemitteilungen 2026"}. Each table accepts a fixed set of fields: tl_page = title, pageTitle, description, published, hide, and for a root page (admins only) also language, urlPrefix, urlSuffix, fallback, dns; tl_faq_category = title, headline; tl_news_archive and tl_calendar = title. Anything else is refused and listed back under "ignored_modifications" in the result — check that key rather than assuming an override was applied. Note that "alias" is never taken from here; it is always regenerated from the title. Cloned pages come out unpublished and a cloned root is never the main language (fallback) by itself; pass {"published": "1"} to publish the cloned root right away (its subpages stay unpublished). Before cloning a root into another language, ask the user which language is the main one — never assume. {"fallback": "1"} is refused while another root of that domain is the main language, and no chat tool changes `fallback` on an existing root: if the clone is to be the main language, the user first removes the language fallback flag from the existing root in the back end (website root settings), then you clone with {"fallback": "1", "published": "1"}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets the model pick either.
+     * @param array<string, scalar|null>|string   $modifications  Field overrides for the cloned root record, e.g. {"title": "Pressemitteilungen 2026"}. Each table accepts a fixed set of fields: tl_page = title, pageTitle, description, published, hide, and for a root page (admins only) also language, urlPrefix, urlSuffix, fallback, dns; tl_faq_category = title, headline; tl_news_archive, tl_calendar, tl_form and tl_newsletter_channel = title; tl_module and tl_layout = name. Anything else is refused and listed back under "ignored_modifications" in the result — check that key rather than assuming an override was applied. Note that "alias" is never taken from here; it is always regenerated from the title. Cloned pages come out unpublished and a cloned root is never the main language (fallback) by itself; pass {"published": "1"} to publish the cloned root right away (its subpages stay unpublished). Before cloning a root into another language, ask the user which language is the main one — never assume. {"fallback": "1"} is refused while another root of that domain is the main language, and no chat tool changes `fallback` on an existing root: if the clone is to be the main language, the user first removes the language fallback flag from the existing root in the back end (website root settings), then you clone with {"fallback": "1", "published": "1"}. Accepts an object/array OR a JSON-encoded string — symfony/ai's JSON-schema view of `array` lets the model pick either.
      * @param bool                                $recursive      For container-of-container tables (currently only tl_page), also clone the entire descendant tree (subpages with their articles+content) under the new root. Capped at depth 10 / 50 total pages. Ignored for tables without subtree semantics. Default: false (only direct cascade).
+     * @param bool                                $withRecipients tl_newsletter_channel only: also copy the channel's recipients. Default false — the clone then has none. The recipients consented to the source channel, not to the copy, so ask the user whether the clone should take them along; never decide this yourself. With true the server asks the user once more before it clones.
      */
     #[AiContract(
         // Die Tabelle bestimmt der Aufrufer — nichts behaupten, was hier nicht feststeht.
         writes: true, trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id', 'count'],
     )]
-    public function cloneRecord(string $sourceTable, int $sourceId, array|string $modifications = [], bool $recursive = false): string
+    public function cloneRecord(string $sourceTable, int $sourceId, array|string $modifications = [], bool $recursive = false, bool $withRecipients = false): string
+    {
+        return $this->cloneChecked($sourceTable, $sourceId, $modifications, $recursive, $withRecipients, false);
+    }
+
+    /**
+     * The CLI bridge (`bridge clone`). It has no chat turn in which the server could ask,
+     * so the CLI asks before it sends withRecipients — at the terminal, or `--yes` without
+     * one (v0.19.0). Not a tool: the model reaches only cloneRecord().
+     *
+     * @param array<string, scalar|null>|string $modifications
+     */
+    public function cloneFromBridge(string $sourceTable, int $sourceId, array|string $modifications = [], bool $recursive = false, bool $withRecipients = false): string
+    {
+        return $this->cloneChecked($sourceTable, $sourceId, $modifications, $recursive, $withRecipients, true);
+    }
+
+    /**
+     * @param array<string, scalar|null>|string $modifications
+     */
+    private function cloneChecked(string $sourceTable, int $sourceId, array|string $modifications, bool $recursive, bool $withRecipients, bool $recipientsConfirmed): string
     {
         $user = $this->requireBackendUser();
 
@@ -170,6 +202,17 @@ class RecordCloneTool extends AbstractCoreCommandTool
             $this->assertSubtreeAccess($user, $sourceId);
         }
 
+        if ($withRecipients) {
+            // Refused rather than ignored, as in the core: whoever asks for recipients
+            // expects a copy of people, and silence would read as "done".
+            if ('tl_newsletter_channel' !== $sourceTable) {
+                throw new ToolRefusedException('withRecipients gilt nur für tl_newsletter_channel.');
+            }
+            if (!$this->cloneCommand->getDefinition()->hasOption('with-recipients')) {
+                throw new ToolRefusedException('Abonnenten mitklonen braucht contao-ai-core-bundle ab v1.8.0; installiert ist eine ältere Version.');
+            }
+        }
+
         // Claude sometimes wraps the `array` payload into a JSON string instead
         // of sending it as a real object — observed live 2026-05-03 with
         // `argument #3 must be of type array, string given`. Decode first,
@@ -194,6 +237,16 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // on the way to the command.
         $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys($modifications)));
 
+        // Last, once every check has passed: the question must not stage a clone that
+        // would be refused anyway. The key holds the source, so a yes covers this
+        // channel only.
+        if ($withRecipients && !$recipientsConfirmed) {
+            $staged = $this->askBeforeCopyingRecipients($sourceId);
+            if (null !== $staged) {
+                return $staged;
+            }
+        }
+
         $modsJson = json_encode($modifications, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (false === $modsJson) {
             $modsJson = '{}';
@@ -203,6 +256,8 @@ class RecordCloneTool extends AbstractCoreCommandTool
             '--source-table'  => $sourceTable,
             '--source-id'     => (string) $sourceId,
             '--modifications' => $modsJson,
+            // Inline, null for absent: ToolArgumentsMatchCommandTest reads this literal.
+            '--with-recipients' => $withRecipients ? true : null,
         ];
         if ($recursive) {
             $args['--recursive'] = true;
@@ -213,6 +268,27 @@ class RecordCloneTool extends AbstractCoreCommandTool
         } finally {
             $this->pendingSourceTable = null;
         }
+    }
+
+    /**
+     * The recipients consented to the source channel; a copy carries that consent to a
+     * channel they never chose. So the user says yes in a later message, held by the
+     * server (requireConfirmation), not by the model.
+     */
+    private function askBeforeCopyingRecipients(int $channelId): ?string
+    {
+        $title = (string) $this->connection->fetchOne('SELECT title FROM tl_newsletter_channel WHERE id = ?', [$channelId]);
+        $count = (int) $this->connection->fetchOne('SELECT COUNT(*) FROM tl_newsletter_recipients WHERE pid = ?', [$channelId]);
+
+        return $this->requireConfirmation(
+            'record_clone',
+            'recipients:' . $channelId,
+            \sprintf(
+                'Der Newsletter-Kanal "%s" (ID %d) soll samt seiner %d Abonnenten geklont werden. Die Abonnenten haben dem bestehenden Kanal zugestimmt, nicht dem neuen. Wirklich mit Abonnenten klonen?',
+                $title, $channelId, $count,
+            ),
+            ['sourceTable' => 'tl_newsletter_channel', 'sourceId' => $channelId, 'title' => $title, 'recipients' => $count],
+        );
     }
 
     /**
