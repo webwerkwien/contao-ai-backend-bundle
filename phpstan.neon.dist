@@ -29,10 +29,11 @@ parameters:
     # a class: a genuine typo in a property name should still be an error. The
     # four below are the permission fields RecordCloneTool reads from the acting
     # user (`$user->news`, `$user->faqs`, `$user->calendars`, `$user->newsletters`);
-    # `forms` is core and declared.
+    # `forms` is core and declared. Read from BackendUser since v0.19.0 (the merged
+    # list of user and groups), from UserModel before.
     ignoreErrors:
         -
-            message: '#Access to an undefined property Contao\\UserModel::\$(news|faqs|calendars|newsletters)\.#'
+            message: '#Access to an undefined property Contao\\BackendUser::\$(news|faqs|calendars|newsletters)\.#'
             path: src/Tool/RecordCloneTool.php
 
         # The factory returns an anonymous subclass that exposes the protected

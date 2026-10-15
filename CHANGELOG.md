@@ -21,7 +21,20 @@ against an older one the chat answers that no cloner is registered for the table
   consented to the source channel, not to the copy. Refused for any other table, and against
   a core-bundle older than v1.8.0.
 - **CLI bridge:** `withRecipients` in the `record_clone` payload. The CLI asks before it
-  sends it (contao-ai-cli v1.10.0), so the server does not ask again.
+  sends it (contao-ai-cli v1.10.0), so the server does not ask again. **Over the bridge the
+  token counts as consent:** whoever holds a user's bridge token can copy recipients without
+  a second question — the token is that user's key anyway. The system log records
+  `withRecipients` for every clone.
+
+### Fixed
+
+- **A cloned archive, calendar, FAQ category, form or channel now joins the allow-lists
+  Contao itself would write after a copy:** the user's groups unless the user's rights are
+  `custom`, the user's own list unless they come from the group only. Until now only the
+  user's own list got the id; an editor whose rights come from the group alone
+  (`inherit = group`) did not see the clone, and the answer still said `auto_granted`. A
+  group entry reaches everyone in that group, as in the back end; `auto_granted` now names
+  the groups and whether the user's own list was written.
 
 ### Changed
 

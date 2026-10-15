@@ -59,6 +59,7 @@ class RecordCloneNewTablesTest extends TestCase
         bool $coreKnowsRecipients = true,
         ?RecordPermissionChecker $checker = null,
         ?BackendUser $user = null,
+        ?Connection $connection = null,
     ): RecordCloneTool {
         $definition = new InputDefinition([
             new InputOption('source-table', null, InputOption::VALUE_REQUIRED),
@@ -81,10 +82,12 @@ class RecordCloneNewTablesTest extends TestCase
             },
         );
 
-        $connection = $this->createMock(Connection::class);
-        $connection->method('fetchOne')->willReturnCallback(
-            static fn (string $sql): string => str_contains($sql, 'COUNT(*)') ? '12' : 'Kundenbrief',
-        );
+        if (null === $connection) {
+            $connection = $this->createMock(Connection::class);
+            $connection->method('fetchOne')->willReturnCallback(
+                static fn (string $sql): string => str_contains($sql, 'COUNT(*)') ? '12' : 'Kundenbrief',
+            );
+        }
 
         $tool = new RecordCloneTool(
             $this->createMock(ToolAccessChecker::class),
@@ -213,6 +216,94 @@ class RecordCloneNewTablesTest extends TestCase
         $this->expectExceptionMessage('ab v1.8.0');
 
         $this->tool(0, coreKnowsRecipients: false)->cloneRecord('tl_newsletter_channel', 4, [], false, true);
+    }
+
+    /**
+     * @param list<string> $forms the merged allow-list BackendUser holds
+     */
+    private function editorWho(string $inherit, array $forms = []): BackendUser
+    {
+        $user = $this->createMock(BackendUser::class);
+        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) {
+            'isAdmin'  => false,
+            'id'       => 3,
+            'username' => 'h.lewis',
+            'modules'  => ['form'],
+            'inherit'  => $inherit,
+            'groups'   => ['1', '4'],
+            'forms'    => $forms,
+            default    => null,
+        });
+        $user->method('__isset')->willReturnCallback(static fn (string $key): bool => \in_array($key, ['isAdmin', 'id', 'username', 'modules', 'inherit', 'groups', 'forms'], true));
+
+        return $user;
+    }
+
+    /**
+     * @param list<array{string, array<string, string>, array<string, int>}> $updates collects every write
+     */
+    private function allowListDb(array &$updates): Connection
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchAllAssociative')->willReturn([
+            ['id' => 1, 'forms' => serialize(['5'])],
+            ['id' => 4, 'forms' => null],
+        ]);
+        $connection->method('fetchAssociative')->willReturn(['id' => 3, 'forms' => serialize(['2'])]);
+        $connection->method('update')->willReturnCallback(
+            static function (string $table, array $data, array $criteria) use (&$updates): int {
+                $updates[] = [$table, $data, $criteria];
+
+                return 1;
+            },
+        );
+
+        return $connection;
+    }
+
+    /**
+     * @return iterable<string, array{string, list<array{string, array<string, string>, array<string, int>}>}>
+     */
+    public static function inheritance(): iterable
+    {
+        $groups = [
+            ['tl_user_group', ['forms' => serialize(['5', '9'])], ['id' => 1]],
+            ['tl_user_group', ['forms' => serialize(['9'])], ['id' => 4]],
+        ];
+        $own = ['tl_user', ['forms' => serialize(['2', '9'])], ['id' => 3]];
+
+        // As UserRootListener::adjustPermissions(): groups unless custom, the user unless group.
+        yield 'group only'   => ['group', $groups];
+        yield 'extend'       => ['extend', [...$groups, $own]];
+        yield 'custom'       => ['custom', [$own]];
+    }
+
+    /**
+     * Until v0.19.0 only the user's own list got the id: with `inherit = group` BackendUser
+     * ignores it, the editor did not see the clone, and the answer said `auto_granted`.
+     *
+     * @dataProvider inheritance
+     *
+     * @param list<array{string, array<string, string>, array<string, int>}> $expected
+     */
+    public function testTheCloneJoinsTheAllowListsContaoWouldWrite(string $inherit, array $expected): void
+    {
+        $updates = [];
+        $output = $this->tool(1, user: $this->editorWho($inherit), connection: $this->allowListDb($updates))
+            ->cloneRecord('tl_form', 4);
+
+        self::assertSame($expected, $updates);
+        self::assertStringContainsString('"auto_granted"', $output);
+    }
+
+    public function testNothingIsWrittenWhenTheMergedListHasTheCloneAlready(): void
+    {
+        $updates = [];
+        $output = $this->tool(1, user: $this->editorWho('group', ['9']), connection: $this->allowListDb($updates))
+            ->cloneRecord('tl_form', 4);
+
+        self::assertSame([], $updates);
+        self::assertStringNotContainsString('"auto_granted"', $output);
     }
 
     /**
