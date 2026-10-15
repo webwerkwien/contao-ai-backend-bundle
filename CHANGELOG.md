@@ -2,9 +2,9 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## Unreleased
+## v0.19.0 — 2026-10-15
 
-Cloning forms, newsletter channels, modules and layouts needs contao-ai-core-bundle v1.8.0;
+Works with every contao-ai-core-bundle it worked with before. Cloning forms, newsletter channels, modules and layouts needs contao-ai-core-bundle v1.8.0;
 against an older one the chat answers that no cloner is registered for the table.
 
 ### Added
