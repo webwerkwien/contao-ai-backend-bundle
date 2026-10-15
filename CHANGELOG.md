@@ -31,7 +31,7 @@ Works with every contao-ai-core-bundle v0.19.0 worked with.
   is left, the test keeps it that way.
 - README: the tool table names the event, FAQ and image size tools, and the delete rule
   says that every delete asks first and which are also admin-only. It said every delete
-  was admin-only.
+  was admin-only. `AGENTS.md` names the two lists a new tool name has to reach.
 
 ## v0.19.0 — 2026-10-15
 

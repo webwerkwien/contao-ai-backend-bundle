@@ -69,6 +69,11 @@ that existed before the fix, and that could not be rewritten, is the proof.
   only imports this file is the one exception.
 - PHP 8.2+, `declare(strict_types=1)` in every file.
 - Tools extend `AbstractCoreCommandTool` and are auto-tagged via `_instanceof`.
+- **Every tool name needs an entry in `ToolAccessChecker::TOOL_MAP` and in
+  `SystemPromptProvider::ALL_KNOWN_TOOL_NAMES`** (v0.19.1). A name without a map entry is
+  admin-only by accident: `canUseTool()` refuses it for every other user, so the tool is
+  neither offered nor callable. The event and FAQ tools sat there from v0.6.0 to v0.19.0.
+  `ToolMapCoversEveryToolTest` compares both lists with the names `getToolNames()` reads.
 - **Rights come from Contao, not from a list of our own.** Which tables a user reaches is
   `TableAccess` (BE_MOD plus `hasAccess($module, 'modules')`, the rule of Contao's
   `TableAccessVoter`); record rights are Contao's voters, field rights are `alexf` through
