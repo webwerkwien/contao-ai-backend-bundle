@@ -49,6 +49,7 @@ class SystemPromptProvider
         'calendar' => ['tl_calendar', 'tl_calendar_events'],
         'faq'      => ['tl_faq', 'tl_faq_category'],
         'files'    => ['tl_files'],
+        'themes'   => ['tl_image_size', 'tl_image_size_item'],
     ];
 
     /**

@@ -57,6 +57,7 @@ class MetaTool extends AbstractCoreCommandTool
         'tl_calendar', 'tl_calendar_events',
         'tl_faq', 'tl_faq_category',
         'tl_files',
+        'tl_image_size', 'tl_image_size_item',
     ];
 
     /**

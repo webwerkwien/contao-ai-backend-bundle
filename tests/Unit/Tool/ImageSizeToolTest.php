@@ -41,6 +41,9 @@ class ImageSizeToolTest extends TestCase
     /** @var list<string> */
     private array $updates = [];
 
+    /** @var list<string> */
+    private array $fields = [];
+
     private function user(bool $isAdmin): BackendUser
     {
         $user = $this->createMock(BackendUser::class);
@@ -122,8 +125,9 @@ class ImageSizeToolTest extends TestCase
         $connection->method('fetchAllAssociative')->willReturn([['id' => 1, 'imageSizes' => null]]);
         $connection->method('fetchAssociative')->willReturn(['id' => 3, 'imageSizes' => serialize(['2'])]);
         $connection->method('fetchOne')->willReturn('2');
-        $connection->method('update')->willReturnCallback(function (string $table): int {
+        $connection->method('update')->willReturnCallback(function (string $table, array $data): int {
             $this->updates[] = $table;
+            $this->fields = [...$this->fields, ...array_keys($data)];
 
             return 1;
         });
@@ -175,6 +179,7 @@ class ImageSizeToolTest extends TestCase
         self::assertContains(['assertCreate', 'tl_image_size'], $this->asked);
         self::assertStringContainsString('"auto_granted"', $output);
         self::assertSame(['tl_user_group', 'tl_user'], $this->updates, 'groups unless custom, the user unless group');
+        self::assertSame(['imageSizes', 'imageSizes'], $this->fields, 'the userRoot of tl_image_size');
     }
 
     public function testAnAdminGetsNoAllowListEntry(): void

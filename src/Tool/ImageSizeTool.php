@@ -18,9 +18,10 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ImageSizeUpdateCommand;
  * Image sizes in the chat (v0.19.0) — the theme manager's sizes, which core-bundle and
  * the CLI could write since core v0.2.18 while the chat had no tool for them.
  *
- * Rights as in the back end: Contao's voter (theme manager module and the image size
- * right) plus the allow-list `imageSizes`, which the back end applies through its list
- * filter and DataContainerAccess applies here. A new size joins the editor's allow-lists
+ * Rights: Contao's voter (theme manager module and the image size right) plus the
+ * allow-list `imageSizes`. The back end applies that list to what it shows, not to a
+ * direct URL (DC_Table::edit asks the voter only); the chat applies it to every call —
+ * what an editor sees in the back end is what they reach here (DataContainerAccess). A new size joins the editor's allow-lists
  * as Contao's UserRootListener would add it (AllowListGrant). Variants: ImageSizeItemTool.
  * Listing goes through record_list (`tl_image_size`).
  */

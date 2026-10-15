@@ -36,6 +36,8 @@ class RecordListTool extends AbstractCoreCommandTool
         'tl_calendar', 'tl_calendar_events',
         'tl_faq', 'tl_faq_category',
         'tl_files',
+        // v0.19.0, the theme manager's image sizes (allow-list `imageSizes`).
+        'tl_image_size', 'tl_image_size_item',
     ];
 
     /**
@@ -219,9 +221,17 @@ class RecordListTool extends AbstractCoreCommandTool
             // voters read — pid, ptable, type). Until then a rebuild per table; one of
             // them (M-1, audit 2026-09-02) let the calendar module show every calendar.
             'tl_news', 'tl_news_archive', 'tl_page', 'tl_article', 'tl_content',
-            'tl_calendar', 'tl_calendar_events', 'tl_faq_category', 'tl_faq' => array_filter(
+            'tl_calendar', 'tl_calendar_events', 'tl_faq_category', 'tl_faq', 'tl_image_size' => array_filter(
                 $results,
                 fn ($row) => $this->canRead($table, $row),
+            ),
+            // Contao's variant voter does not look at the size, and the variant table
+            // has no allow-list of its own: a variant shows only with its size (v0.19.0).
+            'tl_image_size_item' => array_filter(
+                $results,
+                fn ($row) => $this->canRead($table, $row)
+                    && null !== ($item = $this->dcAccess->fetchRecord($table, (int) $row['id']))
+                    && $this->canRead('tl_image_size', ['id' => (int) $item['pid']]),
             ),
             // Dateien hängen an einem Pfad, nicht an einer ID. Contao prüft dabei
             // auch Unterordner eines Mounts (Präfix-Vergleich im Voter), deshalb

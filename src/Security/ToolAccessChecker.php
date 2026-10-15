@@ -11,9 +11,11 @@ class ToolAccessChecker
 {
     /**
      * Tools that require BackendUser::isAdmin === true on top of the module check.
-     * All destructive (delete) operations are admin-only by default — editors with
-     * a CRUD module can create/update/read but never delete via the agent. They
-     * can still delete via the regular backend module (which has a confirm dialog).
+     * The deletes of news, pages, articles and content are admin-only. The deletes
+     * added later (events, FAQ, image sizes and their variants) are not: Contao's
+     * voters decide them and the server asks the user before each (requireConfirmation,
+     * ConfirmationGateTest). The sentence here claimed every delete was admin-only
+     * until the image sizes came (review before v0.19.0).
      *
      * @var list<string>
      */

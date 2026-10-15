@@ -252,4 +252,42 @@ class MacroRecordRightsWiringTest extends TestCase
         self::assertStringNotContainsString('{"id":7}', $output);
         self::assertStringContainsString('{"id":9}', $output);
     }
+
+    /**
+     * v0.19.0: a variant shows only with its size — Contao's variant voter does not look
+     * at the size, and the allow-list `imageSizes` sits on the size.
+     */
+    public function testAVariantIsListedOnlyWithASizeTheUserMayRead(): void
+    {
+        $records = $this->createMock(DataContainerAccess::class);
+        $records->method('fetchRecord')->willReturnCallback(static fn (string $table, int $id): array => match ($table) {
+            'tl_image_size_item' => ['id' => $id, 'pid' => 20 === $id ? 4 : 9],
+            default              => ['id' => $id],
+        });
+        $records->method('isGranted')->willReturnCallback(
+            static fn (ReadAction $action): bool => 'tl_image_size' !== $action->getDataSource() || 4 === (int) $action->getCurrentId(),
+        );
+
+        $tool = new RecordListTool(
+            $this->createMock(ToolAccessChecker::class),
+            $this->createStub(TokenChecker::class),
+            $this->createMock(ContaoFramework::class),
+            $this->command(RecordListCommand::class, 1, '{"status":"ok","table":"tl_image_size_item","total":2,"results":[{"id":20},{"id":21}]}'),
+        );
+        $this->wire($tool, $records);
+        $themes = $this->createMock(BackendUser::class);
+        $themes->method('__get')->willReturnCallback(static fn (string $key) => match ($key) {
+            'isAdmin' => false,
+            'id'      => 3,
+            'modules' => ['themes'],
+            default   => null,
+        });
+        $themes->method('__isset')->willReturn(true);
+        $tool->setActingUserOverride($themes);
+
+        $output = $tool->listRecords('tl_image_size_item');
+
+        self::assertStringContainsString('{"id":20}', $output);
+        self::assertStringNotContainsString('{"id":21}', $output, 'its size 9 is not readable');
+    }
 }
