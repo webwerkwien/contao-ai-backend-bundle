@@ -20,18 +20,18 @@ Works with every contao-ai-core-bundle v0.19.0 worked with.
   calendar: the chat offered 23 tools before and 27 after; `event_read` returned an
   event of the allowed calendar and refused one of another calendar.
 
-  `ToolMapCoversEveryToolTest` reads every tool name through `getToolNames()` (class- and
-  method-level attributes) and fails on a name without an entry, and on an entry without
-  a tool.
+  `ToolMapCoversEveryToolTest` reads every tool name through the shipped `getToolNames()`
+  and fails on a name without an entry, and on an entry without a tool.
 - **The system prompt's list of tools a user may not call lacked the event, FAQ and image
   size tools.** A user without the module was neither offered them nor told they were out
   of reach. The test now compares that list with the tools as well. Found in the review.
 - `listAllowedTools()` runs the per-name check for every name. A name without a
-  `TOOL_MAP` entry was listed on the class-level decision alone, although a call is
-  refused for every non-admin; no such name is left, the test keeps it that way.
+  `TOOL_MAP` entry could be listed on the class-level decision alone (by a tool with its
+  own `isAccessibleBy()`), although a call is refused for every non-admin; no such name
+  is left, the test keeps it that way.
 - README: the tool table names the event, FAQ and image size tools, and the delete rule
-  says which deletes are admin-only and which ask first. It said every delete was
-  admin-only.
+  says that every delete asks first and which are also admin-only. It said every delete
+  was admin-only.
 
 ## v0.19.0 — 2026-10-15
 

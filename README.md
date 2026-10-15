@@ -100,7 +100,7 @@ Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, link
 
 **Extension commands** are offered per user: a command appears when the user's module rights reach every table its contract names; a command that names no tables is admin-only; one that states something `irreversible` asks the user before it runs.
 
-Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use. The **delete** tools for news, pages, articles and content are admin-only regardless of module membership; deleting an event, an FAQ entry, an image size or a variant is left to Contao's voters, and the chat asks the user before it runs. (Until v0.19.1 the event and FAQ tools reached admins only, by mistake.) Per-record checks ask Contao's own data container voters before each call (`isGranted('contao_dc.<table>', …)`, since v0.18.0), with the same create, read, update or delete action the back end builds, for admins too. So the chat follows the back end on page mounts and page rights, news archives, calendars and FAQ categories, allowed page and element types, the page hierarchy, error pages only below a root, articles only on pages with an article column, element nesting, the create and delete rights of the user group, and voters that extensions add. Content elements are accepted below articles, news and events, the parents Contao's voters judge; other parent tables stay with admins. Every write also respects the user's **field rights** ("Allowed fields" in the user group), exactly as the back-end form does: a field the user may not edit there is refused in the chat too, and when creating a record only a value other than the field's default needs the right (since v0.17.0).
+Permissions inherit from Contao's existing module rights. Admins see everything. Non-admins only see tools whose backing module they are allowed to use. Every **delete** asks the user before it runs. The deletes of news, pages, articles and content are additionally admin-only regardless of module membership; deleting an event, an FAQ entry, an image size or a variant is left to Contao's voters. (Until v0.19.1 the event and FAQ tools reached admins only, by mistake.) Per-record checks ask Contao's own data container voters before each call (`isGranted('contao_dc.<table>', …)`, since v0.18.0), with the same create, read, update or delete action the back end builds, for admins too. So the chat follows the back end on page mounts and page rights, news archives, calendars and FAQ categories, allowed page and element types, the page hierarchy, error pages only below a root, articles only on pages with an article column, element nesting, the create and delete rights of the user group, and voters that extensions add. Content elements are accepted below articles, news and events, the parents Contao's voters judge; other parent tables stay with admins. Every write also respects the user's **field rights** ("Allowed fields" in the user group), exactly as the back-end form does: a field the user may not edit there is refused in the chat too, and when creating a record only a value other than the field's default needs the right (since v0.17.0).
 
 ## CLI bridge — terminal access for admins and agents
 
@@ -155,8 +155,8 @@ feeds.
 
 Beyond that: the agent acts as the logged-in backend user and re-checks that
 user's permissions per record and per field ("Allowed fields", since v0.17.0),
-the delete tools for news, pages, articles and content are admin-only and every other
-delete asks the user first, write tools accept only an explicit allow-list of
+every delete asks the user first and those of news, pages, articles and content are
+admin-only, write tools accept only an explicit allow-list of
 fields, and every write is attributed to the acting
 user in `tl_version` and the system log.
 

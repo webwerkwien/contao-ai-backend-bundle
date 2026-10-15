@@ -39,7 +39,7 @@ class ToolMapCoversEveryToolTest extends TestCase
             }
             $relative = substr($file->getPathname(), \strlen($root) + 1, -4);
             $class    = 'Webwerkwien\\ContaoAiBackendBundle\\Tool\\' . str_replace(['/', '\\'], '\\', $relative);
-            self::assertTrue(class_exists($class) || interface_exists($class) || trait_exists($class), $class . ' loads');
+            self::assertTrue(class_exists($class) || interface_exists($class) || trait_exists($class) || enum_exists($class), $class . ' loads');
             if (!class_exists($class)) {
                 continue;
             }
