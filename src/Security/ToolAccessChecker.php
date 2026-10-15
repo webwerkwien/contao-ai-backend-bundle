@@ -47,6 +47,17 @@ class ToolAccessChecker
         'news_update' => ['module' => 'news',     'op' => 'edit'],
         'news_delete' => ['module' => 'news',     'op' => 'delete'],
         'news_read'   => ['module' => 'news',     'op' => 'read'],
+        // Events and FAQ (v0.19.1). The tools arrived in v0.6.0 without entries here,
+        // and a name without an entry is admin-only: editors with the calendar or FAQ
+        // module never saw them (ToolMapCoversEveryToolTest).
+        'event_create' => ['module' => 'calendar', 'op' => 'create'],
+        'event_update' => ['module' => 'calendar', 'op' => 'edit'],
+        'event_delete' => ['module' => 'calendar', 'op' => 'delete'],
+        'event_read'   => ['module' => 'calendar', 'op' => 'read'],
+        'faq_create'   => ['module' => 'faq',      'op' => 'create'],
+        'faq_update'   => ['module' => 'faq',      'op' => 'edit'],
+        'faq_delete'   => ['module' => 'faq',      'op' => 'delete'],
+        'faq_read'     => ['module' => 'faq',      'op' => 'read'],
         // Pages / Articles / Content
         'page_create'    => ['module' => 'page',    'op' => 'create'],
         'page_update'    => ['module' => 'page',    'op' => 'edit'],

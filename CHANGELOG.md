@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.19.1 — 2026-10-15
+
+Works with every contao-ai-core-bundle v0.19.0 worked with.
+
+### Fixed
+
+- **Editors with the calendar or FAQ module never saw the event and FAQ tools.**
+  `event_*` and `faq_*` arrived in v0.6.0 without entries in `ToolAccessChecker::TOOL_MAP`,
+  and a tool name without an entry is admin-only: `canUseTool()` answers false for every
+  other user, so the tool was neither offered to the model nor callable. The changelog of
+  v0.6.0 and the comment on `ADMIN_ONLY_TOOLS` both said editors could use them. Now the
+  eight names require the `calendar` or `faq` module; which calendar, category or record
+  an editor may touch is still decided by Contao's voters, as in v0.18.0.
+
+  Measured on Contao 5.7 with an editor who has the calendar module and one allowed
+  calendar: the chat offered 23 tools before and 27 after; `event_read` returned an
+  event of the allowed calendar and refused one of another calendar.
+
+  `ToolMapCoversEveryToolTest` reads every `#[AsTool]` name from `src/Tool` and fails on a
+  name without an entry, and on an entry without a tool.
+
 ## v0.19.0 — 2026-10-15
 
 Works with every contao-ai-core-bundle it worked with before. Cloning forms, newsletter channels, modules and layouts needs contao-ai-core-bundle v1.8.0;
