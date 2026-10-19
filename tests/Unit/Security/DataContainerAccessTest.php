@@ -182,6 +182,21 @@ class DataContainerAccessTest extends TestCase
         $this->access([])->fetchRecord('tl_page; DROP TABLE tl_user', 1);
     }
 
+    /**
+     * The core's name rule since v1.9.2: no `tl_` needed, at most 64 characters (v0.19.3).
+     */
+    public function testATableWithoutTheTlPrefixIsLookedUp(): void
+    {
+        self::assertSame(['id' => 4, 'title' => 'x'], $this->access(['cm_products' => [4 => ['id' => 4, 'title' => 'x']]])->fetchRecord('cm_products', 4));
+    }
+
+    public function testATableNameLongerThanMysqlAllowsIsRefused(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+
+        $this->access([])->fetchRecord(str_repeat('a', 65), 1);
+    }
+
     public function testATableThatDoesNotExistHasNoRecord(): void
     {
         self::assertNull($this->access([])->fetchRecord('tl_missing', 1));

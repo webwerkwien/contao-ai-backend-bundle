@@ -81,10 +81,31 @@ class ArticleTool extends AbstractCoreCommandTool
     )]
     public function update(int $id, array $fields): string
     {
-        $this->dcAccess->assertUpdate('tl_article', $id, self::writtenValues($fields));
+        $fields  = $this->writeFields($fields, 'tl_article');
+        $article = $this->dcAccess->assertUpdate('tl_article', $id, self::writtenValues($fields));
+        // Field rights first, so nobody confirms what is then refused (as page_publish).
+        $set = $this->buildSetOptions($fields, 'tl_article');
+
+        // Taking a live article offline removes its content from every visitor at
+        // once, like unpublishing a page, which has asked since 2026-09-02. The
+        // article did not (decided 2026-10-19, v0.19.3).
+        $published = $fields['published'] ?? null;
+        if (null !== $published && \in_array((string) $published, ['', '0'], true) && !empty($article['published'])) {
+            $staged = $this->requireConfirmation(
+                'article_update',
+                'unpublish:' . $id,
+                \sprintf('Den Artikel "%s" (ID %d) wirklich offline nehmen? Sein Inhalt ist danach für Besucher nicht mehr sichtbar.', (string) ($article['title'] ?? ''), $id),
+                ['id' => $id, 'action' => 'unpublish'],
+            );
+
+            if (null !== $staged) {
+                return $staged;
+            }
+        }
+
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields, 'tl_article'),
+            '--set' => $set,
         ], 'article_update');
     }
 

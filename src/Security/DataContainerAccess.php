@@ -183,7 +183,11 @@ class DataContainerAccess
      */
     public function fetchRecord(string $table, int $id): ?array
     {
-        if (!preg_match('/^tl_[a-z0-9_]+$/', $table)) {
+        // The core's rule since v1.9.2 (`TableName::isValid()`): an extension may name its
+        // tables without `tl_`, and MySQL ends identifiers at 64 characters. Written out
+        // instead of calling the class, which would raise the core requirement to 1.9.2.
+        // The chat reaches no foreign table either way: every tool checks its own list first.
+        if (!preg_match('/^[a-z0-9_]{1,64}$/i', $table)) {
             throw new ToolAccessDeniedException(\sprintf('Tabelle "%s" wird nicht unterstützt.', $table));
         }
 
