@@ -17,6 +17,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authorization\AccessDecisionManager;
 use Symfony\Component\Security\Core\Authorization\Strategy\PriorityStrategy;
+use Symfony\Component\Security\Core\Authorization\Voter\CacheableVoterInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
@@ -127,9 +128,79 @@ class DataContainerAccess
         private readonly TokenStorageInterface $tokenStorage,
         private readonly Connection $connection,
         #[AutowireIterator('security.voter')]
-        iterable $voters,
+        private readonly iterable $voters,
     ) {
         $this->decisionManager = new AccessDecisionManager($voters, new PriorityStrategy());
+    }
+
+    /**
+     * What Contao's own refusal does not say: which right is missing. The voters are asked
+     * one by one, only after a refusal; each refusing voter adds the setting an admin
+     * would look at (v0.19.3). Until then every refusal named the same list of rights, and
+     * finding the one that was missing took a voter-by-voter diagnosis — on 2026-10-19 the
+     * chat runner's test editor lacked `cud` on tl_content, then page rights (`chmod`),
+     * then the page type, each refused with the identical sentence.
+     *
+     * @return list<string>
+     */
+    private function missingRights(CreateAction|ReadAction|UpdateAction|DeleteAction $action): array
+    {
+        $token = $this->tokenStorage->getToken();
+        if (null === $token) {
+            return ['Keine Anmeldung im Backend.'];
+        }
+
+        $table = $action->getDataSource();
+        $attribute = ContaoCorePermissions::DC_PREFIX . $table;
+
+        if ($this->decisionManager->decide($token, [$attribute], $action)) {
+            // the voters allow it, so the allow-list of the table refused (inAllowList)
+            return [\sprintf('Der Datensatz steht nicht in Ihrer Freigabeliste (Benutzergruppe, Feld „%s").', $GLOBALS['TL_DCA'][$table]['config']['userRoot'] ?? 'Freigabe')];
+        }
+
+        $hints = [];
+        foreach ($this->voters as $voter) {
+            if ($voter instanceof CacheableVoterInterface && !$voter->supportsAttribute($attribute)) {
+                continue;
+            }
+            try {
+                $denied = VoterInterface::ACCESS_DENIED === $voter->vote($token, $action, [$attribute]);
+            } catch (\Throwable) {
+                continue; // a voter that cannot judge this subject says nothing about it
+            }
+            if ($denied) {
+                $hints[] = self::rightOf($voter::class, $action);
+            }
+        }
+
+        return array_values(array_unique($hints));
+    }
+
+    /**
+     * The setting behind a refusing voter, in the words of the user group form.
+     */
+    public static function rightOf(string $voterClass, CreateAction|ReadAction|UpdateAction|DeleteAction $action): string
+    {
+        $table = $action->getDataSource();
+        $short = substr((string) strrchr('\\' . $voterClass, '\\'), 1);
+        $operation = match (true) {
+            $action instanceof CreateAction => 'Anlegen',
+            $action instanceof DeleteAction => 'Löschen',
+            default                         => 'Bearbeiten',
+        };
+
+        return match ($short) {
+            'DcaPermissionVoter'       => \sprintf('Ihrer Benutzergruppe fehlt das Recht „%s" für %s (Benutzergruppe → Anlegen, Bearbeiten, Löschen), oder die Tabelle lässt das gar nicht zu.', $operation, $table),
+            'ArticleContentVoter'      => 'Es fehlt das Modul „Artikel" oder ein Recht an der Seite: Seitenmount, „Artikel bearbeiten" in den Zugriffsrechten der Seite (chmod) oder der Seitentyp unter den erlaubten Seitentypen.',
+            'PagePermissionVoter'      => 'Die Zugriffsrechte der Seite (Seitenmount, chmod) erlauben das nicht.',
+            // also judges the structure, for admins too: a root only on top, an error page directly below a root
+            'PageTypeAccessVoter'      => 'Dieser Seitentyp ist für Ihre Benutzergruppe nicht erlaubt, oder er gehört nicht an diese Stelle (ein Startpunkt nur ganz oben, Fehlerseiten direkt unter einem Startpunkt).',
+            'ContentElementTypeVoter'  => 'Dieser Elementtyp gehört nicht zu den erlaubten Elementtypen Ihrer Benutzergruppe.',
+            'TableAccessVoter'         => \sprintf('Ihrer Benutzergruppe fehlt das Modul für %s oder jedes Feldrecht darauf.', $table),
+            'ContentCompositionVoter'  => 'An dieser Stelle können keine Inhaltselemente liegen (das Layout der Seite hat keine Spalte dafür).',
+            'ContentElementNestingVoter' => 'Dieses Element nimmt keine verschachtelten Elemente dieses Typs auf.',
+            default                    => \sprintf('Abgelehnt von %s.', $short),
+        };
     }
 
     /**
@@ -265,7 +336,15 @@ class DataContainerAccess
      */
     public function denialReason(CreateAction|ReadAction|UpdateAction|DeleteAction $action, ?int $id): ?string
     {
-        return $this->isGranted($action) ? null : self::deniedMessage($action, $id);
+        return $this->isGranted($action) ? null : self::deniedMessage($action, $id) . self::concretely($this->missingRights($action));
+    }
+
+    /**
+     * @param list<string> $hints
+     */
+    private static function concretely(array $hints): string
+    {
+        return [] === $hints ? '' : ' Konkret: ' . implode(' ', $hints);
     }
 
     /**
@@ -355,7 +434,7 @@ class DataContainerAccess
     private function assert(CreateAction|ReadAction|UpdateAction|DeleteAction $action, ?int $id): void
     {
         if (!$this->isGranted($action)) {
-            throw new ToolAccessDeniedException(self::deniedMessage($action, $id));
+            throw new ToolAccessDeniedException(self::deniedMessage($action, $id) . self::concretely($this->missingRights($action)));
         }
     }
 }

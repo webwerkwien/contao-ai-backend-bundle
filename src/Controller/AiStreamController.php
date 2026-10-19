@@ -481,10 +481,39 @@ class AiStreamController extends AbstractController
         if ([] === $toolsUsed) {
             return $assistantContent;
         }
-        return \sprintf(
+        $stub = \sprintf(
             '[Vorheriger Turn: %s aufgerufen. IDs, Datensatz-Inhalte und Listen-Reihenfolge aus diesem Turn sind NICHT mehr im Kontext verfügbar. Wenn die nächste Anfrage auf einen Eintrag verweist ("der neueste", "diesen Eintrag", "ID X"), MUSS zuerst das passende Read- oder List-Tool erneut aufgerufen werden, um die aktuelle ID zu bestimmen — niemals ID raten.]',
             implode(', ', $toolsUsed),
         );
+
+        // The question the turn ended with stays (v0.19.3): it is what the user's next
+        // message answers. Without it a "Ja, bitte löschen." met a stub that said nothing
+        // was asked, and the model refused a delete it had just staged (chat runner,
+        // 2026-10-19, once in three runs). The question holds no record data the stub is
+        // there to keep out — the tools' own confirmation questions name a title and an ID.
+        // That ID is the price: two turns later the model could take it instead of
+        // listing again. A confirmation needs it; the system prompt still says to re-fetch.
+        $question = self::closingQuestion($assistantContent);
+
+        return null === $question ? $stub : $stub . ' Deine Antwort endete mit der Frage an den Benutzer: «' . $question . '»';
+    }
+
+    /**
+     * The last paragraph of an answer that ends with a question — the whole paragraph, as
+     * a confirmation says what it asks about before it asks ("Der Termin … soll gelöscht
+     * werden. Wirklich fortfahren?"). At most the last 300 characters.
+     */
+    public static function closingQuestion(string $assistantContent): ?string
+    {
+        // Markdown emphasis around the question (**…?**) does not hide it
+        $text = trim($assistantContent, " \t\n\r*_");
+        if (!str_ends_with($text, '?')) {
+            return null;
+        }
+        $lines = preg_split('/\R/', $text) ?: [];
+        $question = trim((string) end($lines), " *\t");
+
+        return '' === $question ? null : mb_substr($question, -300);
     }
 
     private function appendHistory(Request $request, BackendUser $user, string $userInput, string $assistantContent): void

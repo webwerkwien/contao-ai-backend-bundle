@@ -11,6 +11,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
@@ -641,6 +642,35 @@ abstract class AbstractCoreCommandTool
         ))));
 
         return $out;
+    }
+
+    /**
+     * A `fields` or `record` parameter as the model sends it: a list, an object, or the
+     * same as JSON text (v0.19.3). The text form came as a TypeError the model had to be
+     * told about and try again — 11 of 206 calls in the chat runner's first runs
+     * (2026-10-19), a full extra round trip each. `record_list` and `ext_run` took it all
+     * along. Text that is not JSON goes back to the model as its mistake.
+     *
+     * @param array<int|string, mixed>|string $value
+     *
+     * @return array<int|string, mixed>
+     *
+     * @throws ToolCallMistakeException
+     */
+    protected static function payload(array|string $value, string $parameter): array
+    {
+        if (\is_array($value)) {
+            return $value;
+        }
+        if ('' === trim($value)) {
+            return [];
+        }
+        $decoded = json_decode($value, true);
+        if (\is_array($decoded)) {
+            return $decoded;
+        }
+
+        throw new ToolCallMistakeException(\sprintf('`%s` takes field names and their values, as a list (["title", "Neu"]) or an object ({"title": "Neu"}); the text sent is neither.', $parameter));
     }
 
     /**

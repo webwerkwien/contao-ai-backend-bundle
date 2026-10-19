@@ -15,7 +15,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 
 #[AsTool('page_create',  'Create a new Contao page (sub-page or root)', method: 'create')]
 #[AsTool('page_update',  'Update one or more fields of a Contao page by ID', method: 'update')]
-#[AsTool('page_delete',  'Delete a Contao page by ID. Requires explicit confirmation.', method: 'delete')]
+#[AsTool('page_delete',  'Delete a Contao page by ID, together with its subpages, articles and content elements: do not delete those first, one confirmation covers it all. Requires explicit confirmation.', method: 'delete')]
 #[AsTool('page_read',    'Read a single page by ID', method: 'read')]
 #[AsTool('page_publish', 'Publish or unpublish a Contao page by ID', method: 'publish')]
 class PageTool extends AbstractCoreCommandTool
@@ -79,14 +79,15 @@ class PageTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Page ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "description": "…"}. Allowed field names: title, pageTitle, language, description, published, start, stop. Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "description": "…"}. Allowed field names: title, pageTitle, language, description, published, start, stop. Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $this->dcAccess->assertUpdate('tl_page', $id, self::writtenValues($fields));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,

@@ -123,7 +123,7 @@ class RecordCloneNewTablesTest extends TestCase
     public function testTheNewTablesAreClonedAfterTheRightsCheck(string $table): void
     {
         $checker = $this->createMock(RecordPermissionChecker::class);
-        $checker->expects($this->once())->method('assertRecordAccess')->with($this->anything(), $table, 4, 'edit');
+        $checker->expects($this->once())->method('assertRecordAccess')->with($this->anything(), $table, 4, 'read');
         $checker->expects($this->once())->method('assertCanCreateContainer')->with($this->anything(), $table, 4);
 
         self::assertStringContainsString('"status":"ok"', $this->tool(1, checker: $checker)->cloneRecord($table, 4));

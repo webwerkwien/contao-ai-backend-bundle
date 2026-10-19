@@ -305,6 +305,62 @@ class DataContainerAccessTest extends TestCase
         }
     }
 
+    /**
+     * v0.19.3: a refusal names the right that is missing, found by asking the voters one by
+     * one. Until then every refusal ended in the same list of possible rights.
+     */
+    public function testARefusalNamesTheVoterThatRefused(): void
+    {
+        $rows = ['tl_content' => [5 => ['id' => 5, 'pid' => 3, 'ptable' => 'tl_article', 'type' => 'text']]];
+
+        try {
+            $this->access($rows, granted: false)->assertUpdate('tl_content', 5, ['text' => 'x']);
+            self::fail('expected a refusal');
+        } catch (ToolAccessDeniedException $e) {
+            // the test's voter is a mock: unknown voters are named by class
+            self::assertMatchesRegularExpression('/Konkret: Abgelehnt von MockObject_VoterInterface_\w+\./', $e->getMessage());
+        }
+
+        self::assertStringContainsString(' Konkret: ', (string) $this->access($rows, granted: false)->denialReason(new ReadAction('tl_content', $rows['tl_content'][5]), 5));
+    }
+
+    public function testARefusalByTheAllowListSaysSo(): void
+    {
+        $GLOBALS['TL_DCA']['tl_image_size']['config']['userRoot'] = 'imageSizes';
+        $rows = ['tl_image_size' => [9 => ['id' => 9, 'name' => 'Hero']]];
+
+        try {
+            $this->access($rows, token: $this->signedIn(false, ['4']))->assertRead('tl_image_size', 9);
+            self::fail('expected a refusal');
+        } catch (ToolAccessDeniedException $e) {
+            self::assertStringContainsString('nicht in Ihrer Freigabeliste (Benutzergruppe, Feld „imageSizes")', $e->getMessage());
+        } finally {
+            unset($GLOBALS['TL_DCA']['tl_image_size']);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string, CreateAction|UpdateAction|DeleteAction, string}>
+     */
+    public static function refusingVoters(): iterable
+    {
+        $base = 'Contao\\CoreBundle\\Security\\Voter\\DataContainer\\';
+        yield 'cud, create'    => [$base . 'DcaPermissionVoter', new CreateAction('tl_content', []), 'das Recht „Anlegen" für tl_content'];
+        yield 'cud, delete'    => [$base . 'DcaPermissionVoter', new DeleteAction('tl_news', ['id' => 1]), 'das Recht „Löschen" für tl_news'];
+        yield 'page rights'    => [$base . 'ArticleContentVoter', new UpdateAction('tl_content', ['id' => 1]), 'Modul „Artikel" oder ein Recht an der Seite'];
+        yield 'page type'      => [$base . 'PageTypeAccessVoter', new UpdateAction('tl_page', ['id' => 1]), 'gehört nicht an diese Stelle'];
+        yield 'element type'   => [$base . 'ContentElementTypeVoter', new CreateAction('tl_content', []), 'erlaubten Elementtypen'];
+        yield 'an extension'   => ['Vendor\\Bundle\\ShopVoter', new UpdateAction('tl_shop', ['id' => 1]), 'Abgelehnt von ShopVoter.'];
+    }
+
+    /**
+     * @dataProvider refusingVoters
+     */
+    public function testTheMissingRightIsNamedInTheWordsOfTheGroupForm(string $voter, CreateAction|UpdateAction|DeleteAction $action, string $phrase): void
+    {
+        self::assertStringContainsString($phrase, DataContainerAccess::rightOf($voter, $action));
+    }
+
     public function testATableWithoutUserRootIsLeftToTheVoters(): void
     {
         $rows = ['tl_layout' => [9 => ['id' => 9, 'name' => 'Standard']]];

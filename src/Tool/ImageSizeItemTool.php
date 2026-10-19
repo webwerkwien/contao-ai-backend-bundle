@@ -50,14 +50,15 @@ class ImageSizeItemTool extends AbstractCoreCommandTool
     /**
      * @param int                        $imageSizeId Image size ID (tl_image_size) the variant belongs to
      * @param string                     $media       CSS media condition, e.g. "(max-width: 767px)"
-     * @param array<string,scalar|null> $fields      Further fields, e.g. {"width": "400", "height": "300"}. Allowed: width, height, resizeMode, zoom, densities, sizes, invisible.
+     * @param array<string,scalar|null>|string $fields      Further fields, e.g. {"width": "400", "height": "300"}. Allowed: width, height, resizeMode, zoom, densities, sizes, invisible.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size_item'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(int $imageSizeId, string $media, array $fields = []): string
+    public function create(int $imageSizeId, string $media, array|string $fields = []): string
     {
+        $fields = self::payload($fields, 'fields');
         $this->assertSizeEditable($imageSizeId);
         $this->dcAccess->assertCreate('tl_image_size_item', ['pid' => $imageSizeId, 'media' => $media]);
         $this->assertFieldsCreatable('tl_image_size_item', ['media' => $media] + (self::writtenValues($fields) ?? []));
@@ -71,14 +72,15 @@ class ImageSizeItemTool extends AbstractCoreCommandTool
 
     /**
      * @param int                        $id     Variant ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"media": "(max-width: 599px)"}. Allowed: media, width, height, resizeMode, zoom, densities, sizes, invisible.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"media": "(max-width: 599px)"}. Allowed: media, width, height, resizeMode, zoom, densities, sizes, invisible.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size_item'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $item = $this->dcAccess->assertUpdate('tl_image_size_item', $id, self::writtenValues($fields));
         $this->assertSizeEditable((int) $item['pid']);
 

@@ -85,14 +85,15 @@ class NewsTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id News entry ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"headline": "New title", "published": true, "teaser": "Lead text"}. Allowed field names: headline, subheadline, teaser, date, time, published, start, stop. Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"headline": "New title", "published": true, "teaser": "Lead text"}. Allowed field names: headline, subheadline, teaser, date, time, published, start, stop. Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_news'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $this->dcAccess->assertUpdate('tl_news', $id, self::writtenValues($fields));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,

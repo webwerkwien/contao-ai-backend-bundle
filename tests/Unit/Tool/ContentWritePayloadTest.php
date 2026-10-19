@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolCallMistakeException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -128,6 +129,31 @@ class ContentWritePayloadTest extends TestCase
         $this->send($tool, ['headline', 'Titel', 'unit', 'h2']);
 
         $this->assertSame(['headline' => 'Titel', 'headline_unit' => 'h2'], $voted);
+    }
+
+    /**
+     * v0.19.3: `fields` as JSON text, as the model sends it now and then — until then a
+     * TypeError and a second round trip (11 of 206 calls in the runner's first runs).
+     */
+    public function testFieldsAsJsonTextAreTakenToo(): void
+    {
+        $tool = $this->tool(['tl_content::headline', 'tl_content::invisible']);
+        $this->assertTrue(method_exists($tool, 'update'));
+
+        $tool->update(5, '{"invisible": "1", "headline": {"unit": "h3", "value": "Neu"}}');
+
+        $this->assertSame(['invisible=1', 'headline={"value":"Neu","unit":"h3"}'], $this->sent);
+    }
+
+    public function testTextThatIsNotJsonGoesBackToTheModel(): void
+    {
+        $tool = $this->tool(['tl_content::headline']);
+        $this->assertTrue(method_exists($tool, 'update'));
+
+        $this->expectException(ToolCallMistakeException::class);
+        $this->expectExceptionMessage('`fields` takes field names and their values');
+
+        $tool->update(5, 'headline = Neu');
     }
 
     public function testTheLevelNeedsTheRightOnTheHeadline(): void

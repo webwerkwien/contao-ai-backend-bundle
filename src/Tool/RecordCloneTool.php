@@ -184,11 +184,20 @@ class RecordCloneTool extends AbstractCoreCommandTool
             );
         }
 
-        // Phase 9.5: Source-Voter (Lese-Recht auf den Container, der geklont wird)
-        // + Container-Anlage-Voter (darf Editor überhaupt einen neuen Container
-        // anlegen). Beides per RecordPermissionChecker, das die existierenden
-        // Voter-Patterns aus den Single-Record-Tools wiederverwendet.
-        $this->permissionChecker->assertRecordAccess($user, $sourceTable, $sourceId, 'edit');
+        // The source as DC_Table's copy judges it: read access to an archive, form,
+        // channel, module or layout; for a page the copy question itself (edit or
+        // hierarchy right on it, recordCopyDenialReason()). Then the right to create
+        // the new container next to it. Until v0.19.2 the source needed the edit right,
+        // although this comment already said "read": an editor allowed to create
+        // archives but not to change them could not clone one (chat runner, 2026-10-19).
+        if ('tl_page' === $sourceTable) {
+            $reason = $this->permissionChecker->recordCopyDenialReason($user, 'tl_page', $sourceId);
+            if (null !== $reason) {
+                throw new ToolAccessDeniedException($reason);
+            }
+        } else {
+            $this->permissionChecker->assertRecordAccess($user, $sourceTable, $sourceId, 'read');
+        }
         $this->permissionChecker->assertCanCreateContainer($user, $sourceTable, $sourceId);
 
         // Phase 9.5.3: bei tl_page recursive=true muss der Editor jede Subpage

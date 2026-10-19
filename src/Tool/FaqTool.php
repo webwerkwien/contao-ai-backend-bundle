@@ -86,14 +86,15 @@ class FaqTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id FAQ entry ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"question": "Wie melde ich mich an?", "published": true}. Allowed field names: question, answer, published, pageTitle, description. Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"question": "Wie melde ich mich an?", "published": true}. Allowed field names: question, answer, published, pageTitle, description. Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_faq'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $this->dcAccess->assertUpdate('tl_faq', $id, self::writtenValues($fields));
 
         return $this->runCommand($this->updateCommand, [

@@ -24,6 +24,7 @@
 #   outcome   done | refused | asks   (asks: a question back, a confirmation or a
 #                                      clarification; nothing written in that turn)
 #   calls     tools that must be called (any order)
+#   calls_any at least one of these tools (where several answer the question)
 #   not_calls tools that must not be called
 #   records   checks per fixture record after the last turn:
 #             fields (dot path into JSON/inputUnit values), gone, versions (+n new)
@@ -493,7 +494,7 @@ scenarios:
     turns: ["Welche Felder hat eine News überhaupt?"]
     expect:
       outcome: done
-      calls: [dca_schema]
+      calls_any: [dca_schema, dca_palette]   # both answer it
 
   - id: options-lookup
     user: editor

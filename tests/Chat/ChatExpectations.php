@@ -85,6 +85,9 @@ final class ChatExpectations
                 $failures[] = "not called: {$tool}";
             }
         }
+        if ([] !== ($any = (array) ($expect['calls_any'] ?? [])) && [] === array_intersect($any, $called)) {
+            $failures[] = 'none of these called: ' . implode(', ', $any);
+        }
         foreach ((array) ($expect['not_calls'] ?? []) as $tool) {
             if (\in_array($tool, $called, true)) {
                 $failures[] = "called although it must not be: {$tool}";

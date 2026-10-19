@@ -60,14 +60,15 @@ class ImageSizeTool extends AbstractCoreCommandTool
     /**
      * @param int                        $themeId Theme ID (tl_theme) the size belongs to
      * @param string                     $name    Name shown in the back end, e.g. "Teaser"
-     * @param array<string,scalar|null> $fields  Further fields, e.g. {"width": "800", "height": "450", "resizeMode": "crop"}. Allowed: width, height, resizeMode (crop, box, proportional), zoom, densities (e.g. "1x, 2x"), sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
+     * @param array<string,scalar|null>|string $fields  Further fields, e.g. {"width": "800", "height": "450", "resizeMode": "crop"}. Allowed: width, height, resizeMode (crop, box, proportional), zoom, densities (e.g. "1x, 2x"), sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(int $themeId, string $name, array $fields = []): string
+    public function create(int $themeId, string $name, array|string $fields = []): string
     {
+        $fields = self::payload($fields, 'fields');
         if (null === $this->dcAccess->fetchRecord('tl_theme', $themeId)) {
             throw new ToolRefusedException(\sprintf('Theme %d nicht gefunden.', $themeId));
         }
@@ -83,14 +84,15 @@ class ImageSizeTool extends AbstractCoreCommandTool
 
     /**
      * @param int                        $id     Image size ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"width": "1200"}. Allowed: name, width, height, resizeMode, zoom, densities, sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"width": "1200"}. Allowed: name, width, height, resizeMode, zoom, densities, sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $this->dcAccess->assertUpdate('tl_image_size', $id, self::writtenValues($fields));
 
         return $this->runCommand($this->updateCommand, [

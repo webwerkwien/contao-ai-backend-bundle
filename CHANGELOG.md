@@ -2,6 +2,61 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.19.3 — 2026-10-19
+
+Works with every contao-ai-core-bundle v0.19.0 worked with. Changing an event's day or
+time through the chat needs core v0.28.0 or later, whose `contao:event:update` has the
+options for it; with an older core the chat says so.
+
+Found by the new chat runner (`tests/Chat`, development only): 67 scenarios of what
+editors ask, run through the agent of the chat page as a signed-in admin, editor and
+narrow editor, with every tool call recorded and the database checked afterwards.
+
+### Fixed
+
+- **The chat could not move an event or give it a time.** `event_update` passed
+  `startDate=2026-11-27` and `startTime=10:00` through `--set`, where the core refuses
+  them: those columns hold Unix timestamps. A day (YYYY-MM-DD) and a time (HH:MM) now go
+  to the command's own `--startDate`, `--endDate`, `--startTime`, `--endTime`, which store
+  them; a timestamp still goes through `--set`. Each needs its field right, a time also
+  the right on `addTime`, which the core sets with it.
+- **Cloning asked for the right to change the source.** `record_clone` checked the edit
+  right on the archive, form, channel, module or layout it copies, although its comment
+  said "read"; Contao's copy asks for read access and the right to create. An editor who
+  may create archives but not change them could not clone one. Now read access, and for a
+  page DC_Table's copy question (edit or hierarchy right on it), as for its subpages.
+- **Taking a live article offline asks first,** as unpublishing a page has since
+  2026-09-02. Its content disappears for every visitor at once. The field right is
+  checked before the question.
+- `article_delete` and `page_delete` say that the content goes with them: asked to delete
+  an article "with its content", the model deleted each element first and needed three
+  confirmations.
+
+### Changed
+
+- **A refusal names the missing right.** When Contao's voters refuse, the chat asks them
+  one by one and adds what the refusing one checks, in the words of the user group form:
+  the create/update/delete right of the table (`cud`, which Contao 5.7 gives every table
+  with editable fields), the page rights (`chmod`), the allowed page or element types, the
+  allow-list of the table. Named this way for pages, articles and content elements; a
+  refusal by another voter (an archive's, an extension's) names the voter. Until now every
+  refusal ended in the same list of possible rights; setting up the runner's test editor
+  took a voter-by-voter diagnosis.
+- **`fields` and `record` are taken as JSON text too,** in every tool that has them
+  (the `*_update` tools, the image size creates, `dca_palette`, `dca_options`), as
+  `record_list` and `ext_run` did. The model sends that form now and then: until now it
+  failed as a TypeError, was handed back and sent again — 11 of 206 calls in the runner's
+  first runs, a full extra round trip each. Text that is not JSON goes back to the model.
+- **A confirmation question survives into the next turn.** A turn that used tools is kept
+  in the history as a stub, so its IDs are not reused; the question it ended with is now
+  kept too, since the user's next message answers it. Without it, a "Ja, bitte löschen."
+  met no question, and once in three runs the model refused the delete it had staged.
+- `DataContainerAccess::fetchRecord()` takes the core's table name rule since v1.9.2:
+  letters, digits and underscores, at most 64, no `tl_` required. No change in the chat,
+  where every tool checks its own list first.
+- `AiStreamController::buildMessageBag()` and `buildHistoryAssistantContent()` are public
+  static, so the chat runner calls the page's own code.
+
 ## v0.19.2 — 2026-10-19
 
 Works with every contao-ai-core-bundle v0.19.0 worked with.

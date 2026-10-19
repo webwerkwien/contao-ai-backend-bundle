@@ -95,11 +95,12 @@ class MetaTool extends AbstractCoreCommandTool
      * never reach the agent are filtered out of the answer.
      *
      * @param string                    $table  Contao table name, e.g. tl_content
-     * @param array<string,scalar|null>  $record Values that choose the palette, e.g. {"type": "text"}
+     * @param array<string,scalar|null>|string  $record Values that choose the palette, e.g. {"type": "text"}
      */
     #[AiContract(writes: false, trace: [])]
-    public function dcaPalette(string $table, array $record = []): string
+    public function dcaPalette(string $table, array|string $record = []): string
     {
+        $record = self::payload($record, 'record');
         $this->assertDcaTable($table, 'dca_palette');
 
         return $this->runCommand($this->requireCommand($this->paletteCommand, 'dca_palette'), ['table' => $table, '--set' => self::recordOptions($record)], 'dca_palette');
@@ -110,11 +111,12 @@ class MetaTool extends AbstractCoreCommandTool
      *
      * @param string                    $table  Contao table name, e.g. tl_content
      * @param string                    $field  Field name, e.g. type
-     * @param array<string,scalar|null>  $record Values the options depend on, e.g. {"ptable": "tl_news"}
+     * @param array<string,scalar|null>|string  $record Values the options depend on, e.g. {"ptable": "tl_news"}
      */
     #[AiContract(writes: false, trace: [])]
-    public function dcaOptions(string $table, string $field, array $record = []): string
+    public function dcaOptions(string $table, string $field, array|string $record = []): string
     {
+        $record = self::payload($record, 'record');
         $this->assertDcaTable($table, 'dca_options');
 
         if (\in_array($field, self::SENSITIVE_FIELD_NAMES, true)) {

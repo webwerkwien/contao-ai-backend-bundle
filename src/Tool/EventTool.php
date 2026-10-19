@@ -101,21 +101,63 @@ class EventTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Event ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Sommerfest", "published": true, "location": "Rathausplatz"}. Allowed field names: title, teaser, location, address, startDate, endDate, addTime, startTime, endTime, published, start, stop, featured. Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Sommerfest", "published": true, "location": "Rathausplatz"}. Allowed field names: title, teaser, location, address, startDate, endDate, addTime, startTime, endTime, published, start, stop, featured. A day as YYYY-MM-DD (startDate, endDate), a time as HH:MM (startTime, endTime; a time makes it an event with a time). Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_calendar_events'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
+        $fields = $this->writeFields($fields, 'tl_calendar_events');
         $this->dcAccess->assertUpdate('tl_calendar_events', $id, self::writtenValues($fields));
 
+        // A day as 2026-11-27 and a time as 10:00 go to the command's own options, which
+        // turn them into the stored timestamps (and set addTime for a time). Through
+        // --set the core refuses them: those columns hold Unix timestamps. Until v0.19.2
+        // the chat could not move an event or give it a time (chat runner, 2026-10-19).
+        $times = [];
+        foreach (self::TIME_OPTIONS as $field => $pattern) {
+            $value = $fields[$field] ?? null;
+            if (\is_string($value) && preg_match($pattern, trim($value))) {
+                $times[$field] = trim($value);
+                unset($fields[$field]);
+            }
+        }
+        if ([] !== $times) {
+            // The options arrived in core v0.28.0 (2026-09-19); an older core would end
+            // in Symfony's "option does not exist" and a failure report.
+            if (!$this->updateCommand->getDefinition()->hasOption('startDate')) {
+                throw new ToolRefusedException('Datum und Uhrzeit eines Termins lassen sich im Chat erst mit contao-ai-core-bundle ab v0.28.0 ändern. Es wurde nichts geschrieben.');
+            }
+            // A time makes the core set addTime, so its right is needed as well — as it
+            // is when addTime comes through --set (Fable review 2026-10-19).
+            $rights = array_keys($times);
+            if (isset($times['startTime']) || isset($times['endTime'])) {
+                $rights[] = 'addTime';
+            }
+            $this->assertFieldsWritable('tl_calendar_events', $rights);
+        }
+
+        // A null option is not passed (runCommand()).
         return $this->runCommand($this->updateCommand, [
-            'id'    => (string) $id,
-            '--set' => $this->buildSetOptions($fields, 'tl_calendar_events'),
+            'id'          => (string) $id,
+            '--set'       => [] === $fields ? [] : $this->buildSetOptions($fields, 'tl_calendar_events'),
+            '--startDate' => $times['startDate'] ?? null,
+            '--endDate'   => $times['endDate'] ?? null,
+            '--startTime' => $times['startTime'] ?? null,
+            '--endTime'   => $times['endTime'] ?? null,
         ], 'event_update');
     }
+
+    /** Field => the human form the command's option of the same name takes. */
+    private const TIME_OPTIONS = [
+        'startDate' => '/^\d{4}-\d{2}-\d{2}$/',
+        'endDate'   => '/^\d{4}-\d{2}-\d{2}$/',
+        'startTime' => '/^\d{1,2}:\d{2}$/',
+        'endTime'   => '/^\d{1,2}:\d{2}$/',
+    ];
 
     #[AiContract(
         writes: true, tables: ['tl_calendar_events'], trace: ['tl_undo', 'tl_log'], traceWhen: 'on-success',

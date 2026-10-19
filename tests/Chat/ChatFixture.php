@@ -317,9 +317,11 @@ final class ChatFixture
     }
 
     /**
-     * Removes this build and whatever a scenario added in its containers' tables that
-     * carries one of the fixture's names. Anything else new is reported, not deleted:
-     * c5 is shared with other sessions.
+     * Removes this build and whatever a scenario added in its containers' tables: a new
+     * record whose first version was written by a test user or the runner, or a root of
+     * the fixture's domain. Anything else new is reported, not deleted: c5 is shared with
+     * other sessions. Until the Fable review of 2026-10-19 the test was the title — an
+     * archive "Aktuelles 2027" of a parallel session would have gone too.
      *
      * @return list<string> records found new but left alone
      */
@@ -327,6 +329,7 @@ final class ChatFixture
     {
         $state = $this->loadState();
         $leftAlone = [];
+        $authors = [self::OPERATOR, ...array_map('strval', (array) ($state['users'] ?? []))];
 
         // What scenarios created next to the fixture (a cloned archive, a new image size,
         // a root the voters should have refused).
@@ -337,7 +340,7 @@ final class ChatFixture
                 if ('tl_page' === $table && 'root' !== ($row['type'] ?? '')) {
                     continue; // pages below a fixture root go with it
                 }
-                if (self::looksLikeFixture((string) ($row[$label] ?? ''), (string) ($row['dns'] ?? ''))) {
+                if (str_contains((string) ($row['dns'] ?? ''), 'chat-test') || $this->writtenBy($table, (int) $row['id'], $authors)) {
                     $this->delete($table, (int) $row['id']);
                 } else {
                     $leftAlone[] = "{$table}.{$row['id']} \"" . ($row[$label] ?? '') . '"';
@@ -414,14 +417,17 @@ final class ChatFixture
         return \in_array($value, [true, 1, '1'], true) ? 1 : 0;
     }
 
-    private static function looksLikeFixture(string $label, string $dns): bool
+    /**
+     * Whether the record's first version names one of these users — a write through the
+     * bundle versions every new record under the acting user.
+     *
+     * @param list<string> $authors
+     */
+    private function writtenBy(string $table, int $id, array $authors): bool
     {
-        return str_contains($dns, 'chat-test')
-            || str_starts_with($label, 'Chat-Test')
-            || str_starts_with($label, 'Aktuelles')
-            || str_starts_with($label, 'Termine')
-            || str_starts_with($label, 'Fragen zur Anmeldung')
-            || 'Shop' === $label;
+        $first = $this->db->fetchOne('SELECT username FROM tl_version WHERE fromTable = ? AND pid = ? ORDER BY version, id LIMIT 1', [$table, $id]);
+
+        return \is_string($first) && \in_array($first, $authors, true);
     }
 
     private static function alias(string $title, string $ref): string

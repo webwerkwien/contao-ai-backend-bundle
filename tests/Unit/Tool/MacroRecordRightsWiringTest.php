@@ -128,7 +128,9 @@ class MacroRecordRightsWiringTest extends TestCase
     public function testACloneTheUserMayCreateRuns(): void
     {
         $checker = $this->createMock(RecordPermissionChecker::class);
-        $checker->expects($this->once())->method('assertRecordAccess')->with($this->anything(), 'tl_page', 4, 'edit');
+        // a page source is asked DC_Table's copy question (v0.19.3), not the edit right
+        $checker->expects($this->once())->method('recordCopyDenialReason')->with($this->anything(), 'tl_page', 4)->willReturn(null);
+        $checker->expects($this->never())->method('assertRecordAccess');
         $checker->expects($this->once())->method('assertCanCreateContainer')->with($this->anything(), 'tl_page', 4);
 
         self::assertStringContainsString('"status":"ok"', $this->cloneTool($checker, 1)->cloneRecord('tl_page', 4));
@@ -161,7 +163,8 @@ class MacroRecordRightsWiringTest extends TestCase
         } catch (ToolAccessDeniedException $e) {
             self::assertStringContainsString('8 (verweigert)', $e->getMessage());
         }
-        self::assertSame([['tl_page', 4], ['tl_page', 7], ['tl_page', 8]], $asked);
+        // the source first (v0.19.3), then every page of the subtree, the source included
+        self::assertSame([['tl_page', 4], ['tl_page', 4], ['tl_page', 7], ['tl_page', 8]], $asked);
     }
 
     /**

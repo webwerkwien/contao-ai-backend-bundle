@@ -14,7 +14,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand;
 
 #[AsTool('article_create', 'Create a Contao article inside a page column', method: 'create')]
 #[AsTool('article_update', 'Update one or more fields of a Contao article by ID', method: 'update')]
-#[AsTool('article_delete', 'Delete a Contao article by ID. Requires explicit confirmation.', method: 'delete')]
+#[AsTool('article_delete', 'Delete a Contao article by ID, together with its content elements: do not delete them one by one first, one confirmation covers it all. Requires explicit confirmation.', method: 'delete')]
 #[AsTool('article_read',   'Read a single article by ID', method: 'read')]
 class ArticleTool extends AbstractCoreCommandTool
 {
@@ -73,14 +73,15 @@ class ArticleTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Article ID
-     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "published": "1"}. Allowed field names: title, teaser, showTeaser, published, start, stop. Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "published": "1"}. Allowed field names: title, teaser, showTeaser, published, start, stop. Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_article'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         $fields  = $this->writeFields($fields, 'tl_article');
         $article = $this->dcAccess->assertUpdate('tl_article', $id, self::writtenValues($fields));
         // Field rights first, so nobody confirms what is then refused (as page_publish).

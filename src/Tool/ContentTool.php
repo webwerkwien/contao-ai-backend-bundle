@@ -84,14 +84,15 @@ class ContentTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Content element ID
-     * @param array<string,scalar|null> $fields Field names and their new values, e.g. ["text", "<p>Neu</p>", "invisible", "1"]. Allowed field names: headline, text, html, addImage, invisible, start, stop. headline as plain text keeps its level (h1–h6); to set the level, send headline as JSON {"unit":"h2","value":"Titel"}, or headline_unit alone to change only the level. invisible "1" hides the element, "" shows it again (the eye icon in the back end). Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, e.g. ["text", "<p>Neu</p>", "invisible", "1"]. Allowed field names: headline, text, html, addImage, invisible, start, stop. headline as plain text keeps its level (h1–h6); to set the level, send headline as JSON {"unit":"h2","value":"Titel"}, or headline_unit alone to change only the level. invisible "1" hides the element, "" shows it again (the eye icon in the back end). Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
-    public function update(int $id, array $fields): string
+    public function update(int $id, array|string $fields): string
     {
+        $fields = self::payload($fields, 'fields');
         // Before the voters see the values: a level sent on its own is the headline's.
         $fields = $this->writeFields($fields, 'tl_content');
         $this->assertVotedParent($this->dcAccess->assertUpdate('tl_content', $id, self::writtenValues($fields)));

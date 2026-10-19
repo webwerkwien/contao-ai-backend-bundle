@@ -56,6 +56,24 @@ A failure is a failure — fix the code, never the test.
 v0.6.0, and `ToolArgumentsMatchCommandTest` skipped every tool whose core command did not
 exist there — silently. After a core release: `composer update webwerkwien/contao-ai-core-bundle`.
 
+**What the chat does with a real model is a separate check: the chat runner**
+(`tests/Chat`, since 2026-10-19). `scenarios.yaml` holds what editors ask and what must
+follow — tools called or not, the records afterwards; `RunChatScenariosCommand` runs it on
+an installation through the agent of the chat page, as a signed-in user (a real security
+token: tool access, Contao's voters and field rights decide as on the page), on a fresh
+fixture per scenario, and records every tool call with its arguments, which the page
+never shows. It is not in the package; on the test server it is wired through the
+project's `composer.json` (autoload of `chat-runner/`) and `config/services.yaml`:
+
+```
+php vendor/bin/contao-console contao-ai:chat-scenarios chat-runner/scenarios.yaml --ai-from <admin with an AI key> [--only id,…] [--no-alt] [--out file.json]
+```
+
+`--without-token` is the counter-check (every write must be refused), `--votes role:ref:field`
+prints each voter's vote. Every scenario is a real call to the AI provider. Run it before a
+release that changes what a tool takes or answers: the chat defects fixed in v0.19.2 and
+v0.19.3 all passed the unit tests and showed only with a real model.
+
 **For a bug fix, write the failing test first.** Reproduce the bug as a test, run
 it, confirm it fails for the reason you expect, and commit that test before
 touching the implementation. Do not edit test files while making the fix. A test
