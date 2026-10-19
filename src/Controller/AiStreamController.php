@@ -202,7 +202,7 @@ class AiStreamController extends AbstractController
             return $this->errorResponse(412, $e->getMessage());
         }
 
-        $messages = $this->buildMessageBag($invocation->systemPrompt, $history, $userInput);
+        $messages = self::buildMessageBag($invocation->systemPrompt, $history, $userInput);
 
         // Reset the per-request tool-call tracker so we can decide afterwards
         // whether this turn touched any tool (-> persist a stub) or stayed
@@ -232,7 +232,7 @@ class AiStreamController extends AbstractController
             // this turn, the assistant content is replaced with a stub before
             // persisting (Phase-7 finding 2026-05-01): the model otherwise re-uses
             // its prior formatted answer on repeated questions and skips the tool.
-            $persistedAssistant = $this->buildHistoryAssistantContent(
+            $persistedAssistant = self::buildHistoryAssistantContent(
                 $assistantContent,
                 $this->toolCallLogger->getToolNames(),
             );
@@ -315,7 +315,7 @@ class AiStreamController extends AbstractController
     /**
      * @param list<array{role: string, content: string}> $history
      */
-    private function buildMessageBag(string $systemPrompt, array $history, string $userInput): MessageBag
+    public static function buildMessageBag(string $systemPrompt, array $history, string $userInput): MessageBag
     {
         $bag = new MessageBag(Message::forSystem($systemPrompt));
 
@@ -476,7 +476,7 @@ class AiStreamController extends AbstractController
      *
      * @param list<string> $toolsUsed
      */
-    private function buildHistoryAssistantContent(string $assistantContent, array $toolsUsed): string
+    public static function buildHistoryAssistantContent(string $assistantContent, array $toolsUsed): string
     {
         if ([] === $toolsUsed) {
             return $assistantContent;
