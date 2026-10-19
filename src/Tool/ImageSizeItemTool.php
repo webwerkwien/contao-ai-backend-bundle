@@ -50,7 +50,7 @@ class ImageSizeItemTool extends AbstractCoreCommandTool
     /**
      * @param int                        $imageSizeId Image size ID (tl_image_size) the variant belongs to
      * @param string                     $media       CSS media condition, e.g. "(max-width: 767px)"
-     * @param array<string, scalar|null> $fields      Further fields, e.g. {"width": "400", "height": "300"}. Allowed: width, height, resizeMode, zoom, densities, sizes, invisible.
+     * @param array<string,scalar|null> $fields      Further fields, e.g. {"width": "400", "height": "300"}. Allowed: width, height, resizeMode, zoom, densities, sizes, invisible.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size_item'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
@@ -71,7 +71,7 @@ class ImageSizeItemTool extends AbstractCoreCommandTool
 
     /**
      * @param int                        $id     Variant ID
-     * @param array<string, scalar|null> $fields Object mapping field name to new value, e.g. {"media": "(max-width: 599px)"}. Allowed: media, width, height, resizeMode, zoom, densities, sizes, invisible.
+     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"media": "(max-width: 599px)"}. Allowed: media, width, height, resizeMode, zoom, densities, sizes, invisible.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size_item'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',

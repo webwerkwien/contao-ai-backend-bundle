@@ -95,7 +95,7 @@ class MetaTool extends AbstractCoreCommandTool
      * never reach the agent are filtered out of the answer.
      *
      * @param string                    $table  Contao table name, e.g. tl_content
-     * @param array<string, scalar|null> $record Values that choose the palette, e.g. {"type": "text"}
+     * @param array<string,scalar|null>  $record Values that choose the palette, e.g. {"type": "text"}
      */
     #[AiContract(writes: false, trace: [])]
     public function dcaPalette(string $table, array $record = []): string
@@ -110,7 +110,7 @@ class MetaTool extends AbstractCoreCommandTool
      *
      * @param string                    $table  Contao table name, e.g. tl_content
      * @param string                    $field  Field name, e.g. type
-     * @param array<string, scalar|null> $record Values the options depend on, e.g. {"ptable": "tl_news"}
+     * @param array<string,scalar|null>  $record Values the options depend on, e.g. {"ptable": "tl_news"}
      */
     #[AiContract(writes: false, trace: [])]
     public function dcaOptions(string $table, string $field, array $record = []): string

@@ -103,7 +103,9 @@ abstract class AbstractCoreCommandTool
         $values = [];
         foreach (self::normalizeFieldsPayload($fields) as $key => $value) {
             if (null !== $value) {
-                $values[(string) $key] = (string) $value;
+                // An object compares as its JSON, not as "Array" (v0.19.2); buildSetOptions()
+                // decides whether it may be written at all.
+                $values[(string) $key] = \is_array($value) ? (string) json_encode($value) : (string) $value;
             }
         }
 
@@ -606,16 +608,19 @@ abstract class AbstractCoreCommandTool
         // like `[{"name": "headline", "value": "x"}]` or `[{"key": ..., "value": ...}]`,
         // or even a flat list `[{"headline": "x"}]`. Normalize all variants to
         // a single associative array so the rest of this method stays simple.
-        $fields = self::normalizeFieldsPayload($fields);
+        // writeFields() also folds a headline's level into the headline (v0.19.2).
+        $fields     = $this->writeFields($fields, $table);
+        $unitFields = $this->unitFields($table);
 
         $out = [];
         foreach ($fields as $key => $value) {
             if (null === $value) {
                 continue;
             }
-            if (!\in_array($key, $allowed, true)) {
+            if (!\in_array($key, $allowed, true) && !\in_array(self::unitBase((string) $key, $unitFields), $allowed, true)) {
                 throw new ToolAccessDeniedException(
                     \sprintf('Feld "%s" ist für dieses Tool nicht zum Schreiben freigegeben.', $key)
+                    . ('unit' === $key && [] !== $unitFields ? \sprintf(' Die Ebene einer Überschrift gehört zu ihrem Feld: "%s_unit" oder als JSON {"unit":…,"value":…} im Feld selbst.', $unitFields[0]) : '')
                 );
             }
             $stringValue = (string) $value;
@@ -629,9 +634,139 @@ abstract class AbstractCoreCommandTool
 
         // The tool's list says which fields the chat may write at all; the user's
         // group says which of them this user may (v0.17.0, see FieldPermission).
-        $this->assertFieldsWritable($table, array_map('strval', array_keys(array_filter($fields, static fn ($value): bool => null !== $value))));
+        // A level needs the right on its headline, as in the back end's form.
+        $this->assertFieldsWritable($table, array_values(array_unique(array_map(
+            static fn (int|string $key): string => self::unitBase((string) $key, $unitFields) ?? (string) $key,
+            array_keys(array_filter($fields, static fn ($value): bool => null !== $value)),
+        ))));
 
         return $out;
+    }
+
+    /**
+     * The write payload as the core command takes it (v0.19.2): normalized, a level the
+     * model sent on its own folded into its `inputUnit` field, a `{unit, value}` object as
+     * the JSON string the core reads.
+     *
+     * symfony/ai turns `array<string, scalar|null> $fields` into a list of scalars, so a
+     * model that wants to set a headline's level has no object to put it in. On showcase
+     * it sent the level as a field of its own (2026-10-19), and the chat answered
+     * `Feld "unit" ist für dieses Tool nicht zum Schreiben freigegeben`. The core takes
+     * `headline_unit` for exactly this; a bare `unit` (and a bare `value` with it) goes
+     * there when only one `inputUnit` field can be meant.
+     *
+     * Idempotent: buildSetOptions() runs it again on what a tool already passed through it.
+     *
+     * @param array<int|string, mixed> $fields
+     *
+     * @return array<string, scalar|null>
+     *
+     * @throws ToolRefusedException for an object that is not a `{unit, value}` pair
+     */
+    protected function writeFields(array $fields, string $table): array
+    {
+        $fields = self::normalizeFieldsPayload($fields);
+
+        foreach ($fields as $key => $value) {
+            if (\is_array($value)) {
+                // Only a field with a unit takes a pair; any other object would reach
+                // the command as the text "Array" (until v0.19.1).
+                $fields[$key] = self::unitPairJson((string) $key, $value, \in_array($key, $this->unitFields($table), true));
+            }
+        }
+
+        $allowed = $this->allowedFields();
+        $target  = \array_key_exists('unit', $fields) && !\in_array('unit', $allowed, true)
+            ? $this->unitTarget($fields, $table)
+            : null;
+
+        if (null !== $target && !\array_key_exists($target . '_unit', $fields)) {
+            $fields[$target . '_unit'] = $fields['unit'];
+            unset($fields['unit']);
+
+            // `{"unit": "h2", "value": "Titel"}` as the whole payload: the headline itself.
+            if (\array_key_exists('value', $fields) && !\in_array('value', $allowed, true) && !\array_key_exists($target, $fields)) {
+                $fields[$target] = $fields['value'];
+                unset($fields['value']);
+            }
+        }
+
+        /** @var array<string, scalar|null> $fields */
+        return $fields;
+    }
+
+    /**
+     * The `inputUnit` fields this tool may write.
+     *
+     * @return list<string>
+     */
+    private function unitFields(string $table): array
+    {
+        $allowed = $this->allowedFields();
+
+        return [] === $allowed
+            ? []
+            : array_values(array_intersect($allowed, $this->fieldPermission->inputUnitFields($table)));
+    }
+
+    /**
+     * The field a bare `unit` belongs to: the one `inputUnit` field the payload sets, or
+     * the tool's only one when the payload sets none (a level changed on its own).
+     *
+     * @param array<string, mixed> $fields
+     */
+    private function unitTarget(array $fields, string $table): ?string
+    {
+        $candidates = $this->unitFields($table);
+        $sent = array_values(array_filter($candidates, static fn (string $field): bool => \array_key_exists($field, $fields)));
+
+        return match (true) {
+            1 === \count($sent)                            => $sent[0],
+            [] === $sent && 1 === \count($candidates)      => $candidates[0],
+            default                                        => null,
+        };
+    }
+
+    /**
+     * `headline` for `headline_unit` when `headline` is one of the given fields, else null.
+     *
+     * @param list<string> $unitFields
+     */
+    private static function unitBase(string $key, array $unitFields): ?string
+    {
+        if (!str_ends_with($key, '_unit')) {
+            return null;
+        }
+
+        $base = substr($key, 0, -5);
+
+        return \in_array($base, $unitFields, true) ? $base : null;
+    }
+
+    /**
+     * @param array<mixed> $value
+     *
+     * @throws ToolRefusedException when the field takes no unit, or it is not a `{unit, value}` pair of plain values
+     */
+    private static function unitPairJson(string $key, array $value, bool $takesUnit): string
+    {
+        $text = $value['value'] ?? null;
+        $unit = $value['unit'] ?? null;
+
+        if (!$takesUnit || !\array_key_exists('value', $value) || [] !== array_diff(array_keys($value), ['value', 'unit'])
+            || !(\is_scalar($text) || null === $text) || !(\is_scalar($unit) || null === $unit)) {
+            throw new ToolRefusedException(\sprintf(
+                'Feld "%s" erwartet einen einfachen Wert, kein Objekt. Nur eine Überschrift nimmt {"unit":…,"value":…}. Es wurde nichts geschrieben.',
+                $key,
+            ));
+        }
+
+        $pair = ['value' => (string) $text];
+        if (null !== $unit && '' !== (string) $unit) {
+            $pair['unit'] = (string) $unit;
+        }
+
+        return json_encode($pair, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -648,8 +783,12 @@ abstract class AbstractCoreCommandTool
      *   - [{"f": "v"}, …]
      *   - ["f", "v", "f2", "v2"] (alternating, observed live)
      *
+     * A value stays what the model sent, an object included: the callers decide what
+     * an object means (writeFields() since v0.19.2). Until then this said scalar|null,
+     * and an object went on as the text "Array".
+     *
      * @param array<int|string, mixed> $fields
-     * @return array<string, scalar|null>
+     * @return array<string, mixed>
      */
     public static function normalizeFieldsPayload(array $fields): array
     {
@@ -659,7 +798,7 @@ abstract class AbstractCoreCommandTool
         // Already associative? Detect by checking for at least one non-int key.
         foreach (array_keys($fields) as $k) {
             if (!\is_int($k)) {
-                /** @var array<string, scalar|null> $fields */
+                /** @var array<string, mixed> $fields */
                 return $fields;
             }
         }

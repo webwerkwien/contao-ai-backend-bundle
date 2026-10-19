@@ -111,8 +111,8 @@ class ExtTool extends AbstractCoreCommandTool
     }
 
     /**
-     * @param array<string, scalar>|string                 $arguments by name, as ext_list gives them
-     * @param array<string, scalar|list<scalar>>|string    $options   by name; true for a flag
+     * @param array<string,scalar>|string                   $arguments by name, as ext_list gives them
+     * @param array<string,scalar|list<scalar>>|string      $options   by name; true for a flag
      */
     #[AiContract(writes: true, trace: ['tl_log'], traceWhen: 'before')]
     public function runCommandLine(string $command, array|string $arguments = [], array|string $options = []): string

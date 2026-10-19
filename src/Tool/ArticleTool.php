@@ -71,7 +71,10 @@ class ArticleTool extends AbstractCoreCommandTool
         ], 'article_create');
     }
 
-    /** @param array<string, scalar|null> $fields */
+    /**
+     * @param int $id Article ID
+     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "published": "1"}. Allowed field names: title, teaser, showTeaser, published, start, stop. Pass exactly the fields that should change.
+     */
     #[AiContract(
         writes: true, tables: ['tl_article'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],

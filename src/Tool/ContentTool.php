@@ -45,9 +45,11 @@ class ContentTool extends AbstractCoreCommandTool
     {
         return [
             // `published` was listed until v0.16.4; a content element's visibility is
-            // `invisible` in Contao 5, so the write always failed. Not replaced here.
+            // `invisible` in Contao 5, so the write always failed. Removed then without
+            // a replacement, so the chat could not hide or show an element at all —
+            // the eye icon in the back end (showcase, 2026-10-19). Back in v0.19.2.
             'headline', 'text', 'html', 'addImage',
-            'start', 'stop',
+            'invisible', 'start', 'stop',
         ];
     }
 
@@ -80,13 +82,18 @@ class ContentTool extends AbstractCoreCommandTool
         ], 'content_create');
     }
 
-    /** @param array<string, scalar|null> $fields */
+    /**
+     * @param int $id Content element ID
+     * @param array<string,scalar|null> $fields Field names and their new values, e.g. ["text", "<p>Neu</p>", "invisible", "1"]. Allowed field names: headline, text, html, addImage, invisible, start, stop. headline as plain text keeps its level (h1–h6); to set the level, send headline as JSON {"unit":"h2","value":"Titel"}, or headline_unit alone to change only the level. invisible "1" hides the element, "" shows it again (the eye icon in the back end). Pass exactly the fields that should change.
+     */
     #[AiContract(
         writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],
     )]
     public function update(int $id, array $fields): string
     {
+        // Before the voters see the values: a level sent on its own is the headline's.
+        $fields = $this->writeFields($fields, 'tl_content');
         $this->assertVotedParent($this->dcAccess->assertUpdate('tl_content', $id, self::writtenValues($fields)));
         return $this->runCommand($this->updateCommand, [
             'id'    => (string) $id,

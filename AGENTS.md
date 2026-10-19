@@ -111,6 +111,20 @@ that existed before the fix, and that could not be rewritten, is the proof.
   (`DataContainerAccess::contentParentDenial()`). Until v0.17.0 every tool
   rebuilt a part of this by hand (module plus archive or page right), and admins skipped
   it; don't add such a rebuild back.
+- **A tool parameter's `@param` type has no spaces** (`array<string,scalar|null>`, not
+  `array<string, scalar|null>`). symfony/ai reads the description from `@param \S+ $name`;
+  a space in the type hides the whole description from the model. Until v0.19.2 thirteen
+  parameters lost theirs this way, among them `fields` of `news_update`, `event_update` and
+  `faq_update` with their allowed field names and `modifications` of `record_clone` with
+  its rules on languages —
+  the model never saw any of it. `ParameterDescriptionsReachTheModelTest` checks every tool.
+- **Write payloads go through `writeFields()`** (v0.19.2, `buildSetOptions()` calls it).
+  The schema symfony/ai builds for `array $fields` is a list of scalars, so a model has no
+  object for a headline's level: it sends `["headline", "Titel", "unit", "h2"]`. A bare
+  `unit` becomes `<field>_unit` when one `inputUnit` field can be meant, a `{unit, value}`
+  object becomes the JSON the core reads, any other object is refused (it used to arrive
+  as the text "Array"). A tool that sends values to the voters first calls it before
+  `writtenValues()`, as `ContentTool::update()` does.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).

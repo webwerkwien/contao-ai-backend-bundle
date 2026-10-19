@@ -60,7 +60,7 @@ class ImageSizeTool extends AbstractCoreCommandTool
     /**
      * @param int                        $themeId Theme ID (tl_theme) the size belongs to
      * @param string                     $name    Name shown in the back end, e.g. "Teaser"
-     * @param array<string, scalar|null> $fields  Further fields, e.g. {"width": "800", "height": "450", "resizeMode": "crop"}. Allowed: width, height, resizeMode (crop, box, proportional), zoom, densities (e.g. "1x, 2x"), sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
+     * @param array<string,scalar|null> $fields  Further fields, e.g. {"width": "800", "height": "450", "resizeMode": "crop"}. Allowed: width, height, resizeMode (crop, box, proportional), zoom, densities (e.g. "1x, 2x"), sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
@@ -83,7 +83,7 @@ class ImageSizeTool extends AbstractCoreCommandTool
 
     /**
      * @param int                        $id     Image size ID
-     * @param array<string, scalar|null> $fields Object mapping field name to new value, e.g. {"width": "1200"}. Allowed: name, width, height, resizeMode, zoom, densities, sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
+     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"width": "1200"}. Allowed: name, width, height, resizeMode, zoom, densities, sizes, lazyLoading, preserveMetadata, formats, skipIfDimensionsMatch, imageQuality, cssClass.
      */
     #[AiContract(
         writes: true, tables: ['tl_image_size'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',

@@ -101,7 +101,7 @@ class EventTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Event ID
-     * @param array<string, scalar|null> $fields Object mapping field name to new value, e.g. {"title": "Sommerfest", "published": true, "location": "Rathausplatz"}. Allowed field names: title, teaser, location, address, startDate, endDate, addTime, startTime, endTime, published, start, stop, featured. Pass exactly the fields that should change.
+     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Sommerfest", "published": true, "location": "Rathausplatz"}. Allowed field names: title, teaser, location, address, startDate, endDate, addTime, startTime, endTime, published, start, stop, featured. Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_calendar_events'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',

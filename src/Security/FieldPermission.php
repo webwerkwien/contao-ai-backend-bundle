@@ -109,6 +109,27 @@ class FieldPermission
     }
 
     /**
+     * The fields of the table that hold a value with a unit (`inputUnit`: a content
+     * element's headline and its level). A write may name the unit as `<field>_unit`,
+     * which the core folds into the field (v0.19.2, see AbstractCoreCommandTool::writeFields()).
+     *
+     * @return list<string>
+     */
+    public function inputUnitFields(string $table): array
+    {
+        $this->loadDca($table);
+
+        $definitions = $GLOBALS['TL_DCA'][$table]['fields'] ?? [];
+
+        return \is_array($definitions)
+            ? array_map('strval', array_keys(array_filter(
+                $definitions,
+                static fn (mixed $definition): bool => \is_array($definition) && 'inputUnit' === ($definition['inputType'] ?? null),
+            )))
+            : [];
+    }
+
+    /**
      * @param list<string> $denied
      */
     private function refuse(string $table, array $denied): void

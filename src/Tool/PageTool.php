@@ -77,7 +77,10 @@ class PageTool extends AbstractCoreCommandTool
         ], 'page_create');
     }
 
-    /** @param array<string, scalar|null> $fields */
+    /**
+     * @param int $id Page ID
+     * @param array<string,scalar|null> $fields Field names and their new values, as a list of name and value (["published", "1"]) or as an object, e.g. {"title": "Neu", "description": "…"}. Allowed field names: title, pageTitle, language, description, published, start, stop. Pass exactly the fields that should change.
+     */
     #[AiContract(
         writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id'],

@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.19.2 — 2026-10-19
+
+Works with every contao-ai-core-bundle v0.19.0 worked with.
+
+### Fixed
+
+- **The chat could not set a headline's level.** Asked for an h3, it answered
+  `[access_denied] Feld "unit" ist für dieses Tool nicht zum Schreiben freigegeben` (found
+  on showcase in a live demo, 2026-10-19). symfony/ai describes `array $fields` as a list of
+  plain values, so the model has no object for `{unit, value}` and sends the level as a
+  field of its own: `["headline", "Titel", "unit", "h2"]`, on c5 also `"hl"`. Now a bare
+  `unit` goes to the headline as `headline_unit`, which the core already takes, whenever
+  only one field with a unit can be meant; a `{unit, value}` object for the headline is
+  passed on as the JSON the core reads. The level needs the user's right on `headline`, as
+  in the back end's form. Measured on Contao 5.7 through the chat: headline with h3, only
+  the level to h1, each with a version under the user's name.
+- **The chat could not hide or show a content element**, the eye icon in the back end.
+  `content_update` offered `published` until v0.16.4, which Contao 5 does not have; it was
+  removed without adding `invisible`. `invisible` is writable again, with the user's field
+  right and Contao's voters as for every other field (`"1"` hides, `""` shows).
+- **Thirteen tool parameters described themselves to nobody.** symfony/ai reads a
+  parameter's description from `@param <type> $name` only when the type has no space;
+  ours were written `array<string, scalar|null>`. So the model never saw the allowed field
+  names of `news_update`, `event_update`, `faq_update` and the image size tools, the
+  record shape of `dca_palette` and `dca_options`, nor the rules in `record_clone` (which fields a clone takes, and to ask the
+  user which language is the main one before cloning a root), the filter syntax of
+  `record_list` or the arguments of `ext_run`. All of them reach the model now, and the
+  `fields` descriptions name both shapes, a list of name and value or an object.
+  `content_update`, `article_update` and `page_update` have one for the first time;
+  `content_update`'s names the headline's JSON form, `headline_unit` and `invisible`. `ParameterDescriptionsReachTheModelTest` checks every
+  documented parameter of every tool.
+- An object as a field value went to the command through PHP's string cast, as the text
+  `Array`. It is refused now, except the headline's `{unit, value}`.
+
 ## v0.19.1 — 2026-10-15
 
 Works with every contao-ai-core-bundle v0.19.0 worked with.
