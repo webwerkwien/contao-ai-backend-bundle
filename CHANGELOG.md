@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.21.1 — 2026-10-20
+
+Works with every contao-ai-core-bundle v0.21.0 worked with; the `unlinkableArticles` of
+`language_check` come from core v1.11.1.
+
+From the acceptance test of v0.21.0 on showcase.conpai.eu (2026-10-20).
+
+### Fixed
+
+- **The chat keeps the user's form of address.** In one answer it switched from "du" to
+  "Sie" mid-conversation; the system prompt now says to keep "du" or "Sie" as the user
+  writes. Chat runner: scenario `address-stays-informal`.
+- `language_check` says that articles which cannot be linked — their page in the main
+  language or its root is unpublished — are listed apart with the reason
+  (`unlinkableArticles`, core v1.11.1), not a gap to close.
+
 ## v0.21.0 — 2026-10-20
 
 Works with every contao-ai-core-bundle v0.20.0 worked with. `language_versions` and the

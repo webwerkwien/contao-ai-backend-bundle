@@ -179,6 +179,18 @@ scenarios:
       says: ["Preise|deutsch|German"]
       says_not: ["nur (auf|in) Englisch", "only in English", "nur (in )?einer Sprach", "keine (anderen|weiteren) Sprach"]
 
+  - id: address-stays-informal
+    user: editor
+    turns:
+      - "Hallo, kannst du im Element {ct_intro} den Text auf 'Wir sind fünf Leute in Wien.' ändern? Danke dir!"
+      - "Super. Mach bitte auch die Überschrift von {ct_intro} zu einer h3."
+    expect:
+      # showcase, 2026-10-20: switched from "du" to "Sie" within one conversation (v0.21.1)
+      outcome: done
+      records:
+        ct_intro: { fields: { text: { contains: "fünf Leute" }, headline.unit: "h3" } }
+      says_not: ["möchten sie", "können sie", "wollen sie", "sollen sie", "\\bihnen\\b"]
+
   - id: language-versions-unpublish
     user: editor
     requires: [language_versions]

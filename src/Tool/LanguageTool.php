@@ -35,7 +35,8 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 #[AsTool(
     'language_check',
     'Reports missing or broken translation links per website root of another language: unlinked pages, links into the wrong tree, '
-    .'duplicates, unlinked articles, archives without master and their unlinked entries. Reads only.',
+    .'duplicates, unlinked articles, archives without master and their unlinked entries. Articles that cannot be linked because '
+    .'their page in the main language or its root is unpublished come apart, with the reason (unlinkableArticles) — not a gap to close. Reads only.',
     method: 'check',
 )]
 class LanguageTool extends AbstractCoreCommandTool
