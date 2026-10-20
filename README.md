@@ -51,7 +51,7 @@ In **System → Users → (user)**, these fields appear in the *AI agent* legend
 | Platform | yes | See *Providers* below. |
 | API key | depends | Stored in plain text — see *Security model*. Cloud providers need one; a self-hosted provider takes an endpoint instead. |
 | Endpoint URL | depends | **Administrators only** — not editable under *Personal data*, because it decides where the server sends requests. Only for providers without a fixed endpoint: Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
-| Model | depends | Optional for Anthropic and OpenAI, which ship a default. Required elsewhere. |
+| Model | depends | Optional for Anthropic and OpenAI: empty means the installation's default, shown as the field's placeholder. Required elsewhere. A model entered here is that user's default in the chat. |
 | CLI bridge token | optional | Only for `bridge clone` / `bridge rewrite` of [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) from the terminal — the chat does not need it. Click *Generate / Rotate* to mint a token. Cleartext is shown once with a *Copy token* button and, beneath it, the command that completes the setup with this site's address (`contao-ai-cli --session <name> bridge configure --url https://… --test`, which asks for the token with hidden input); only the `password_hash` is stored in the database. *Delete* revokes. |
 
 ## Providers
@@ -76,6 +76,25 @@ The list in the Platform select is derived from the installed
 `symfony/ai-*-platform` packages, read from each bridge's own factory signature.
 Nothing to register, no code to change. `composer suggests` lists further ones.
 
+### Choosing the model in the chat (v0.20.0)
+
+Below the input, next to the provider, the chat offers the models of the user's provider; the
+first is preselected, or the one in the user's profile. The server accepts only these — a model
+name from the browser is checked, so nobody spends money on a model the site did not choose.
+Which models are offered is the installation's choice:
+
+```yaml
+# config/config.yaml
+contao_ai_backend:
+    models:
+        anthropic: [claude-sonnet-5-5, claude-haiku-5-5]   # the first is the default
+        openai: [gpt-5.5]
+```
+
+Without it, Anthropic offers `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-5-5` and OpenAI
+`gpt-5.5`, `gpt-5.4-mini`. symfony/ai v0.14 does not list the Claude 5.5 models yet; the bundle
+adds them to the catalog until it does.
+
 Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry. The CLI bridge does not require the module mount but still respects the same per-record permission voters.
 
 The chat sits in the "System" group of the back-end menu, at `/contao/ai-chat`. Its template is `@Contao/backend/ai_chat.html.twig` and can be overridden in `templates/backend/ai_chat.html.twig` like any Contao template.
@@ -92,7 +111,7 @@ Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, link
 | Image sizes | `image_size_create`, `image_size_update`, `image_size_delete`, `image_size_read`, and the same four as `image_size_item_*` for the variants (v0.19.0) — module `themes` |
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
 | Article | `article_create`, `article_update`, `article_delete`, `article_read` |
-| Content | `content_create`, `content_update`, `content_delete`, `content_read` |
+| Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0) |
 | Meta    | `dca_schema`, `dca_palette`, `dca_options` (v0.16.0), `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 | Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |

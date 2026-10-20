@@ -351,6 +351,9 @@ class DataContainerAccessTest extends TestCase
         yield 'page type'      => [$base . 'PageTypeAccessVoter', new UpdateAction('tl_page', ['id' => 1]), 'gehört nicht an diese Stelle'];
         yield 'element type'   => [$base . 'ContentElementTypeVoter', new CreateAction('tl_content', []), 'erlaubten Elementtypen'];
         yield 'an extension'   => ['Vendor\\Bundle\\ShopVoter', new UpdateAction('tl_shop', ['id' => 1]), 'Abgelehnt von ShopVoter.'];
+        yield 'news archive'   => ['Contao\\NewsBundle\\Security\\Voter\\NewsArchiveAccessVoter', new DeleteAction('tl_news_archive', ['id' => 1]), 'das Recht zum Löschen solcher Archive'];
+        yield 'news entry'     => ['Contao\\NewsBundle\\Security\\Voter\\NewsAccessVoter', new UpdateAction('tl_news', ['id' => 1]), 'Freigabeliste der Benutzergruppe'];
+        yield 'image size'     => ['Contao\\CoreBundle\\Security\\Voter\\DataContainer\\ImageSizeAccessVoter', new UpdateAction('tl_image_size', ['id' => 1]), '„Bildgrößen" in den Theme-Rechten'];
     }
 
     /**

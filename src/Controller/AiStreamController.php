@@ -23,6 +23,9 @@ use Psr\Log\NullLogger;
 use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Symfony\AI\Platform\Result\MultiPartResult;
+use Symfony\AI\Platform\Result\TextResult;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\AiAccessVoter;
@@ -77,6 +80,7 @@ class AiStreamController extends AbstractController
         private readonly ErrorReportBuilder $errorReportBuilder,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger = new NullLogger(),
+        private readonly ?ModelChoice $modelChoice = null,
     ) {
     }
 
@@ -120,6 +124,31 @@ class AiStreamController extends AbstractController
      *
      * @throws ToolAccessDeniedException|ToolRefusedException|ToolExecutionException|\Throwable
      */
+    /**
+     * The answer as text. In several parts — thinking next to text, as claude-haiku-5-5
+     * sends it — the run's content is the list of parts, and cast to string it read
+     * "Array" in the chat (c5, 2026-10-20). The text parts are the answer.
+     */
+    public static function answerText(mixed $content): string
+    {
+        if (!\is_array($content)) {
+            return (string) $content;
+        }
+
+        $text = '';
+        foreach ($content as $part) {
+            if ($part instanceof TextResult) {
+                $text .= $part->getContent();
+            } elseif ($part instanceof MultiPartResult) {
+                $text .= $part->asText();
+            } elseif (\is_string($part)) {
+                $text .= $part;
+            }
+        }
+
+        return $text;
+    }
+
     public static function runAgent(AgentInvocation $invocation, MessageBag $messages, string $toolNotAllowed): string
     {
         try {
@@ -128,7 +157,7 @@ class AiStreamController extends AbstractController
             ]);
 
             // The run is lazy since 0.13: it happens here, and so do the failures.
-            return (string) $result->getContent();
+            return self::answerText($result->getContent());
         } catch (ToolNotFoundException $e) {
             // The same exception comes from the toolbox for a name no tool has —
             // one the model invented. Since v0.12.0 SelfCorrectingToolbox answers
@@ -186,6 +215,15 @@ class AiStreamController extends AbstractController
             return $this->errorResponse(429, $this->label('rate_limited'));
         }
 
+        // The model picked in the chat (v0.20.0), only one of the user's choices: a name
+        // from the browser would otherwise let anyone spend money on any model.
+        $model = trim((string) ($payload['model'] ?? ''));
+        if ('' === $model) {
+            $model = null;
+        } elseif (null === $this->modelChoice || !$this->modelChoice->allows($user, $model)) {
+            return $this->errorResponse(400, $this->label('model_not_allowed'));
+        }
+
         $userInput = (string) ($payload['message'] ?? '');
         if ('' === trim($userInput)) {
             return $this->errorResponse(400, $this->label('empty_message'));
@@ -197,7 +235,7 @@ class AiStreamController extends AbstractController
         $history = $this->loadHistory($request, $user);
 
         try {
-            $invocation = $this->agentFactory->createForUser($user);
+            $invocation = $this->agentFactory->createForUser($user, $model);
         } catch (AiConfigException $e) {
             return $this->errorResponse(412, $e->getMessage());
         }

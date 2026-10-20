@@ -5,18 +5,44 @@ namespace Webwerkwien\ContaoAiBackendBundle;
 use Contao\CalendarEventsModel;
 use Contao\FaqModel;
 use Contao\NewsModel;
+use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 class ContaoAiBackendBundle extends AbstractBundle
 {
+    /**
+     * `contao_ai_backend.models` (v0.20.0): the models a user may pick in the chat, per
+     * platform, the first being the default. Without it the bridge's own list applies.
+     *
+     *     contao_ai_backend:
+     *         models:
+     *             anthropic: [claude-sonnet-5-5, claude-haiku-5-5]
+     *             openai: [gpt-5.5]
+     */
+    public function configure(DefinitionConfigurator $definition): void
+    {
+        $definition->rootNode()
+            ->children()
+                ->arrayNode('models')
+                    ->info('Models users may pick in the chat, per platform key (anthropic, openai, ollama …); the first is the default.')
+                    ->useAttributeAsKey('platform')
+                    ->arrayPrototype()
+                        ->scalarPrototype()->cannotBeEmpty()->end()
+                    ->end()
+                    ->defaultValue([])
+                ->end()
+            ->end();
+    }
+
     /** @param array<string, mixed> $config */
     public function loadExtension(
         array $config,
         ContainerConfigurator $containerConfigurator,
         ContainerBuilder $containerBuilder,
     ): void {
+        $containerBuilder->setParameter('contao_ai_backend.models', (array) ($config['models'] ?? []));
         $containerConfigurator->import('../config/services.yaml');
 
         // Plugin-bedingte Tools/Rewriter: Klassen referenzieren plugin-spezifische

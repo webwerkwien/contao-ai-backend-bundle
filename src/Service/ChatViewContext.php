@@ -6,6 +6,7 @@ use Contao\BackendUser;
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
 
 /**
@@ -24,6 +25,7 @@ class ChatViewContext
         private readonly UserAiConfig $userConfig,
         private readonly ToolAccessChecker $toolAccess,
         private readonly PlatformResolver $platformResolver,
+        private readonly ?ModelChoice $modelChoice = null,
     ) {
     }
 
@@ -48,6 +50,8 @@ class ChatViewContext
             'hasKey'    => null === $blocker,
             'blocker'   => $blocker,
             'platform'  => $config->platform,
+            // what the user may pick in the chat, the preselected one first (v0.20.0)
+            'models'    => null === $blocker && null !== $this->modelChoice ? $this->modelChoice->choicesFor($user) : [],
             'tools'     => $this->toolAccess->listAllowedTools($user),
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),

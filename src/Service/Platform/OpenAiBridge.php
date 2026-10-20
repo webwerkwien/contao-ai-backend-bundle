@@ -7,9 +7,24 @@ use Symfony\AI\Platform\PlatformInterface;
 
 class OpenAiBridge implements PlatformBridgeInterface
 {
+    /**
+     * What a user may pick in the chat when the installation configures nothing
+     * (`contao_ai_backend.models.openai`); the first is the default (v0.20.0). Both are in
+     * symfony/ai's catalog with tool calling. Until then the default was gpt-4o-mini.
+     */
+    public const MODELS = ['gpt-5.5', 'gpt-5.4-mini'];
+
     public function __construct(
-        private readonly string $defaultModel = 'gpt-4o-mini',
+        private readonly string $defaultModel = self::MODELS[0],
     ) {
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getModels(): array
+    {
+        return self::MODELS;
     }
 
     public function getName(): string

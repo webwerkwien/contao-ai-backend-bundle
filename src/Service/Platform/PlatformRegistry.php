@@ -32,6 +32,45 @@ class PlatformRegistry
     private ?array $descriptors = null;
 
     /**
+     * The models a bridge offers in the chat — not part of PlatformBridgeInterface, so a
+     * bridge written elsewhere keeps working without it (v0.20.0).
+     *
+     * @return list<string>
+     */
+    private static function bridgeModels(PlatformBridgeInterface $bridge): array
+    {
+        return method_exists($bridge, 'getModels') ? array_values(array_map('strval', (array) $bridge->getModels())) : [];
+    }
+
+    /**
+     * What a hand-written bridge adds to the installed package's factory (v0.20.0) — for
+     * Anthropic a model catalog with the models symfony/ai does not list yet. Where the
+     * package is installed, its factory builds the platform and the bridge's own
+     * createPlatform() never runs; without this the catalog addition was dead code and
+     * `claude-sonnet-5-5` failed with "No provider found" (measured on c5, 2026-10-20).
+     * Only arguments the factory declares are passed.
+     *
+     * @return array<string, mixed>
+     */
+    private function bridgeFactoryArguments(string $key, string $factoryClass): array
+    {
+        foreach ($this->explicitBridges as $bridge) {
+            if ($bridge->getName() !== $key || !method_exists($bridge, 'factoryArguments')) {
+                continue;
+            }
+
+            $declared = array_map(
+                static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+                (new \ReflectionMethod($factoryClass, 'createPlatform'))->getParameters(),
+            );
+
+            return array_intersect_key((array) $bridge->factoryArguments(), array_flip($declared));
+        }
+
+        return [];
+    }
+
+    /**
      * Display names for the providers we actually have an opinion about.
      * Anything else falls back to the bridge's own key — a missing label is
      * cosmetic, and inventing one would be a claim we cannot back.
@@ -230,6 +269,8 @@ class PlatformRegistry
             ));
         }
 
+        $args += $this->bridgeFactoryArguments($key, $descriptor->factoryClass);
+
         /** @var callable $factory */
         $factory = [$descriptor->factoryClass, 'createPlatform'];
 
@@ -284,6 +325,7 @@ class PlatformRegistry
                     baseUrlRequired: $found[$key]->baseUrlRequired,
                     baseUrlDefault:  $found[$key]->baseUrlDefault,
                     defaultModel:    $bridge->getDefaultModel(),
+                    models:          self::bridgeModels($bridge),
                 );
                 continue;
             }
@@ -296,6 +338,7 @@ class PlatformRegistry
                 apiKeyParam:    'apiKey',
                 apiKeyRequired: true,
                 defaultModel:   $bridge->getDefaultModel(),
+                models:         self::bridgeModels($bridge),
             );
         }
 

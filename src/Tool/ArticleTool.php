@@ -91,7 +91,8 @@ class ArticleTool extends AbstractCoreCommandTool
         // once, like unpublishing a page, which has asked since 2026-09-02. The
         // article did not (decided 2026-10-19, v0.19.3).
         $published = $fields['published'] ?? null;
-        if (null !== $published && \in_array((string) $published, ['', '0'], true) && !empty($article['published'])) {
+        // "false" as text too, as the core reads it (EventTimes::flag); false itself casts to ''
+        if (null !== $published && \in_array(strtolower(trim((string) $published)), ['', '0', 'false'], true) && !empty($article['published'])) {
             $staged = $this->requireConfirmation(
                 'article_update',
                 'unpublish:' . $id,

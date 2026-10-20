@@ -28,6 +28,8 @@ $GLOBALS['TL_LANG']['ai_chat']['copied']         = 'Copied';
 
 $GLOBALS['TL_LANG']['ai_chat']['unknown_error']    = 'Unknown error';
 $GLOBALS['TL_LANG']['ai_chat']['rate_limited']     = 'Too many requests. Please wait a moment.';
+$GLOBALS['TL_LANG']['ai_chat']['model_not_allowed'] = 'This model is not one of the choices here.';
+$GLOBALS['TL_LANG']['ai_chat']['model_label']      = 'Model';
 $GLOBALS['TL_LANG']['ai_chat']['empty_message']    = 'Empty message.';
 $GLOBALS['TL_LANG']['ai_chat']['message_too_long'] = 'Message too long.';
 $GLOBALS['TL_LANG']['ai_chat']['internal_error']   = 'Internal error — see the log file';

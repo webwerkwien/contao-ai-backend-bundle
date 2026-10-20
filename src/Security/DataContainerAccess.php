@@ -199,6 +199,13 @@ class DataContainerAccess
             'TableAccessVoter'         => \sprintf('Ihrer Benutzergruppe fehlt das Modul für %s oder jedes Feldrecht darauf.', $table),
             'ContentCompositionVoter'  => 'An dieser Stelle können keine Inhaltselemente liegen (das Layout der Seite hat keine Spalte dafür).',
             'ContentElementNestingVoter' => 'Dieses Element nimmt keine verschachtelten Elemente dieses Typs auf.',
+            // v0.20.0: the archive voters — module, allow-list, create/delete right of the archive
+            'NewsArchiveAccessVoter', 'CalendarAccessVoter', 'FaqCategoryAccessVoter', 'FormAccessVoter'
+                                       => \sprintf('Es fehlt das Modul, der Eintrag in der Freigabeliste der Benutzergruppe oder das Recht zum %s solcher Archive (Benutzergruppe → Archivrechte).', $operation),
+            'NewsAccessVoter', 'CalendarEventsAccessVoter', 'FaqAccessVoter'
+                                       => 'Es fehlt das Modul oder das übergeordnete Archiv steht nicht in der Freigabeliste der Benutzergruppe.',
+            'ImageSizeAccessVoter', 'ImageSizeItemAccessVoter'
+                                       => 'Es fehlt das Modul „Themes" oder das Recht „Bildgrößen" in den Theme-Rechten der Benutzergruppe.',
             default                    => \sprintf('Abgelehnt von %s.', $short),
         };
     }

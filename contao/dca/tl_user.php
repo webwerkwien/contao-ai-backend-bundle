@@ -120,6 +120,9 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_base_url'] = [
 // Endpunkt kennt, aber nicht, welches Modell eine Seite bezahlen will.
 $GLOBALS['TL_DCA']['tl_user']['fields']['ai_model'] = [
     'inputType' => 'text',
+    // v0.20.0: an empty field shows the model that runs then; the chat offers this one
+    // and the installation's others (contao_ai_backend.models) to pick from.
+    'load_callback' => [['Webwerkwien\\ContaoAiBackendBundle\\Dca\\TlUserCallback', 'modelPlaceholder']],
     'eval'      => [
         'tl_class'  => 'w50',
         'maxlength' => 128,

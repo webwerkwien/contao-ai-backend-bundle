@@ -2,6 +2,64 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.20.0 — 2026-10-20
+
+Works with every contao-ai-core-bundle v0.19.3 worked with. `content_find` needs core
+v1.10.0 and is offered only where the core has it.
+
+From a chat analysis on showcase.conpai.eu: changing one slider headline took 26–30 s and
+9–10 lookups before the one write, and on a site with two languages the chat changed the
+wrong one and translated it on the way (2026-10-19).
+
+### Added
+
+- **`content_find`** — content elements by their text (headline, text, HTML), each with
+  article, page and the website root with its language; through the core's
+  `contao:content:find`. Every hit is voted on as a read of that element, as
+  `content_read` decides it; what the user may not read is left out and counted
+  (`hidden`), not named. On c5 the same request took 3 calls instead of 9–10. The system
+  prompt says to use it for "the element that shows this text".
+- **Choosing the model in the chat.** Next to the provider, below the input, the chat
+  offers the models of the user's provider, the profile's model or the first preselected.
+  The server takes only these (`model_not_allowed` otherwise): a model name from the
+  browser would let anyone spend money on any model. Which models: the new bundle setting
+  `contao_ai_backend.models` per provider, the first being the default; without it the
+  bridge's own list.
+- The model field in the user profile shows, when empty, the model that runs then.
+
+### Changed
+
+- **Current default models:** `claude-sonnet-5-5` (was `claude-sonnet-4-5-20250929`) and
+  `gpt-5.5` (was `gpt-4o-mini`), with `claude-haiku-5-5`, `claude-opus-5-5` and
+  `gpt-5.4-mini` to pick from. symfony/ai v0.14.1 does not list the Claude 5.5 models; the
+  Anthropic bridge adds them to the catalog (same capabilities as `claude-sonnet-4-6`), also
+  where the installed package's factory builds the platform — the bridge's own
+  `createPlatform()` does not run there, which the first version of this addition missed.
+- **Several languages:** the system prompt says to change the version that shows the quoted
+  text, or the language named, not the one in the language the user writes in, and to ask
+  afterwards whether the other versions should follow. No silent translation.
+- `search_query` says it answers pages from the search index, never one with `noindex` —
+  Contao does not index those (SearchIndexListener; a `noindex` in the X-Robots-Tag header
+  wins even over `always_index`) — and points to `content_find`.
+- Refusals by the news, calendar, FAQ, form and image size voters name the missing right
+  (module, allow-list, archive rights, theme right "image sizes") instead of the voter.
+- `record_clone`'s description no longer calls the root fields "admins only": they need the
+  user's field right.
+- Taking an article offline with `published: "false"` (as text) asks first too.
+
+### Fixed
+
+- **An answer in several parts read "Array".** A model that sends thinking next to its text
+  (`claude-haiku-5-5` does) produced a run whose content is the list of parts; cast to
+  string the chat showed "Array". Its text parts are the answer now (found on c5).
+
+### Chat runner
+
+- New expectation `max_calls` (successful tool calls over all turns); scenarios for
+  `content_find` and for a site with two languages; 70 scenarios.
+- Error messages and tool results are scrubbed as on the chat page before they reach
+  `--out` (Fable review 2026-10-19).
+
 ## v0.19.3 — 2026-10-19
 
 Works with every contao-ai-core-bundle v0.19.0 worked with. Changing an event's day or

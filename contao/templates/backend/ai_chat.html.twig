@@ -87,6 +87,7 @@
         .ai-chat__form textarea:disabled { background: var(--form-bg-hover, #fafafa); color: var(--form-text-disabled, #888); }
         .ai-chat__form-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
         .ai-chat__hint { color: var(--gray, #666); }
+        .ai-chat__model { font-size: inherit; padding: 0 .25rem; max-width: 14rem; }
     </style>
 
     <div class="ai-chat" id="ai-chat-root"
@@ -101,7 +102,14 @@
                       placeholder="{{ 'ai_chat.input_placeholder'|trans({}, 'contao_ai_chat') }}"
                       aria-label="{{ 'ai_chat.input_label'|trans({}, 'contao_ai_chat') }}"></textarea>
             <div class="ai-chat__form-row">
-                <small class="ai-chat__hint">{{ 'ai_chat.tools_available'|trans([tools|length], 'contao_ai_chat') }} · {{ platform|slice(0, 40) }}</small>
+                <small class="ai-chat__hint">{{ 'ai_chat.tools_available'|trans([tools|length], 'contao_ai_chat') }} · {{ platform|slice(0, 40) }}
+                    {%- if models|default([])|length > 1 %} ·
+                        <label for="ai-chat-model" class="invisible">{{ 'ai_chat.model_label'|trans({}, 'contao_ai_chat') }}</label>
+                        <select id="ai-chat-model" class="ai-chat__model" aria-label="{{ 'ai_chat.model_label'|trans({}, 'contao_ai_chat') }}">
+                            {%- for model in models %}<option value="{{ model|e('html_attr') }}">{{ model }}</option>{% endfor -%}
+                        </select>
+                    {%- elseif models|default([])|length == 1 %} · {{ models|first }}{% endif -%}
+                </small>
                 <button type="submit" class="tl_submit" id="ai-chat-submit">{{ 'ai_chat.send'|trans({}, 'contao_ai_chat') }}</button>
             </div>
         </form>
@@ -113,6 +121,7 @@
         if (root) {
             const streamUrl = root.dataset.streamUrl;
             const csrfToken = root.dataset.csrfToken;
+            const modelSelect = document.getElementById('ai-chat-model');
             const transcript = document.getElementById('ai-chat-transcript');
             const form = document.getElementById('ai-chat-form');
             const input = document.getElementById('ai-chat-input');
@@ -547,6 +556,8 @@
                     payload: {
                         csrfToken,
                         message: text,
+                        // the model picked below the input; the server accepts only its own choices
+                        model: modelSelect ? modelSelect.value : '',
                     },
                     signal: activeAbort.signal,
                     onEvent: (eventName, data) => {

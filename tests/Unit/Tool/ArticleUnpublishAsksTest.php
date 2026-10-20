@@ -60,6 +60,7 @@ class ArticleUnpublishAsksTest extends TestCase
         yield 'zero string'  => ['0'];
         yield 'false'        => [false];
         yield 'zero'         => [0];
+        yield 'false as text' => ['false'];
     }
 
     /**

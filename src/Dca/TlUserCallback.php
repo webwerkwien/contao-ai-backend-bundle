@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiCliTokenController;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
@@ -39,7 +40,30 @@ class TlUserCallback
         private readonly Connection $connection,
         private readonly RequestStack $requestStack,
         private readonly PlatformRegistry $platforms,
+        private readonly ?ModelChoice $models = null,
     ) {
+    }
+
+    /**
+     * load_callback for tl_user.ai_model (v0.20.0): an empty field shows, as placeholder,
+     * the model that runs then — the installation's or the provider's default. Until then
+     * an empty field said nothing, and showcase ran on claude-sonnet-4-5 without anyone
+     * seeing it (2026-10-19). The widget is built after the load callbacks from the same
+     * DCA entry, so setting the placeholder here reaches it.
+     */
+    public function modelPlaceholder(mixed $value, DataContainer $dc): mixed
+    {
+        $platform = (string) ($dc->activeRecord->ai_platform ?? '');
+        if ('' === $platform && $dc->id) {
+            $platform = (string) $this->connection->fetchOne('SELECT ai_platform FROM tl_user WHERE id = ?', [(int) $dc->id]);
+        }
+
+        $default = '' === $platform ? null : $this->models?->defaultFor($platform);
+        if (null !== $default) {
+            $GLOBALS['TL_DCA']['tl_user']['fields']['ai_model']['eval']['placeholder'] = $default;
+        }
+
+        return $value;
     }
 
     /**

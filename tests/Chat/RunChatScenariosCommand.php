@@ -58,7 +58,7 @@ use Webwerkwien\ContaoAiCoreBundle\Service\Writer\RecordWriterInterface;
 #[AsCommand('contao-ai:chat-scenarios', 'Run the chat scenarios on this installation (development only)')]
 final class RunChatScenariosCommand extends Command
 {
-    /** @var list<array<string, mixed>> calls of the turn running */
+    /** @var array<int|string, array<string, mixed>> calls of the turn running, by call id */
     private array $calls = [];
 
     /**
@@ -281,7 +281,20 @@ final class RunChatScenariosCommand extends Command
                 $this->requestStack->pop();
             }
 
-            $recorded[] = ['prompt' => $text, 'text' => $answer, 'error' => $error, 'calls' => $this->calls];
+            // Scrubbed as the chat page does before anything reaches --out: a provider's
+            // error can carry a key fragment or a path (Fable review 2026-10-19).
+            $key = (string) $user->__get('ai_api_key');
+            if (null !== $error) {
+                $error['message'] = AiStreamController::scrubMessage((string) $error['message'], $this->projectDir, $key, 2000);
+            }
+            $calls = $this->recordedCalls();
+            foreach ($calls as $id => $call) {
+                if (\is_string($call['result'] ?? null)) {
+                    $calls[$id]['result'] = AiStreamController::scrubMessage($call['result'], $this->projectDir, $key, 2000);
+                }
+            }
+
+            $recorded[] = ['prompt' => $text, 'text' => $answer, 'error' => $error, 'calls' => $calls, 'tool_calls' => \count(array_filter(array_keys($calls), static fn ($id): bool => !str_starts_with((string) $id, 'failed-')))];
         }
 
         return $recorded;
@@ -340,6 +353,16 @@ final class RunChatScenariosCommand extends Command
         $session->registerBag($frontend);
 
         return $session;
+    }
+
+    /**
+     * What the listeners recorded during the turn (they write $this->calls).
+     *
+     * @return array<int|string, array<string, mixed>>
+     */
+    private function recordedCalls(): array
+    {
+        return $this->calls;
     }
 
     private function pushRequest(Session $session): void

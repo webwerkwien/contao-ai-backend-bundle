@@ -47,6 +47,8 @@ final class PlatformDescriptor
         public readonly bool $baseUrlRequired = false,
         public readonly ?string $baseUrlDefault = null,
         public readonly ?string $defaultModel = null,
+        /** @var list<string> what the bridge offers in the chat when nothing is configured (v0.20.0) */
+        public readonly array $models = [],
     ) {
     }
 

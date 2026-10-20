@@ -85,6 +85,14 @@ final class ChatExpectations
                 $failures[] = "not called: {$tool}";
             }
         }
+        // Feeling the way through ten lookups is a failure too (showcase, 2026-10-19: 9–10
+        // calls for one slider headline) — counted over all turns, failed calls excluded.
+        if (isset($expect['max_calls'])) {
+            $total = array_sum(array_map(static fn (array $turn): int => (int) ($turn['tool_calls'] ?? \count($turn['calls'])), $turns));
+            if ($total > (int) $expect['max_calls']) {
+                $failures[] = \sprintf('%d tool calls, at most %d expected', $total, (int) $expect['max_calls']);
+            }
+        }
         if ([] !== ($any = (array) ($expect['calls_any'] ?? [])) && [] === array_intersect($any, $called)) {
             $failures[] = 'none of these called: ' . implode(', ', $any);
         }

@@ -36,6 +36,7 @@ class PlatformResolver
     public function __construct(
         private readonly UserAiConfig $userConfig,
         private readonly PlatformRegistry $registry,
+        private readonly ?ModelChoice $models = null,
     ) {
     }
 
@@ -61,7 +62,9 @@ class PlatformResolver
             $config->baseUrl,
         );
 
-        $model = $modelOverride ?? $config->model ?? $descriptor->defaultModel;
+        // The chat's choice (checked by the caller against ModelChoice), the profile, the
+        // installation's or bridge's first model (v0.20.0), the bridge's fixed default.
+        $model = $modelOverride ?? $config->model ?? $this->models?->defaultFor($config->platform) ?? $descriptor->defaultModel;
 
         if (null === $model || '' === $model) {
             throw new AiConfigException(\sprintf(

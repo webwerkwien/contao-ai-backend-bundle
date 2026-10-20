@@ -143,6 +143,14 @@ that existed before the fix, and that could not be rewritten, is the proof.
   object becomes the JSON the core reads, any other object is refused (it used to arrive
   as the text "Array"). A tool that sends values to the voters first calls it before
   `writtenValues()`, as `ContentTool::update()` does.
+- **A bridge's additions reach the package factory through `factoryArguments()`** (v0.20.0).
+  Where `symfony/ai-<provider>-platform` is installed, `PlatformRegistry` builds the platform
+  with the package's factory and the bridge's `createPlatform()` never runs. The model catalog
+  addition for Claude 5.5 lived there first, passed a test that built the catalog itself, and
+  failed on c5 with "No provider found for model". `ModelChoiceTest` builds the platform the
+  way the chat does. The models a user may pick come from `ModelChoice` — the installation's
+  `contao_ai_backend.models`, else the bridge's `getModels()` — and the stream controller
+  refuses any other name from the browser.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).
