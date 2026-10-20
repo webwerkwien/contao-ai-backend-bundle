@@ -94,6 +94,10 @@ class LanguageVersionsTool extends AbstractCoreCommandTool
         }
 
         [$decoded['versions'], $hiddenVersions] = $this->readable($table, $decoded['versions']);
+        // The main version's id stays only where the main version itself does (review L5).
+        if ((int) ($decoded['main'] ?? 0) !== $id && !\in_array((int) ($decoded['main'] ?? 0), array_map(static fn (array $v): int => (int) ($v['id'] ?? 0), $decoded['versions']), true)) {
+            unset($decoded['main']);
+        }
         [$decoded['otherRoots'], $hiddenRoots] = $this->readable('tl_page', $decoded['otherRoots']);
         if ($hiddenVersions + $hiddenRoots > 0) {
             $decoded['hidden'] = \sprintf('%d version(s) and %d website root(s) are outside what this user may read.', $hiddenVersions, $hiddenRoots);

@@ -30,7 +30,7 @@ class ContentFindToolTest extends TestCase
     ]];
 
     /**
-     * @param list<int>                 $readable     element ids the voters let the user read
+     * @param list<int|string>          $readable     element ids the voters let the user read, other records as "table:id"
      * @param list<int>                 $parentDenied element ids whose parent table refuses an editor
      * @param array<string, mixed>|null $answer       what the core answers, else ANSWER
      */
@@ -52,7 +52,10 @@ class ContentFindToolTest extends TestCase
 
         $records = $this->createMock(DataContainerAccess::class);
         $records->method('fetchRecord')->willReturnCallback(static fn (string $table, int $id): array => ['id' => $id, 'pid' => 1, 'ptable' => 'tl_article']);
-        $records->method('isGranted')->willReturnCallback(static fn (ReadAction $action): bool => \in_array((int) $action->getCurrentId(), $readable, true));
+        // A plain id is an element (tl_content); anything else is named "table:id", so a
+        // vote on the wrong table fails (review 2026-10-20).
+        $records->method('isGranted')->willReturnCallback(static fn (ReadAction $action): bool => ('tl_content' === $action->getDataSource() && \in_array((int) $action->getCurrentId(), $readable, true))
+            || \in_array($action->getDataSource() . ':' . $action->getCurrentId(), $readable, true));
         $records->method('contentParentDenial')->willReturnCallback(static fn (array $record): ?string => \in_array((int) $record['id'], $parentDenied, true) ? 'Kein Zugriff auf die Eltern-Tabelle.' : null);
 
         $user = $this->createMock(BackendUser::class);
@@ -167,7 +170,7 @@ class ContentFindToolTest extends TestCase
             ]],
         ], 'roots' => [['id' => 1, 'title' => 'EN', 'language' => 'en'], ['id' => 9, 'title' => 'Intern', 'language' => 'fr']]];
 
-        $decoded = self::decode($this->tool([160, 77, 41, 1], answer: $answer)->find('CMS'));
+        $decoded = self::decode($this->tool([160, 'tl_page:77', 'tl_article:41', 'tl_page:1'], answer: $answer)->find('CMS'));
         $hit = $decoded['results'][0];
 
         self::assertSame([77], array_column($hit['versions']['page'], 'id'));
@@ -175,6 +178,26 @@ class ContentFindToolTest extends TestCase
         self::assertArrayNotHasKey('unknown', $hit['versions']);
         self::assertSame(1, $hit['hiddenVersions']);
         self::assertSame([1], array_column($decoded['roots'], 'id'));
+        // a root left out is said, else one visible root reads as a site in one language
+        self::assertSame(1, $decoded['hiddenRoots']);
         self::assertStringNotContainsString('secret', json_encode($decoded, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * An element of a news entry: its versions are entries, voted on as news — not as
+     * articles or pages (review 2026-10-20: the branch had no test).
+     */
+    public function testTheVersionsOfANewsEntryAreVotedOnAsNews(): void
+    {
+        $answer = ['status' => 'ok', 'query' => 'Fest', 'count' => 1, 'more' => false, 'results' => [
+            ['id' => 170, 'type' => 'text', 'parent' => ['table' => 'tl_news', 'id' => 301], 'versions' => [
+                'entry' => [['id' => 300, 'title' => 'Summer party', 'language' => 'en'], ['id' => 302, 'title' => 'Fête cachée', 'language' => 'fr']],
+            ]],
+        ]];
+
+        $hit = self::decode($this->tool([170, 'tl_news:300', 'tl_article:302', 'tl_page:302'], answer: $answer)->find('Fest'))['results'][0];
+
+        self::assertSame([300], array_column($hit['versions']['entry'], 'id'));
+        self::assertSame(1, $hit['hiddenVersions']);
     }
 }

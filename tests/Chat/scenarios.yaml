@@ -160,8 +160,9 @@ scenarios:
       records:
         ct_intro_en: { fields: { text: { contains: "Vienna, Austria" } }, versions: 1 }
         ct_intro: { versions: 0 }
-      # team_en is not linked: not knowing is fine, claiming one language is not (v0.21.0)
-      says_not: ["nur (auf|in) Englisch", "only in English", "nur (in )?einer Sprach", "only one language", "keine (anderen|weiteren) Sprach"]
+      # team_en is not linked: "nothing is linked" is what the prompt asks for; claiming
+      # the site has one language is not (v0.21.0)
+      says_not: ["nur (auf|in) Englisch", "only in English", "nur (in )?einer Sprach", "only one language", "(gibt es|existier\\w*) keine (anderen|weiteren) Sprach"]
 
   - id: language-versions-after-change
     user: editor

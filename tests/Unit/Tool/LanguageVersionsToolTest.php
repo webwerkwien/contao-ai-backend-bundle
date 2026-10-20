@@ -95,6 +95,15 @@ class LanguageVersionsToolTest extends TestCase
         self::assertSame('1 version(s) and 1 website root(s) are outside what this user may read.', $answer['hidden']);
     }
 
+    public function testTheMainIdGoesWhereTheMainVersionIsLeftOut(): void
+    {
+        $answer = ['status' => 'ok', 'table' => 'tl_article', 'record' => ['id' => 102], 'linked' => true, 'main' => 36,
+            'versions' => [['id' => 36, 'title' => 'Login'], ['id' => 555, 'title' => 'Secret']], 'otherRoots' => []];
+
+        self::assertArrayNotHasKey('main', self::decode($this->tool(['tl_article:102', 'tl_article:555'], answer: $answer)->versions('tl_article', 102)));
+        self::assertSame(36, self::decode($this->tool(['tl_article:102', 'tl_article:36'], answer: $answer)->versions('tl_article', 102))['main']);
+    }
+
     public function testEverythingReadableComesThroughWithoutANote(): void
     {
         $answer = self::decode($this->tool(['tl_article:36', 'tl_article:102', 'tl_article:555', 'tl_page:76', 'tl_page:50'])->versions('tl_article', 36));

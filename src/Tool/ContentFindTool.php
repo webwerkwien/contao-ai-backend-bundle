@@ -102,7 +102,12 @@ class ContentFindTool extends AbstractCoreCommandTool
             }
         }
         if (isset($decoded['roots'])) {
-            [$decoded['roots']] = $this->readable('tl_page', $decoded['roots']);
+            [$decoded['roots'], $hiddenRoots] = $this->readable('tl_page', $decoded['roots']);
+            // Said, not only left out: one visible root would read as a site in one
+            // language (review 2026-10-20).
+            if ($hiddenRoots > 0) {
+                $decoded['hiddenRoots'] = $hiddenRoots;
+            }
         }
         $decoded['results'] = $readable;
         $decoded['count'] = \count($readable);

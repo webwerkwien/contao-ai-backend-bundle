@@ -19,10 +19,13 @@ mentioned the German one. It had nothing to look the versions up with.
   event or FAQ, each with title, published, root and language; when none is linked, the
   website roots of other languages (`otherRoots`), since a version may exist without a
   link. Through the core's `contao:language:versions`. The record is voted on as a read
-  before the core runs; versions and roots the user may not read are left out and counted.
+  before the core runs; versions and roots the user may not read are left out and counted,
+  and the main version's id goes with the main version.
 - **`content_find`** passes on the linked versions of each hit's page and article (or its
-  news entry's or event's) and the website roots, filtered the same way. A versions shape
-  it does not know is dropped, not passed on.
+  news entry's or event's, voted on as entries) and the website roots, filtered the same
+  way and counted (`hiddenVersions`, `hiddenRoots` — one visible root would otherwise
+  read as a site in one language). A versions shape it does not know is dropped, not
+  passed on.
 
 ### Changed
 
@@ -32,7 +35,8 @@ mentioned the German one. It had nothing to look the versions up with.
   are named and asked about, not changed. An empty list next to other roots means "not
   linked", not "no other language". On c5 the chat now names the linked German page and
   article after changing the English text or taking the English article offline.
-- Chat runner: `says` / `says_not` check the last answer's text; the fixture links pages and
+- Chat runner: `says` / `says_not` check the last answer's text (an invalid pattern fails
+  the scenario); the fixture links pages and
   articles across languages (`languageMain`, where changelanguage is installed); two new
   scenarios for the showcase cases.
 
