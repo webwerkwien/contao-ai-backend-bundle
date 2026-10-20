@@ -30,8 +30,9 @@
 #   records   checks per fixture record after the last turn:
 #             fields (dot path into JSON/inputUnit values), gone, versions (+n new)
 #   created   a new record in `table` below `parent` with these fields
-#   says      patterns (regex, case-insensitive) the last answer must match
-#   says_not  patterns it must not match
+#   says      patterns (regex, case-insensitive; `(?-i)` switches that off) the last
+#             answer must match
+#   says_not  patterns no answer of the scenario may match
 #
 # requires    tools the scenario needs; skipped where the installation lacks them
 #             (the language tools need terminal42/contao-changelanguage)
@@ -189,7 +190,9 @@ scenarios:
       outcome: done
       records:
         ct_intro: { fields: { text: { contains: "fünf Leute" }, headline.unit: "h3" } }
-      says_not: ["möchten sie", "können sie", "wollen sie", "sollen sie", "\\bihnen\\b"]
+      # case-sensitive inside a sentence: "Sie"/"Ihnen"/"Ihre" not after a sentence end,
+      # so "sie" (the pages) and "ihnen" (them) do not count (review 2026-10-20)
+      says_not: ['(?-i)(?<![.!?:;»"]\s)(?<!\A)\b(Sie|Ihnen|Ihre?[mnrs]?)\b']
 
   - id: language-versions-unpublish
     user: editor

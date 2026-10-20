@@ -104,9 +104,12 @@ final class ChatExpectations
         // What the last answer has to say, or must not (v0.21.0): on showcase a chat told
         // the user a page existed in one language only — the database was right, the
         // sentence was wrong, and only the sentence was false.
+        // `says` is about the last answer; `says_not` about every answer — a switch to the
+        // wrong form of address in turn one is as wrong as in turn two (review 2026-10-20).
+        $everything = implode("\n\n", array_map(static fn (array $turn): string => (string) ($turn['text'] ?? ''), $turns));
         foreach (['says' => 1, 'says_not' => 0] as $key => $wanted) {
             foreach ((array) ($expect[$key] ?? []) as $pattern) {
-                $found = @preg_match('/' . str_replace('/', '\/', (string) $pattern) . '/iu', (string) $last['text']);
+                $found = @preg_match('/' . str_replace('/', '\/', (string) $pattern) . '/iu', $wanted ? (string) $last['text'] : $everything);
                 // A broken pattern must not pass a says_not silently (review L4).
                 if (false === $found) {
                     $failures[] = "{$key}: invalid pattern /{$pattern}/";
