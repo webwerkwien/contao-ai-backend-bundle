@@ -154,6 +154,14 @@ that existed before the fix, and that could not be rewritten, is the proof.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).
+  `LanguageVersionsTool` needs `contao:language:versions` (core ≥ 1.11.0, registered only
+  with changelanguage) — a tool of its own, so an older core hides it without hiding
+  `language_link`.
+- **What the core names beyond the record asked for goes through the voters too.** Linked
+  language versions and website roots (`content_find`, `language_versions`) are filtered
+  by `FiltersLanguageVersions`: each entry a read of that record, the rest counted, an
+  unknown shape dropped. The core trusts its operator; a title from outside the user's
+  mounts must not reach the model.
 - Code and comments in English.
 - **Everything a user sees is bilingual, German and English.** Every key under
   `contao/languages/de/` has its counterpart in `en/`, and the two are kept in

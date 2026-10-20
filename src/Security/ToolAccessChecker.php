@@ -113,6 +113,8 @@ class ToolAccessChecker
         // permission are checked in LanguageTool, per call.
         'language_link'  => ['module' => '*', 'op' => 'macro'],
         'language_check' => ['module' => 'page', 'op' => 'read'],
+        // v0.21.0: the table's module and a read of each record, in LanguageVersionsTool.
+        'language_versions' => ['module' => '*', 'op' => 'read'],
         // v0.19.0: image sizes and their variants live in the theme manager.
         'image_size_read'        => ['module' => 'themes', 'op' => 'read'],
         'image_size_create'      => ['module' => 'themes', 'op' => 'create'],

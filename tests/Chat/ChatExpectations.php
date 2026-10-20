@@ -101,6 +101,19 @@ final class ChatExpectations
                 $failures[] = "called although it must not be: {$tool}";
             }
         }
+        // What the last answer has to say, or must not (v0.21.0): on showcase a chat told
+        // the user a page existed in one language only — the database was right, the
+        // sentence was wrong, and only the sentence was false.
+        foreach ((array) ($expect['says'] ?? []) as $pattern) {
+            if (!preg_match('/' . str_replace('/', '\/', (string) $pattern) . '/iu', (string) $last['text'])) {
+                $failures[] = "answer does not say /{$pattern}/";
+            }
+        }
+        foreach ((array) ($expect['says_not'] ?? []) as $pattern) {
+            if (preg_match('/' . str_replace('/', '\/', (string) $pattern) . '/iu', (string) $last['text'])) {
+                $failures[] = "answer says /{$pattern}/ although it must not";
+            }
+        }
 
         foreach ((array) ($expect['records'] ?? []) as $ref => $check) {
             $table = $this->fixture->table((string) $ref);

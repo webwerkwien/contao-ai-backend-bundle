@@ -29,11 +29,15 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
     'Find content elements by their text: the headline, text or HTML that contains it (at least 3 characters, case-insensitive). '
     .'Each result names the element (id, type, field, snippet, invisible) with its article, page and the website root with its language. '
     .'Use this to find the element a user means by a text before reading or changing it; on a site with several languages the root\'s '
-    .'language tells which version shows the text. root limits the search to one website root, e.g. one language.',
+    .'language tells which version shows the text. Where pages are linked across languages, each result also names the versions '
+    .'of its page and article in the other languages (versions); roots lists the website roots. root limits the search to one '
+    .'website root, e.g. one language.',
     method: 'find',
 )]
 class ContentFindTool extends AbstractCoreCommandTool
 {
+    use FiltersLanguageVersions;
+
     public function __construct(
         ToolAccessChecker $accessChecker,
         TokenChecker $tokenChecker,
@@ -92,10 +96,13 @@ class ContentFindTool extends AbstractCoreCommandTool
         $hidden = 0;
         foreach ($decoded['results'] as $hit) {
             if (\is_array($hit) && $this->mayRead($user, (int) ($hit['id'] ?? 0))) {
-                $readable[] = $hit;
+                $readable[] = $this->withReadableVersions($hit);
             } else {
                 ++$hidden;
             }
+        }
+        if (isset($decoded['roots'])) {
+            [$decoded['roots']] = $this->readable('tl_page', $decoded['roots']);
         }
         $decoded['results'] = $readable;
         $decoded['count'] = \count($readable);
@@ -105,6 +112,45 @@ class ContentFindTool extends AbstractCoreCommandTool
         }
 
         return $this->answer(0, (string) json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), 'content_find');
+    }
+
+    /**
+     * The linked versions core v1.11.0 names per hit (page and article, or a news entry's
+     * or event's), reduced to what the user may read; a shape this does not know is
+     * dropped rather than passed on unfiltered.
+     *
+     * @param array<string, mixed> $hit
+     *
+     * @return array<string, mixed>
+     */
+    private function withReadableVersions(array $hit): array
+    {
+        if (!\array_key_exists('versions', $hit)) {
+            return $hit;
+        }
+
+        $tables = ['page' => 'tl_page', 'article' => 'tl_article'];
+        $entryTable = $hit['parent']['table'] ?? null;
+        if (\in_array($entryTable, ['tl_news', 'tl_calendar_events'], true)) {
+            $tables['entry'] = $entryTable;
+        }
+
+        $versions = [];
+        $hidden = 0;
+        foreach (\is_array($hit['versions']) ? $hit['versions'] : [] as $kind => $list) {
+            if (!isset($tables[$kind])) {
+                continue;
+            }
+            [$versions[$kind], $left] = $this->readable($tables[$kind], $list);
+            $hidden += $left;
+        }
+
+        $hit['versions'] = $versions;
+        if ($hidden > 0) {
+            $hit['hiddenVersions'] = $hidden;
+        }
+
+        return $hit;
     }
 
     /**

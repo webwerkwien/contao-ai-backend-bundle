@@ -37,7 +37,7 @@ class SystemPromptProvider
         'record_rewrite',
         'dca_schema', 'dca_palette', 'dca_options', 'listing_config', 'search_query',
         'ext_list', 'ext_run',
-        'language_link', 'language_check',
+        'language_link', 'language_check', 'language_versions',
     ];
 
     /**

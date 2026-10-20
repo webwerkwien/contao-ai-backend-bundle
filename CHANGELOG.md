@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.21.0 — 2026-10-20
+
+Works with every contao-ai-core-bundle v0.20.0 worked with. `language_versions` and the
+`versions` in `content_find` need core v1.11.0 and terminal42/contao-changelanguage;
+without them the tool is not offered and `content_find` answers as before.
+
+From the next chat test on showcase.conpai.eu (2026-10-20): the chat changed the English
+slider headline and told the user the page existed in English only — the linked German
+start page had the same slider. Asked to take the login article offline, it did, and never
+mentioned the German one. It had nothing to look the versions up with.
+
+### Added
+
+- **`language_versions`** — the linked language versions of a page, article, news entry,
+  event or FAQ, each with title, published, root and language; when none is linked, the
+  website roots of other languages (`otherRoots`), since a version may exist without a
+  link. Through the core's `contao:language:versions`. The record is voted on as a read
+  before the core runs; versions and roots the user may not read are left out and counted.
+- **`content_find`** passes on the linked versions of each hit's page and article (or its
+  news entry's or event's) and the website roots, filtered the same way. A versions shape
+  it does not know is dropped, not passed on.
+
+### Changed
+
+- **System prompt:** nothing about other language versions without having looked them up
+  — `versions` of a `content_find` result, or `language_versions`, which is called after
+  changing, publishing or unpublishing a page, article, entry, event or FAQ. Found versions
+  are named and asked about, not changed. An empty list next to other roots means "not
+  linked", not "no other language". On c5 the chat now names the linked German page and
+  article after changing the English text or taking the English article offline.
+- Chat runner: `says` / `says_not` check the last answer's text; the fixture links pages and
+  articles across languages (`languageMain`, where changelanguage is installed); two new
+  scenarios for the showcase cases.
+
 ## v0.20.0 — 2026-10-20
 
 Works with every contao-ai-core-bundle v0.19.3 worked with. `content_find` needs core

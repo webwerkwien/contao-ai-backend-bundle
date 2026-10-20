@@ -128,6 +128,20 @@ final class ChatFixture
             }
         }
 
+        // Translation links (v0.21.0), through the writer like every other field. Only where
+        // changelanguage is installed: without it there is no languageMain, and the
+        // scenarios that need links are skipped by their `requires`.
+        $columns = array_change_key_case($this->db->createSchemaManager()->listTableColumns('tl_page'));
+        if (isset($columns['languagemain'])) {
+            foreach (['pages' => 'tl_page', 'articles' => 'tl_article'] as $key => $table) {
+                foreach ((array) ($spec[$key] ?? []) as $ref => $record) {
+                    if (isset($record['languageMain'])) {
+                        $this->writer->update($table, $this->id((string) $ref), ['languageMain' => $this->id((string) $record['languageMain'])], self::OPERATOR);
+                    }
+                }
+            }
+        }
+
         foreach ((array) ($spec['content'] ?? []) as $ref => $element) {
             $fields = ['pid' => $this->id((string) $element['article']), 'ptable' => 'tl_article', 'sorting' => $next(), 'type' => (string) $element['type']];
             foreach (['text', 'html'] as $field) {

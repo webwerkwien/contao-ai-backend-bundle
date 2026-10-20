@@ -152,4 +152,29 @@ class ContentFindToolTest extends TestCase
         self::assertFalse($this->tool([], hasCommand: false)->isAccessibleBy($user));
         self::assertTrue($this->tool([])->isAccessibleBy($user));
     }
+
+    /**
+     * v0.21.0: the linked versions core v1.11.0 names per hit, and the roots, go through
+     * the voters as well — a version outside the user's mounts does not reach the model.
+     */
+    public function testLinkedVersionsAndRootsTheUserMayNotReadAreLeftOut(): void
+    {
+        $answer = ['status' => 'ok', 'query' => 'CMS', 'count' => 1, 'more' => false, 'results' => [
+            ['id' => 160, 'type' => 'text', 'root' => ['id' => 1, 'language' => 'en'], 'versions' => [
+                'page'    => [['id' => 77, 'title' => 'Startseite', 'language' => 'de'], ['id' => 51, 'title' => 'Accueil secret', 'language' => 'fr']],
+                'article' => [['id' => 41, 'title' => 'Slider', 'language' => 'de']],
+                'unknown' => [['id' => 999, 'title' => 'Never passed on']],
+            ]],
+        ], 'roots' => [['id' => 1, 'title' => 'EN', 'language' => 'en'], ['id' => 9, 'title' => 'Intern', 'language' => 'fr']]];
+
+        $decoded = self::decode($this->tool([160, 77, 41, 1], answer: $answer)->find('CMS'));
+        $hit = $decoded['results'][0];
+
+        self::assertSame([77], array_column($hit['versions']['page'], 'id'));
+        self::assertSame([41], array_column($hit['versions']['article'], 'id'));
+        self::assertArrayNotHasKey('unknown', $hit['versions']);
+        self::assertSame(1, $hit['hiddenVersions']);
+        self::assertSame([1], array_column($decoded['roots'], 'id'));
+        self::assertStringNotContainsString('secret', json_encode($decoded, JSON_THROW_ON_ERROR));
+    }
 }
