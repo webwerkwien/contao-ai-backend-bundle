@@ -18,11 +18,11 @@ class AnthropicBridge implements PlatformBridgeInterface
     public const MODELS = ['claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-opus-5-5'];
 
     /**
-     * Current models symfony/ai's catalog does not list yet (v0.14.1 ends at
-     * claude-sonnet-4-6, claude-opus-4-7, claude-fable-5-1). A model outside the catalog
-     * is refused with ModelNotFoundException, so without this `claude-sonnet-5-5` in a
-     * profile failed. Same capabilities as claude-sonnet-4-6. Drop an entry once the
-     * catalog has it — the status routine compares the two.
+     * Current models symfony/ai's catalog does not list yet (v0.14 has the 5 generation,
+     * claude-sonnet-5 and claude-opus-5, not 5.5). A model outside the catalog is refused
+     * with ModelNotFoundException, so without this `claude-sonnet-5-5` in a profile
+     * failed. Same capabilities as claude-sonnet-5. Drop an entry once the catalog has
+     * it — the status routine compares the two.
      */
     public const ADDITIONAL_MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
 
@@ -77,6 +77,7 @@ class AnthropicBridge implements PlatformBridgeInterface
         $capabilities = [
             Capability::INPUT_MESSAGES,
             Capability::INPUT_IMAGE,
+            Capability::INPUT_PDF,
             Capability::OUTPUT_TEXT,
             Capability::OUTPUT_STREAMING,
             Capability::OUTPUT_STRUCTURED,

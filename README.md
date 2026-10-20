@@ -80,8 +80,7 @@ Nothing to register, no code to change. `composer suggests` lists further ones.
 
 Below the input, next to the provider, the chat offers the models of the user's provider; the
 first is preselected, or the one in the user's profile. The server accepts only these — a model
-name from the browser is checked, so nobody spends money on a model the site did not choose.
-Which models are offered is the installation's choice:
+name from the browser is checked. Which models are offered is the installation's choice:
 
 ```yaml
 # config/config.yaml
@@ -92,8 +91,11 @@ contao_ai_backend:
 ```
 
 Without it, Anthropic offers `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-5-5` and OpenAI
-`gpt-5.5`, `gpt-5.4-mini`. symfony/ai v0.14 does not list the Claude 5.5 models yet; the bundle
-adds them to the catalog until it does.
+`gpt-5.5`, `gpt-5.4-mini`, and a model in the user's profile is offered and preselected too.
+With a list, the list is the limit, for the profile as well: a model in a profile that is not
+on it is neither offered nor run — every editor can fill in that field under personal data, so
+only a list keeps the installation from paying for a model it did not choose. symfony/ai v0.14
+does not list the Claude 5.5 models yet; the bundle adds them to the catalog until it does.
 
 Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry. The CLI bridge does not require the module mount but still respects the same per-record permission voters.
 

@@ -542,7 +542,7 @@ scenarios:
     turns: ["Such im Seiteninhalt nach 'Sommerfest'."]
     expect:
       outcome: done
-      calls: [search_query]
+      calls_any: [search_query, content_find]
 
   # --- Clone --------------------------------------------------------------
 

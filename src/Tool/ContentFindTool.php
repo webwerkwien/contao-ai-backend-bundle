@@ -7,6 +7,7 @@ use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\CoreBundle\Security\DataContainer\ReadAction;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\TableAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\ConsoleRunner;
@@ -78,8 +79,13 @@ class ContentFindTool extends AbstractCoreCommandTool
         [$code, $output] = $this->console->run($input);
 
         $decoded = json_decode(trim($output), true);
-        if (0 !== $code || !\is_array($decoded) || 'ok' !== ($decoded['status'] ?? null) || !\is_array($decoded['results'] ?? null)) {
+        if (0 !== $code || !\is_array($decoded) || 'ok' !== ($decoded['status'] ?? null)) {
             return $this->answer($code, $output, 'content_find');
+        }
+        // Fail closed: an answer without its result list does not go to the model unfiltered
+        // (Fable review 2026-10-20).
+        if (!\is_array($decoded['results'] ?? null)) {
+            throw new ToolExecutionException('Tool "content_find": contao:content:find answered without a result list.');
         }
 
         $readable = [];

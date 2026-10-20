@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Service\Rewriter;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Platform\PlatformInterface;
+use Symfony\AI\Platform\Test\InMemoryPlatform;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\AbstractEntityRewriter;
 
 /**
@@ -81,7 +82,32 @@ class AbstractEntityRewriterTest extends TestCase
             {
                 return $this->buildSystemPrompt($field, $instructions);
             }
+
+            public function callRewriteField(string $field, string $original, PlatformInterface $platform): ?string
+            {
+                return $this->rewriteField($field, $original, 'förmlicher', $platform, 'probe-model');
+            }
         };
+    }
+
+    /**
+     * v0.20.0: no `temperature`. claude-sonnet-5-5 refuses it ("`temperature` is deprecated
+     * for this model"), and every rewrite was skipped (chat runner on c5, 2026-10-20).
+     */
+    public function testTheRewriteSendsNoTemperature(): void
+    {
+        $seen = null;
+        $platform = new InMemoryPlatform(static function ($model, $input, array $options) use (&$seen): string {
+            $seen = $options;
+
+            return 'Wir sind ein kleines Team aus Wien, das Sie gerne berät.';
+        });
+
+        $rewritten = $this->rewriter()->callRewriteField('text', 'Wir sind ein kleines Team aus Wien, das dich gerne berät.', $platform);
+
+        $this->assertSame('Wir sind ein kleines Team aus Wien, das Sie gerne berät.', $rewritten);
+        $this->assertIsArray($seen);
+        $this->assertArrayNotHasKey('temperature', $seen);
     }
 
     // --- resultToText: symfony/ai returns different shapes per provider ---

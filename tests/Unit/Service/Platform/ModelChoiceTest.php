@@ -75,6 +75,27 @@ class ModelChoiceTest extends TestCase
         self::assertTrue($this->choice()->allows($own, 'claude-fable-5-1'), 'the profile\'s own model, even outside the list');
     }
 
+    /**
+     * With an installation list the list is the limit, for the profile too: every editor
+     * can fill in ai_model under personal data (Fable review 2026-10-20).
+     */
+    public function testWithAListAProfileModelOutsideItDoesNotCount(): void
+    {
+        $choice = $this->choice(['anthropic' => ['claude-haiku-5-5']]);
+        $user = $this->user(['ai_platform' => 'anthropic', 'ai_model' => 'claude-opus-4-1', 'ai_api_key' => 'sk-test']);
+
+        self::assertSame(['claude-haiku-5-5'], $choice->choicesFor($user));
+        self::assertFalse($choice->allows($user, 'claude-opus-4-1'));
+
+        $registry = new PlatformRegistry([new AnthropicBridge()]);
+        $config = new UserAiConfig($registry);
+        $resolver = new PlatformResolver($config, $registry, new ModelChoice($config, $registry, ['anthropic' => ['claude-haiku-5-5']]));
+        self::assertSame('claude-haiku-5-5', $resolver->resolve($user)->model, 'nor does it run when nothing is picked');
+
+        $listed = $this->user(['ai_platform' => 'anthropic', 'ai_model' => 'claude-haiku-5-5']);
+        self::assertTrue($choice->allows($listed, 'claude-haiku-5-5'), 'a profile model on the list counts');
+    }
+
     public function testANameFromTheBrowserOutsideTheChoicesIsRefused(): void
     {
         $user = $this->user(['ai_platform' => 'anthropic']);
@@ -107,7 +128,7 @@ class ModelChoiceTest extends TestCase
     }
 
     /**
-     * symfony/ai v0.14.1 does not list the Claude 5.5 models. The platform is built the
+     * symfony/ai v0.14 does not list the Claude 5.5 models. The platform is built the
      * way the chat builds it — through the registry, where the installed package's
      * factory does it and the bridge only adds its catalog. The first version of this
      * test built the catalog itself and passed while c5 answered "No provider found for

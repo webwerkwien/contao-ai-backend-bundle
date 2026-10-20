@@ -24,34 +24,41 @@ wrong one and translated it on the way (2026-10-19).
   The server takes only these (`model_not_allowed` otherwise): a model name from the
   browser would let anyone spend money on any model. Which models: the new bundle setting
   `contao_ai_backend.models` per provider, the first being the default; without it the
-  bridge's own list.
+  bridge's own list. Where the installation lists models, the list is the limit for the
+  profile too: a model in `ai_model` outside it is neither offered nor run (every editor
+  can fill in that field under personal data).
 - The model field in the user profile shows, when empty, the model that runs then.
 
 ### Changed
 
 - **Current default models:** `claude-sonnet-5-5` (was `claude-sonnet-4-5-20250929`) and
   `gpt-5.5` (was `gpt-4o-mini`), with `claude-haiku-5-5`, `claude-opus-5-5` and
-  `gpt-5.4-mini` to pick from. symfony/ai v0.14.1 does not list the Claude 5.5 models; the
-  Anthropic bridge adds them to the catalog (same capabilities as `claude-sonnet-4-6`), also
+  `gpt-5.4-mini` to pick from. symfony/ai v0.14 does not list the Claude 5.5 models; the
+  Anthropic bridge adds them to the catalog (same capabilities as `claude-sonnet-5`), also
   where the installed package's factory builds the platform — the bridge's own
   `createPlatform()` does not run there, which the first version of this addition missed.
 - **Several languages:** the system prompt says to change the version that shows the quoted
   text, or the language named, not the one in the language the user writes in, and to ask
   afterwards whether the other versions should follow. No silent translation.
 - `search_query` says it answers pages from the search index, never one with `noindex` —
-  Contao does not index those (SearchIndexListener; a `noindex` in the X-Robots-Tag header
-  wins even over `always_index`) — and points to `content_find`.
+  Contao does not index those (SearchIndexListener; from Contao 5.7 a page can be set to be
+  indexed anyway) — and points to `content_find`.
 - Refusals by the news, calendar, FAQ, form and image size voters name the missing right
   (module, allow-list, archive rights, theme right "image sizes") instead of the voter.
 - `record_clone`'s description no longer calls the root fields "admins only": they need the
   user's field right.
 - Taking an article offline with `published: "false"` (as text) asks first too.
+- A text the user dictates for a field is written as given; the system prompt says not to
+  correct it unasked (the chat runner saw "zu fünft" become "zu fünf").
 
 ### Fixed
 
 - **An answer in several parts read "Array".** A model that sends thinking next to its text
   (`claude-haiku-5-5` does) produced a run whose content is the list of parts; cast to
   string the chat showed "Array". Its text parts are the answer now (found on c5).
+- **`record_rewrite` skipped every field on current models.** It sent `temperature: 0.3`,
+  which `claude-sonnet-5-5` refuses ("`temperature` is deprecated for this model"). No
+  temperature any more; the system prompt keeps the rewrite close to the original.
 
 ### Chat runner
 

@@ -7,6 +7,7 @@ use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Contao\CoreBundle\Security\DataContainer\ReadAction;
 use PHPUnit\Framework\TestCase;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\TableAccess;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -29,16 +30,18 @@ class ContentFindToolTest extends TestCase
     ]];
 
     /**
-     * @param list<int> $readable element ids the voters let the user read
+     * @param list<int>                 $readable     element ids the voters let the user read
+     * @param list<int>                 $parentDenied element ids whose parent table refuses an editor
+     * @param array<string, mixed>|null $answer       what the core answers, else ANSWER
      */
-    private function tool(array $readable, bool $hasCommand = true, bool $module = true, bool $admin = false): ContentFindTool
+    private function tool(array $readable, bool $hasCommand = true, bool $module = true, bool $admin = false, array $parentDenied = [], ?array $answer = null): ContentFindTool
     {
         $console = $this->createMock(ConsoleRunner::class);
         $console->method('has')->willReturn($hasCommand);
-        $console->method('run')->willReturnCallback(function (array $input): array {
+        $console->method('run')->willReturnCallback(function (array $input) use ($answer): array {
             $this->inputs[] = $input;
 
-            return [0, (string) json_encode(self::ANSWER)];
+            return [0, (string) json_encode($answer ?? self::ANSWER)];
         });
 
         $tables = $this->createMock(TableAccess::class);
@@ -50,7 +53,7 @@ class ContentFindToolTest extends TestCase
         $records = $this->createMock(DataContainerAccess::class);
         $records->method('fetchRecord')->willReturnCallback(static fn (string $table, int $id): array => ['id' => $id, 'pid' => 1, 'ptable' => 'tl_article']);
         $records->method('isGranted')->willReturnCallback(static fn (ReadAction $action): bool => \in_array((int) $action->getCurrentId(), $readable, true));
-        $records->method('contentParentDenial')->willReturn(null);
+        $records->method('contentParentDenial')->willReturnCallback(static fn (array $record): ?string => \in_array((int) $record['id'], $parentDenied, true) ? 'Kein Zugriff auf die Eltern-Tabelle.' : null);
 
         $user = $this->createMock(BackendUser::class);
         $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) {
@@ -85,6 +88,30 @@ class ContentFindToolTest extends TestCase
         self::assertSame(1, $answer['hidden']);
         self::assertStringContainsString('1 further element', $answer['note']);
         self::assertStringNotContainsString('999', (string) json_encode($answer), 'a hidden element is counted, not named');
+    }
+
+    /**
+     * As content_read: for an editor the parent table counts too; an admin is not asked.
+     */
+    public function testAnElementWhoseParentRefusesAnEditorIsHidden(): void
+    {
+        $answer = self::decode($this->tool([160, 416, 999], parentDenied: [416])->find('CMS'));
+
+        self::assertSame([160, 999], array_column($answer['results'], 'id'));
+        self::assertSame(1, $answer['hidden']);
+
+        $admin = self::decode($this->tool([160, 416, 999], admin: true, parentDenied: [416])->find('CMS'));
+        self::assertSame(3, $admin['count']);
+    }
+
+    /**
+     * An answer without its result list is refused, not passed on unfiltered.
+     */
+    public function testAnAnswerWithoutResultsFailsClosed(): void
+    {
+        $this->expectException(ToolExecutionException::class);
+
+        $this->tool([160], answer: ['status' => 'ok', 'hits' => [['id' => 999]]])->find('CMS');
     }
 
     public function testNothingHiddenSaysNothingAboutIt(): void

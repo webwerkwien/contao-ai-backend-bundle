@@ -93,7 +93,11 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
         );
 
         try {
-            $result = $platform->invoke($model, $messages, ['temperature' => 0.3]);
+            // No `temperature` any more (v0.20.0): it was 0.3, and the current models refuse
+            // it — "`temperature` is deprecated for this model" from claude-sonnet-5-5, so
+            // every rewrite was skipped (chat runner on c5, 2026-10-20). The instructions in
+            // the system prompt keep the rewrite close to the original.
+            $result = $platform->invoke($model, $messages);
         } catch (\Throwable) {
             // Platform error (rate limit, network, bad key): fail this field but
             // keep going for the rest. Surfaced as `skipped` to the operator.

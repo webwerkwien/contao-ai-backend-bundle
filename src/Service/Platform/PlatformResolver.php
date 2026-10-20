@@ -62,9 +62,11 @@ class PlatformResolver
             $config->baseUrl,
         );
 
-        // The chat's choice (checked by the caller against ModelChoice), the profile, the
-        // installation's or bridge's first model (v0.20.0), the bridge's fixed default.
-        $model = $modelOverride ?? $config->model ?? $this->models?->defaultFor($config->platform) ?? $descriptor->defaultModel;
+        // The chat's choice (checked by the caller against ModelChoice), the profile — with
+        // an installation list only a model on it —, the installation's or bridge's first
+        // model (v0.20.0), the bridge's fixed default.
+        $profile = null === $this->models ? $config->model : $this->models->profileModel($config->platform, $config->model);
+        $model = $modelOverride ?? $profile ?? $this->models?->defaultFor($config->platform) ?? $descriptor->defaultModel;
 
         if (null === $model || '' === $model) {
             throw new AiConfigException(\sprintf(

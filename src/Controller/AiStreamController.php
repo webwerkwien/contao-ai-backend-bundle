@@ -149,6 +149,25 @@ class AiStreamController extends AbstractController
         return $text;
     }
 
+    /**
+     * The model picked in the chat (v0.20.0), only one of the user's choices: a name from
+     * the browser would otherwise let anyone spend money on any model. Without ModelChoice
+     * every name is refused; nothing picked means the profile or the default.
+     *
+     * @return array{bool, string|null} allowed, the model (null: none picked)
+     */
+    public static function pickedModel(mixed $raw, ?ModelChoice $choice, BackendUser $user): array
+    {
+        if (null === $raw || (\is_string($raw) && '' === trim($raw))) {
+            return [true, null];
+        }
+        if (!\is_string($raw) || null === $choice || !$choice->allows($user, $model = trim($raw))) {
+            return [false, null];
+        }
+
+        return [true, $model];
+    }
+
     public static function runAgent(AgentInvocation $invocation, MessageBag $messages, string $toolNotAllowed): string
     {
         try {
@@ -215,12 +234,8 @@ class AiStreamController extends AbstractController
             return $this->errorResponse(429, $this->label('rate_limited'));
         }
 
-        // The model picked in the chat (v0.20.0), only one of the user's choices: a name
-        // from the browser would otherwise let anyone spend money on any model.
-        $model = trim((string) ($payload['model'] ?? ''));
-        if ('' === $model) {
-            $model = null;
-        } elseif (null === $this->modelChoice || !$this->modelChoice->allows($user, $model)) {
+        [$modelAllowed, $model] = self::pickedModel($payload['model'] ?? null, $this->modelChoice, $user);
+        if (!$modelAllowed) {
             return $this->errorResponse(400, $this->label('model_not_allowed'));
         }
 
