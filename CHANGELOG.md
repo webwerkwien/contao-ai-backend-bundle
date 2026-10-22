@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.22.1 — 2026-10-22
+
+Works with every contao-ai-core-bundle v0.22.0 worked with.
+
+### Security
+
+- **Extension commands that act outside the database no longer run in the chat** —
+  for admins neither. What a command's contract declares `irreversible` (a published
+  package release, a renewed repository token, a released licence, deleted addresses
+  without undo) is left out of `ext_run`; `ext_list` names it under `notInChat` with the
+  reason, and it remains for the command line. Michael: such tasks must be prevented,
+  they do not run through the DCA. On the test server five Consho commands fall under
+  it, among them `consho:license:publish`, which serves a release to every customer's
+  next `composer update`.
+- **Fixed: the confirmation for such commands never happened.** The core presents a
+  contract's `irreversible` as `declared.irreversible_outside_database` (since
+  2026-09-01); `ext_run` read `checked_with_statement.irreversible`, found nothing, and
+  ran the command without asking. The test had written the core's answer by hand, in
+  the wrong shape; its contracts now come from the core's own `ContractPresenter`.
+- Package updates, cache, backups and migrations were and are out of the chat's reach:
+  no tool runs a process, and `ext_run` skips the core's `contao:` commands.
+
 ## v0.22.0 — 2026-10-22
 
 Works with every contao-ai-core-bundle v0.21.1 worked with; `after` and `offset` need core

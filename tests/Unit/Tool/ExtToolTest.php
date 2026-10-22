@@ -16,6 +16,7 @@ use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\ConsoleRunner;
 use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
 use Webwerkwien\ContaoAiBackendBundle\Tool\ExtTool;
+use Webwerkwien\ContaoAiCoreBundle\Contract\ContractPresenter;
 
 /**
  * Extension commands in the chat (v0.13.0): which ones a user is offered, and the
@@ -63,6 +64,27 @@ class ExtToolTest extends TestCase
             ],
         ],
     ];
+
+    /**
+     * The contracts as the core presents them (v0.22.1): until then they were written here
+     * by hand, with `irreversible` where the core never puts it — and the confirmation
+     * that test asserted never happened against a real core.
+     */
+    protected function setUp(): void
+    {
+        $present = static fn (array $fields): array => ContractPresenter::present(['fields' => $fields, 'problems' => []], static fn (string $t): bool => true);
+
+        $this->definitions['consho:connect:products']['contract']    = $present(['writes' => false, 'tables' => ['tl_consho_product', 'tl_consho_price']]);
+        $this->definitions['consho:url:prune']['contract']           = $present(['writes' => true, 'tables' => ['tl_consho_redirect'], 'irreversible' => 'the pruned addresses are deleted']);
+        $this->definitions['acme:sync']['contract']                  = $present(['writes' => true]);
+        $this->definitions['consho:manufacturer:update']['contract'] = $present(['writes' => true, 'tables' => ['tl_consho_manufacturer']]);
+    }
+
+    public function testTheFixturesHaveTheCoresShape(): void
+    {
+        self::assertSame('the pruned addresses are deleted', $this->definitions['consho:url:prune']['contract']['declared']['irreversible_outside_database'] ?? null);
+        self::assertArrayNotHasKey('irreversible', $this->definitions['consho:url:prune']['contract']['checked_with_statement'] ?? []);
+    }
 
     private function console(string $runOutput = '{"status":"ok","products":[]}'): ConsoleRunner
     {
@@ -136,9 +158,10 @@ class ExtToolTest extends TestCase
     {
         $answer = self::decode($this->tool($this->user(true), $this->console())->listCommands());
 
-        $this->assertSame(['consho:connect:products', 'consho:url:prune', 'acme:sync', 'consho:manufacturer:update'], array_column($answer['commands'], 'name'));
+        // v0.22.1: what acts outside the database is not offered, for admins neither — named apart
+        $this->assertSame(['consho:connect:products', 'acme:sync', 'consho:manufacturer:update'], array_column($answer['commands'], 'name'));
         $this->assertSame(['tl_consho_product', 'tl_consho_price'], $answer['commands'][0]['tables']);
-        $this->assertSame('the pruned addresses are deleted', $answer['commands'][1]['irreversible']);
+        $this->assertSame([['name' => 'consho:url:prune', 'reason' => 'the pruned addresses are deleted']], $answer['notInChat']);
     }
 
     public function testAnEditorIsOfferedWhatHisModulesReachAndNothingWithoutTables(): void
@@ -351,21 +374,46 @@ class ExtToolTest extends TestCase
         $this->assertSame([], array_filter($this->runs, static fn (array $r): bool => 'contao:ai:run' === $r['command']));
     }
 
-    public function testWhatCannotBeUndoneAsksFirst(): void
+    /**
+     * v0.22.1: what the database cannot undo does not run in the chat at all — not after
+     * a confirmation, not for an admin. Refused with the reason and the way that remains.
+     */
+    public function testWhatActsOutsideTheDatabaseIsRefusedEvenForAnAdmin(): void
     {
         $store = $this->createMock(PendingActionStore::class);
-        $store->method('stagedInCurrentTurn')->willReturn(false);
-        $store->method('consume')->willReturn(null);
-        $store->expects($this->once())->method('stage');
+        $store->expects($this->never())->method('stage');
 
         $tool = $this->tool($this->user(true), $this->console());
         $tool->setPendingActionStore($store);
 
-        $answer = self::decode($tool->runCommandLine('consho:url:prune'));
+        try {
+            $tool->runCommandLine('consho:url:prune');
+            $this->fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            $this->assertStringContainsString('the pruned addresses are deleted', $e->getMessage());
+            $this->assertStringContainsString('contao-ai-cli ext run', $e->getMessage());
+        }
 
-        $this->assertSame('pending_confirmation', $answer['status']);
-        $this->assertStringContainsString('the pruned addresses are deleted', $answer['question']);
         $this->assertSame([], array_filter($this->runs, static fn (array $r): bool => 'contao:ai:run' === $r['command']));
+    }
+
+    /**
+     * Someone who could not reach the command anyway learns nothing about it: the same
+     * answer as for a name that does not exist.
+     */
+    public function testAnEditorWithoutItsTablesIsNotToldItExists(): void
+    {
+        $this->expectException(ToolCallMistakeException::class);
+
+        $this->tool($this->user(false), $this->console(), ['tl_consho_product', 'tl_consho_price'])->runCommandLine('consho:url:prune');
+    }
+
+    public function testAnEditorWhoCouldReachItIsToldWhyNot(): void
+    {
+        $answer = self::decode($this->tool($this->user(false), $this->console(), ['tl_consho_redirect'])->listCommands());
+
+        $this->assertSame([], $answer['commands']);
+        $this->assertSame('consho:url:prune', $answer['notInChat'][0]['name']);
     }
 
     /**

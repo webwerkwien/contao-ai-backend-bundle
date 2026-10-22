@@ -30,8 +30,14 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
  * back-end module rights decide the rest. A command is offered when the user may reach
  * every table its contract names in `tables` (TableAccess, the rule of Contao's own
  * TableAccessVoter); a command that names none can be checked against nothing and is
- * for admins only. A command whose contract states something `irreversible` asks the
- * user first, as the delete tools do.
+ * for admins only.
+ *
+ * **Nothing that acts outside the database (v0.22.1).** A command whose contract states
+ * something `irreversible` — a published package release, a call to a licence server,
+ * a sent mail — is not run in the chat at all, for admins neither; ext_list names it
+ * under `notInChat`, ext_run refuses it with the reason. Such work belongs to the
+ * command line. Until v0.22.1 the chat meant to ask first and, reading the contract in
+ * the wrong place, never did.
  *
  * What a foreign command does inside is its own business: the contract says what it
  * promises, not what the core can guarantee. Commands under `contao:` are left out —
@@ -41,14 +47,15 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
     'ext_list',
     'Lists the commands of extensions installed on this site that the current user may run '
     .'(declared for agents with #[AiContract]): name, description, whether they write, the tables they touch, '
-    .'what they cannot undo, and their arguments and options. Call this before ext_run; it is the only list of valid command names.',
+    .'and their arguments and options. Commands that act outside the database are listed under notInChat with the reason: '
+    .'they run only from the command line, never here. Call this before ext_run; it is the only list of valid command names.',
     method: 'listCommands',
 )]
 #[AsTool(
     'ext_run',
     'Runs one command from ext_list. `arguments` and `options` are objects keyed by the names ext_list gives, '
-    .'e.g. {"product": "9"} and {"root": "122"}; a flag option takes true. A command that cannot be undone asks the user first: '
-    .'relay the question verbatim and call again only after a yes in a later message.',
+    .'e.g. {"product": "9"} and {"root": "122"}; a flag option takes true. Commands under notInChat are refused: '
+    .'tell the user they run only from the command line.',
     method: 'runCommandLine',
 )]
 class ExtTool extends AbstractCoreCommandTool
@@ -101,13 +108,18 @@ class ExtTool extends AbstractCoreCommandTool
                 'description'  => (string) ($definition['description'] ?? ''),
                 'writes'       => $statement['writes'] ?? null,
                 'tables'       => $definition['contract']['checked']['tables'] ?? [],
-                'irreversible' => $statement['irreversible'] ?? null,
                 'arguments'    => $this->describe($definition['arguments'] ?? []),
                 'options'      => $this->describe(array_diff_key((array) ($definition['options'] ?? []), [self::OPERATOR => true])),
             ];
         }
 
-        return $this->answer(0, (string) json_encode(['status' => 'ok', 'commands' => $commands], self::JSON_FLAGS), 'ext_list');
+        $answer = ['status' => 'ok', 'commands' => $commands];
+        if ([] !== ($blocked = $this->outsideChat($user))) {
+            $answer['notInChat'] = $blocked;
+            $answer['notInChatNote'] = 'These act outside the database and run only from the command line (contao-ai-cli ext run), not here.';
+        }
+
+        return $this->answer(0, (string) json_encode($answer, self::JSON_FLAGS), 'ext_list');
     }
 
     /**
@@ -124,6 +136,19 @@ class ExtTool extends AbstractCoreCommandTool
         $options   = $this->asArray($options);
         $available = $this->available($user);
 
+        // Not in the chat at all, for nobody (v0.22.1, Michael: "solche Aufgaben müssen
+        // ebenfalls verhindert werden" — what does not run through the DCA). Said, not
+        // hidden, to someone who could otherwise reach the command.
+        foreach ($this->outsideChat($user) as $blocked) {
+            if ($blocked['name'] === $command) {
+                throw new ToolRefusedException(\sprintf(
+                    '„%s" wirkt außerhalb der Datenbank (%s) und läuft deshalb nicht im Chat, nur über die Befehlszeile (contao-ai-cli ext run).',
+                    $command,
+                    $blocked['reason'],
+                ));
+            }
+        }
+
         // The model's mistake, handed back to it (SelfCorrectingToolbox): in the chat
         // test it invented `product:list`. The wording is the same for a command that
         // exists but is not this user's — it does not tell which.
@@ -137,20 +162,6 @@ class ExtTool extends AbstractCoreCommandTool
 
         $definition = $available[$command];
         $line       = $this->commandLine($command, $definition, $arguments, $options, (string) ($user->username ?? ''));
-        $statement  = $definition['contract']['checked_with_statement'] ?? [];
-
-        if (\is_string($statement['irreversible'] ?? null) && '' !== $statement['irreversible']) {
-            $staged = $this->requireConfirmation(
-                'ext_run',
-                sha1($line),
-                \sprintf('„%s" lässt sich nicht rückgängig machen: %s. Soll der Befehl ausgeführt werden?', $command, $statement['irreversible']),
-                ['command_line' => $line],
-            );
-
-            if (null !== $staged) {
-                return $staged;
-            }
-        }
 
         try {
             [$code, $output] = $this->console->run([
@@ -241,15 +252,57 @@ class ExtTool extends AbstractCoreCommandTool
      */
     private function available(BackendUser $user): array
     {
-        return array_filter($this->catalog(), function (array $definition) use ($user): bool {
-            if ($user->isAdmin) {
-                return true;
+        return array_filter($this->catalog(), fn (array $definition): bool => null === self::outsideDatabase($definition) && $this->reachableBy($user, $definition));
+    }
+
+    /**
+     * The commands this user could reach but the chat does not run: their contract says
+     * they do something the database cannot undo (v0.22.1). Named in ext_list, so the
+     * model can say why instead of claiming the command does not exist.
+     *
+     * @return list<array{name: string, reason: string}>
+     */
+    private function outsideChat(BackendUser $user): array
+    {
+        $blocked = [];
+        foreach ($this->catalog() as $name => $definition) {
+            if (null !== ($reason = self::outsideDatabase($definition)) && $this->reachableBy($user, $definition)) {
+                $blocked[] = ['name' => $name, 'reason' => $reason];
             }
+        }
 
-            $tables = array_values(array_filter((array) ($definition['contract']['checked']['tables'] ?? []), 'is_string'));
+        return $blocked;
+    }
 
-            return [] !== $tables && [] === $this->tables->missing($user, $tables);
-        });
+    /**
+     * @param array<string, mixed> $definition
+     */
+    private function reachableBy(BackendUser $user, array $definition): bool
+    {
+        if ($user->isAdmin) {
+            return true;
+        }
+
+        $tables = array_values(array_filter((array) ($definition['contract']['checked']['tables'] ?? []), 'is_string'));
+
+        return [] !== $tables && [] === $this->tables->missing($user, $tables);
+    }
+
+    /**
+     * What a command declares the database cannot undo — a sent mail, a published
+     * release, a call to another server. The core presents the contract's `irreversible`
+     * as `declared.irreversible_outside_database` (since 2026-09-01); until v0.22.1 this
+     * tool read `checked_with_statement.irreversible`, found nothing, and never asked —
+     * the test had built the core's answer by hand, in the wrong shape.
+     *
+     * @param array<string, mixed> $definition
+     */
+    private static function outsideDatabase(array $definition): ?string
+    {
+        $contract = (array) ($definition['contract'] ?? []);
+        $value    = $contract['declared']['irreversible_outside_database'] ?? $contract['checked_with_statement']['irreversible'] ?? null;
+
+        return \is_string($value) && '' !== trim($value) ? $value : null;
     }
 
     /**
