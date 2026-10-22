@@ -85,6 +85,9 @@ that existed before the fix, and that could not be rewritten, is the proof.
   only imports it. Nothing here may depend on one coding agent: no agent-specific instructions,
   paths or file names in the guide, the tests or the code — the `CLAUDE.md` shim that
   only imports this file is the one exception.
+- **No internals in the CHANGELOG** — nor in the GitHub release notes, which copy it: no names, no review or
+  acceptance tags, no servers or hosts, no test data, no keys or key IDs. Only what changes for the people using
+  the bundle.
 - PHP 8.2+, `declare(strict_types=1)` in every file.
 - Tools extend `AbstractCoreCommandTool` and are auto-tagged via `_instanceof`.
 - **Every tool name needs an entry in `ToolAccessChecker::TOOL_MAP` and in
