@@ -48,12 +48,26 @@ class ArticleTool extends AbstractCoreCommandTool
         ];
     }
 
+    /**
+     * @param string $title    Article title
+     * @param int    $pid      Page ID — the article goes to its end; 0 when after is given
+     * @param string $inColumn Layout column, usually main
+     * @param int    $after    ID of an existing article — the new one goes directly behind it, on the same page; 0 to use pid
+     */
     #[AiContract(
         writes: true, tables: ['tl_article'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(string $title, int $pid, string $inColumn = 'main'): string
+    public function create(string $title, int $pid = 0, string $inColumn = 'main', int $after = 0): string
     {
+        // Directly behind an article (v0.22.0, core v1.12.0): its page, then the same voters.
+        if (($pid > 0) === ($after > 0)) {
+            throw new ToolRefusedException('Entweder pid (am Ende der Seite) oder after (direkt hinter diesem Artikel) angeben, genau eines davon.');
+        }
+        if ($after > 0) {
+            $pid = (int) $this->siblingForAfter($this->createCommand, 'tl_article', $after)['pid'];
+        }
+
         // The voters decide (v0.18.0): edit and hierarchy rights for articles on the page,
         // its type, and a layout with a column for articles. `sorting` non-null, as in
         // PageTool::create().
@@ -64,9 +78,11 @@ class ArticleTool extends AbstractCoreCommandTool
 
         $this->assertFieldsCreatable('tl_article', ['title' => $title, 'inColumn' => $inColumn]);
 
+        // null = not passed: with --after the core takes the page itself
         return $this->runCommand($this->createCommand, [
             '--title'    => $title,
-            '--pid'      => (string) $pid,
+            '--pid'      => $after > 0 ? null : (string) $pid,
+            '--after'    => $after > 0 ? (string) $after : null,
             '--inColumn' => $inColumn,
         ], 'article_create');
     }

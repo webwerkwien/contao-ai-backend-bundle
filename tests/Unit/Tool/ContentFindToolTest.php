@@ -132,6 +132,18 @@ class ContentFindToolTest extends TestCase
         self::assertSame(['command' => 'contao:content:find', 'query' => 'powerful', '--limit' => '50', '--root' => '2'], $this->inputs[0]);
     }
 
+    /**
+     * v0.22.0: the next page; an offset of 0 is not sent, so an older core keeps working.
+     */
+    public function testTheOffsetGoesAlongOnlyWhenAskedFor(): void
+    {
+        $this->tool([160])->find('CMS', 0, 50, 50);
+        $this->tool([160])->find('CMS');
+
+        self::assertSame('50', $this->inputs[0]['--offset'] ?? null);
+        self::assertArrayNotHasKey('--offset', $this->inputs[1]);
+    }
+
     public function testWithoutTheArticleModuleNothingIsSearched(): void
     {
         $tool = $this->tool([160], module: false);

@@ -280,6 +280,32 @@ abstract class AbstractCoreCommandTool
     protected const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG;
 
     /**
+     * The sibling a new record goes behind (`after`, v0.22.0): its stored row, whose
+     * parent (and for tl_content parent table) the new record takes — so the voters
+     * judge the create below that parent, as for `pid`. The sibling must be readable;
+     * a core before v1.12.0 has no `--after` and is named instead of failing on the
+     * unknown option.
+     *
+     * @return array<string, mixed>
+     */
+    protected function siblingForAfter(Command $create, string $table, int $after): array
+    {
+        if (!$create->getDefinition()->hasOption('after')) {
+            throw new ToolRefusedException('"after" braucht contao-ai-core-bundle v1.12.0 auf diesem Server; hier stattdessen ans Ende anlegen und danach verschieben.');
+        }
+
+        $sibling = $this->dcAccess->fetchRecord($table, $after);
+        if (null === $sibling) {
+            throw new ToolRefusedException(\sprintf('Datensatz %d in "%s" nicht gefunden — hinter ihn kann nichts angelegt werden.', $after, $table));
+        }
+        if (!$this->dcAccess->isGranted(new \Contao\CoreBundle\Security\DataContainer\ReadAction($table, $sibling))) {
+            throw new ToolAccessDeniedException(\sprintf('Kein Lesezugriff auf %s:%d.', $table, $after));
+        }
+
+        return $sibling;
+    }
+
+    /**
      * H-1: tool outputs are returned as a JSON-encoded string wrapped in a sentinel
      * tag pair. The system prompt instructs the model to treat anything inside the
      * wrapper as untrusted data, mitigating prompt injection via DB content.

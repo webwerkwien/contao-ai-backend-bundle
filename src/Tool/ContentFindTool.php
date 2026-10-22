@@ -63,10 +63,11 @@ class ContentFindTool extends AbstractCoreCommandTool
     /**
      * @param string $text  The text to find, at least 3 characters
      * @param int    $root  Only elements below this website root (0 = all)
-     * @param int    $limit Max results (1–50)
+     * @param int    $limit  Max results (1–50)
+     * @param int    $offset Results to skip — the next page while the answer says more: true
      */
     #[AiContract(writes: false, tables: ['tl_content'], trace: [])]
-    public function find(string $text, int $root = 0, int $limit = 20): string
+    public function find(string $text, int $root = 0, int $limit = 20, int $offset = 0): string
     {
         $this->assertAccess('content_find');
         $user = $this->requireBackendUser();
@@ -78,6 +79,10 @@ class ContentFindTool extends AbstractCoreCommandTool
         $input = ['command' => 'contao:content:find', 'query' => $text, '--limit' => (string) max(1, min(50, $limit))];
         if ($root > 0) {
             $input['--root'] = (string) $root;
+        }
+        // core v1.12.0; only sent when asked for, so an older core keeps answering page one
+        if ($offset > 0) {
+            $input['--offset'] = (string) $offset;
         }
 
         [$code, $output] = $this->console->run($input);

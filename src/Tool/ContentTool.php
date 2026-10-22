@@ -13,7 +13,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ContentDeleteCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentReadCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand;
 
-#[AsTool('content_create', 'Create a Contao content element (text, image, headline, …) inside an article or other ptable', method: 'create')]
+#[AsTool('content_create', 'Create a Contao content element (text, image, headline, …): at the end of an article or other parent (pid), or directly behind an existing element (after)', method: 'create')]
 #[AsTool('content_update', 'Update one or more fields of a Contao content element by ID', method: 'update')]
 #[AsTool('content_delete', 'Delete a Contao content element by ID. Requires explicit confirmation.', method: 'delete')]
 #[AsTool('content_read',   'Read a single content element by ID', method: 'read')]
@@ -53,12 +53,28 @@ class ContentTool extends AbstractCoreCommandTool
         ];
     }
 
+    /**
+     * @param string $type   Element type, e.g. text, headline, image
+     * @param int    $pid    Parent ID (usually the article) — the element goes to its end; 0 when after is given
+     * @param string $ptable Parent table of pid (tl_article, tl_news, …); ignored with after
+     * @param int    $after  ID of an existing element — the new one goes directly behind it, below the same parent; 0 to use pid
+     */
     #[AiContract(
         writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(string $type, int $pid, string $ptable = 'tl_article'): string
+    public function create(string $type, int $pid = 0, string $ptable = 'tl_article', int $after = 0): string
     {
+        // Directly behind an element (v0.22.0, core v1.12.0): its parent and parent table,
+        // then the same voters as for pid.
+        if (($pid > 0) === ($after > 0)) {
+            throw new ToolRefusedException('Entweder pid (am Ende des Artikels) oder after (direkt hinter diesem Element) angeben, genau eines davon.');
+        }
+        if ($after > 0) {
+            $sibling = $this->siblingForAfter($this->createCommand, 'tl_content', $after);
+            [$pid, $ptable] = [(int) $sibling['pid'], (string) $sibling['ptable']];
+        }
+
         // The voters decide (v0.18.0): the rights on the article, news or event above,
         // the element type, and whether the parent element takes nested elements.
         // A missing parent element is "not found" for everyone, as elsewhere — not a
@@ -75,10 +91,12 @@ class ContentTool extends AbstractCoreCommandTool
 
         $this->assertFieldsCreatable('tl_content', ['type' => $type]);
 
+        // null = not passed: with --after the core takes parent and parent table itself
         return $this->runCommand($this->createCommand, [
             '--type'   => $type,
-            '--pid'    => (string) $pid,
-            '--ptable' => $ptable,
+            '--pid'    => $after > 0 ? null : (string) $pid,
+            '--ptable' => $after > 0 ? null : $ptable,
+            '--after'  => $after > 0 ? (string) $after : null,
         ], 'content_create');
     }
 

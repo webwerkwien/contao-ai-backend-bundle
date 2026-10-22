@@ -113,7 +113,9 @@ Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, link
 | Image sizes | `image_size_create`, `image_size_update`, `image_size_delete`, `image_size_read`, and the same four as `image_size_item_*` for the variants (v0.19.0) — module `themes` |
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
 | Article | `article_create`, `article_update`, `article_delete`, `article_read` |
-| Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0; with changelanguage and core-bundle ≥ 1.11.0 also the linked versions of each hit's page and article, v0.21.0) |
+| Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0; with changelanguage and core-bundle ≥ 1.11.0 also the linked versions of each hit's page and article, v0.21.0; `offset` for the next page, core-bundle ≥ 1.12.0, v0.22.0) |
+
+`page_create`, `article_create` and `content_create` take `after` (an existing record's ID) instead of `pid`: the new record goes directly behind it, below the same parent (core-bundle ≥ 1.12.0, v0.22.0).
 | Meta    | `dca_schema`, `dca_palette`, `dca_options` (v0.16.0), `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 | Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |

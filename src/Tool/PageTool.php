@@ -52,12 +52,27 @@ class PageTool extends AbstractCoreCommandTool
         ];
     }
 
+    /**
+     * @param string $title Page title
+     * @param string $alias Page alias, empty for Contao's own
+     * @param string $type  Page type, e.g. regular, root, forward
+     * @param int    $pid   Parent page ID — the page goes to its end (0: top level, only for a root); leave 0 when after is given
+     * @param int    $after ID of an existing page — the new one goes directly behind it, below the same parent; 0 to use pid
+     */
     #[AiContract(
         writes: true, tables: ['tl_page'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(string $title, string $alias, string $type, int $pid): string
+    public function create(string $title, string $alias, string $type, int $pid = 0, int $after = 0): string
     {
+        // Directly behind a page (v0.22.0, core v1.12.0): its parent, then the same voters.
+        if ($after > 0 && 0 !== $pid) {
+            throw new ToolRefusedException('after übernimmt die übergeordnete Seite dieser Seite; pid dann weglassen (0).');
+        }
+        if ($after > 0) {
+            $pid = (int) $this->siblingForAfter($this->createCommand, 'tl_page', $after)['pid'];
+        }
+
         // The voters decide (v0.18.0): edit and hierarchy rights on the parent, the page
         // type, a root only on top and nothing else there, error pages only below a root.
         // `sorting` must not be null — null is how the page voter recognises a copy. The
@@ -69,11 +84,13 @@ class PageTool extends AbstractCoreCommandTool
 
         $this->assertFieldsCreatable('tl_page', ['title' => $title, 'alias' => $alias, 'type' => $type]);
 
+        // null = not passed: with --after the core takes the parent itself
         return $this->runCommand($this->createCommand, [
             '--title' => $title,
             '--alias' => $alias,
             '--type'  => $type,
-            '--pid'   => (string) $pid,
+            '--pid'   => $after > 0 ? null : (string) $pid,
+            '--after' => $after > 0 ? (string) $after : null,
         ], 'page_create');
     }
 

@@ -29,7 +29,8 @@
 #   not_calls tools that must not be called
 #   records   checks per fixture record after the last turn:
 #             fields (dot path into JSON/inputUnit values), gone, versions (+n new)
-#   created   a new record in `table` below `parent` with these fields
+#   created   a new record in `table` below `parent` with these fields; `between: [a, b]`
+#             also checks its place between the fixture records a and b
 #   says      patterns (regex, case-insensitive; `(?-i)` switches that off) the last
 #             answer must match
 #   says_not  patterns no answer of the scenario may match
@@ -268,6 +269,15 @@ scenarios:
       outcome: done
       calls: [content_create, content_update]
       created: { table: tl_content, parent: team_main, fields: { type: text, text: { contains: "Verstärkung" } } }
+
+  - id: content-create-between
+    user: editor
+    turns: ["Füge auf der Seite Team direkt nach dem Element mit dem Text 'Wir sind ein kleines Team aus Wien' ein neues Textelement 'Neu dazwischen' ein."]
+    expect:
+      # v0.22.0: `after` instead of computing sorting by hand (Consho docs, 2026-10-22)
+      outcome: done
+      calls: [content_create]
+      created: { table: tl_content, parent: team_main, fields: { type: text, text: { contains: "Neu dazwischen" } }, between: [ct_intro, ct_hidden] }
 
   - id: content-create-headline-element
     user: editor

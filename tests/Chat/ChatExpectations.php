@@ -185,6 +185,15 @@ final class ChatExpectations
                 }
             }
             if ($all) {
+                // Its place among the siblings (v0.22.0, `after`): read after the turn,
+                // since a renumbering may have moved the neighbours' numbers.
+                if (isset($created['between'])) {
+                    [$before, $behind] = array_map(fn ($ref): int => (int) $this->db->fetchOne("SELECT sorting FROM {$table} WHERE id = ?", [$this->fixture->id((string) $ref)]), (array) $created['between']);
+                    if (!((int) $row['sorting'] > $before && (int) $row['sorting'] < $behind)) {
+                        return [\sprintf('created: sorting %d, expected between %s (%d) and %s (%d)', (int) $row['sorting'], $created['between'][0], $before, $created['between'][1], $behind)];
+                    }
+                }
+
                 return [];
             }
         }

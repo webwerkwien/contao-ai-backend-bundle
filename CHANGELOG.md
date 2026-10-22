@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
+## v0.22.0 — 2026-10-22
+
+Works with every contao-ai-core-bundle v0.21.1 worked with; `after` and `offset` need core
+v1.12.0 — `after` on an older core is refused with that name, an `offset` of 0 is not
+sent at all.
+
+From the Consho documentation work on consho.eu (2026-10-22).
+
+### Added
+
+- **`after` for `page_create`, `article_create` and `content_create`** — the new record
+  goes directly behind an existing one, below the same parent (an element also takes its
+  parent table), through the core's `--after`. The voters judge the create below the
+  sibling's parent, as they would for `pid`; the sibling must be readable. `pid` and
+  `after`: exactly one for content and articles; a page with `after` takes no `pid`.
+  On c5 the chat inserted an element between two others with `after`, no sorting
+  computed.
+- **`content_find` takes `offset`** — the next page while the answer says `more: true`.
+- Chat runner: `created.between: [a, b]` checks the new record's place; scenario
+  `content-create-between`.
+
 ## v0.21.1 — 2026-10-20
 
 Works with every contao-ai-core-bundle v0.21.0 worked with; the `unlinkableArticles` of
