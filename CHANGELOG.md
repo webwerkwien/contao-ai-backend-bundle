@@ -15,10 +15,10 @@ Works with every contao-ai-core-bundle v0.22.0 worked with.
   `notInChat` with the reason, and it remains for the command line. An `irreversible`
   the core could not read (`true` instead of a sentence) counts as well. What a command
   does outside the database without declaring it cannot be seen from here — the
-  extension's contract is the only source. Michael: such tasks must be prevented, they
-  do not run through the DCA. On the test server five Consho commands fall under it,
-  among them `consho:license:publish`, which serves a release to every customer's next
-  `composer update`. The confirmation step for such commands (v0.15.x) goes with it.
+  extension's contract is the only source. Such tasks do not run through the DCA. In
+  Consho, for example, `consho:license:publish` falls under it, which serves a release to
+  every customer's next `composer update`. The confirmation step for such commands
+  (v0.15.x) goes with it.
 - **Fixed: the confirmation for such commands never happened.** The core presents a
   contract's `irreversible` as `declared.irreversible_outside_database` (since
   2026-09-01); `ext_run` read `checked_with_statement.irreversible`, found nothing, and
@@ -33,8 +33,6 @@ Works with every contao-ai-core-bundle v0.21.1 worked with; `after` and `offset`
 v1.12.0 — `after` on an older core is refused with that name, an `offset` of 0 is not
 sent at all.
 
-From the Consho documentation work on consho.eu (2026-10-22).
-
 ### Added
 
 - **`after` for `page_create`, `article_create` and `content_create`** — the new record
@@ -44,8 +42,7 @@ From the Consho documentation work on consho.eu (2026-10-22).
   `after`: exactly one for content and articles; a page with `after` takes no `pid`, and
   one without either must be a root. An article takes the sibling's column unless
   `inColumn` is given, and the voters judge that column. `content_create`'s `ptable` is
-  empty by default (an article) and refused with `after`. On c5 the chat inserted an
-  element between two others with `after`, no sorting computed.
+  empty by default (an article) and refused with `after`.
 - **`content_find` takes `offset`** — the next page while the answer says `more: true`.
 - Chat runner: `created.between: [a, b]` checks the new record's place; scenario
   `content-create-between`.
@@ -54,8 +51,6 @@ From the Consho documentation work on consho.eu (2026-10-22).
 
 Works with every contao-ai-core-bundle v0.21.0 worked with; the `unlinkableArticles` of
 `language_check` come from core v1.11.1.
-
-From the acceptance test of v0.21.0 on showcase.conpai.eu (2026-10-20).
 
 ### Fixed
 
@@ -72,8 +67,8 @@ Works with every contao-ai-core-bundle v0.20.0 worked with. `language_versions` 
 `versions` in `content_find` need core v1.11.0 and terminal42/contao-changelanguage;
 without them the tool is not offered and `content_find` answers as before.
 
-From the next chat test on showcase.conpai.eu (2026-10-20): the chat changed the English
-slider headline and told the user the page existed in English only — the linked German
+The chat changed the English slider headline and told the user the page existed in English
+only — the linked German
 start page had the same slider. Asked to take the login article offline, it did, and never
 mentioned the German one. It had nothing to look the versions up with.
 
@@ -97,21 +92,20 @@ mentioned the German one. It had nothing to look the versions up with.
   — `versions` of a `content_find` result, or `language_versions`, which is called after
   changing, publishing or unpublishing a page, article, entry, event or FAQ. Found versions
   are named and asked about, not changed. An empty list next to other roots means "not
-  linked", not "no other language". On c5 the chat now names the linked German page and
+  linked", not "no other language". The chat now names the linked German page and
   article after changing the English text or taking the English article offline.
 - Chat runner: `says` / `says_not` check the last answer's text (an invalid pattern fails
   the scenario); the fixture links pages and
   articles across languages (`languageMain`, where changelanguage is installed); two new
-  scenarios for the showcase cases.
+  scenarios for these cases.
 
 ## v0.20.0 — 2026-10-20
 
 Works with every contao-ai-core-bundle v0.19.3 worked with. `content_find` needs core
 v1.10.0 and is offered only where the core has it.
 
-From a chat analysis on showcase.conpai.eu: changing one slider headline took 26–30 s and
-9–10 lookups before the one write, and on a site with two languages the chat changed the
-wrong one and translated it on the way (2026-10-19).
+Changing one slider headline took 26–30 s and 9–10 lookups before the one write, and on a
+site with two languages the chat changed the wrong one and translated it on the way.
 
 ### Added
 
@@ -119,7 +113,7 @@ wrong one and translated it on the way (2026-10-19).
   article, page and the website root with its language; through the core's
   `contao:content:find`. Every hit is voted on as a read of that element, as
   `content_read` decides it; what the user may not read is left out and counted
-  (`hidden`), not named. On c5 the same request took 3 calls instead of 9–10. The system
+  (`hidden`), not named. The same request took 3 calls instead of 9–10. The system
   prompt says to use it for "the element that shows this text".
 - **Choosing the model in the chat.** Next to the provider, below the input, the chat
   offers the models of the user's provider, the profile's model or the first preselected.
@@ -157,7 +151,7 @@ wrong one and translated it on the way (2026-10-19).
 
 - **An answer in several parts read "Array".** A model that sends thinking next to its text
   (`claude-haiku-5-5` does) produced a run whose content is the list of parts; cast to
-  string the chat showed "Array". Its text parts are the answer now (found on c5).
+  string the chat showed "Array". Its text parts are the answer now.
 - **`record_rewrite` skipped every field on current models.** It sent `temperature: 0.3`,
   which `claude-sonnet-5-5` refuses ("`temperature` is deprecated for this model"). No
   temperature any more; the system prompt keeps the rewrite close to the original.
@@ -167,7 +161,7 @@ wrong one and translated it on the way (2026-10-19).
 - New expectation `max_calls` (successful tool calls over all turns); scenarios for
   `content_find` and for a site with two languages; 70 scenarios.
 - Error messages and tool results are scrubbed as on the chat page before they reach
-  `--out` (Fable review 2026-10-19).
+  `--out`.
 
 ## v0.19.3 — 2026-10-19
 
@@ -231,10 +225,10 @@ Works with every contao-ai-core-bundle v0.19.0 worked with.
 ### Fixed
 
 - **The chat could not set a headline's level.** Asked for an h3, it answered
-  `[access_denied] Feld "unit" ist für dieses Tool nicht zum Schreiben freigegeben` (found
-  on showcase in a live demo, 2026-10-19). symfony/ai describes `array $fields` as a list of
+  `[access_denied] Feld "unit" ist für dieses Tool nicht zum Schreiben freigegeben`.
+  symfony/ai describes `array $fields` as a list of
   plain values, so the model has no object for `{unit, value}` and sends the level as a
-  field of its own: `["headline", "Titel", "unit", "h2"]`, on c5 also `"hl"`. Now a bare
+  field of its own: `["headline", "Titel", "unit", "h2"]`, sometimes `"hl"`. Now a bare
   `unit` goes to the headline as `headline_unit`, which the core already takes, whenever
   only one field with a unit can be meant; a `{unit, value}` object for the headline is
   passed on as the JSON the core reads. The level needs the user's right on `headline`, as
@@ -280,7 +274,7 @@ Works with every contao-ai-core-bundle v0.19.0 worked with.
   and fails on a name without an entry, and on an entry without a tool.
 - **The system prompt's list of tools a user may not call lacked the event, FAQ and image
   size tools.** A user without the module was neither offered them nor told they were out
-  of reach. The test now compares that list with the tools as well. Found in the review.
+  of reach. The test now compares that list with the tools as well.
 - `listAllowedTools()` runs the per-name check for every name. A name without a
   `TOOL_MAP` entry could be listed on the class-level decision alone (by a tool with its
   own `isAccessibleBy()`), although a call is refused for every non-admin; no such name
@@ -411,8 +405,8 @@ editors (non-admins) use the chat or the CLI bridge.**
   - `page_publish`: needs `tl_page::published`, checked before the "take it offline?"
     question.
   - `record_clone`: every override needs its right, a `null` one included (the core writes
-    it as empty) — so far `{"published": "1"}` published a clone without it (found in the
-    review of v0.16.4). Not the create rule: a clone copies its source, so `{"hide": ""}`
+    it as empty) — so far `{"published": "1"}` published a clone without it. Not the
+    create rule: a clone copies its source, so `{"hide": ""}`
     would show a hidden page. A cloned page comes out unpublished anyway (core v1.7.4).
   - `language_link`: the same check instead of its own (`hasAccess(…, 'alexf')`, which
     skipped Contao's exclusion rule and goes away in Contao 6).
@@ -425,7 +419,7 @@ editors (non-admins) use the chat or the CLI bridge.**
 
 - **The user form no longer sends the stored API key to the browser.** `ai_api_key` was a
   plain text input: anyone allowed to edit users received every other user's key in
-  clear in the form (checked on the test server). The form now shows `********` for a
+  clear in the form. The form now shows `********` for a
   stored key — leave it to keep the key, enter a new one to replace it, clear the field
   to disable the AI module as before. The field is now also left out of Contao's show
   view, version diff and undo view (`hideInput`, `doNotShow`) and of "edit multiple", and
@@ -530,8 +524,7 @@ refusals core-bundle v1.6.1 (its wording of the lookup).
 
 ### Added
 
-- **The agent can look up instead of guessing** (Michael, 2026-10-12: "in the packages it
-  should be prevented that agents guess input"). Two read-only tools with the table list
+- **The agent can look up instead of guessing.** Two read-only tools with the table list
   and module check of `dca_schema`: **`dca_palette`** — the fields a record of a kind has,
   and the mandatory ones (`record: {"type": "text"}`), and **`dca_options`** — the values a
   field accepts on this installation (element types, page types, modules …). Field names
@@ -743,14 +736,14 @@ chat opens on Contao 6 again.
 - **The chat could not open on Contao 6** ([#26](https://github.com/webwerkwien/contao-ai-backend-bundle/issues/26)):
   *Template "@Contao/be_ai_chat.html.twig" is not defined.* The chat was a legacy
   back-end module (`BE_MOD['callback']`) wrapped in a `be_ai_chat.html5` template, and
-  Contao 6 no longer reads `.html5` at all. The 6.0 test installation is reachable from
-  the console only, so the menu entry was never clicked there.
+  Contao 6 no longer reads `.html5` at all. On 6.0 the bundle had been checked from the
+  console only, so the menu entry was never clicked there.
 - **The requirements promised Contao 5.3, where the bundle could never be installed**
   ([#27](https://github.com/webwerkwien/contao-ai-backend-bundle/issues/27)).
   Every release of `symfony/ai-bundle` needs Symfony 7.3 or later; Contao 5.3 requires
   Symfony 6.4. Composer refused the installation with a message about `symfony/clock`
   and `symfony/config` rather than about Contao. Found while trying to install it on
-  the 5.3 test installation.
+  Contao 5.3.
 
 ### Changed
 
@@ -963,7 +956,7 @@ and promises nothing about Contao 6.
 ### The one a test could not have caught
 
 The tool counter was first written the Symfony way — `'%count% Werkzeuge'` with
-`trans({'%count%': n})`. Every unit test passed. On the test server it threw:
+`trans({'%count%': n})`. Every unit test passed. In a real installation it threw:
 
 ```
 ValueError: The arguments array must contain 2 items, 1 given
@@ -1004,10 +997,10 @@ in a language file.
   excludes that command by the same mechanism. The guard looks sufficient; it is
   exactly half of what is needed.
 
-  Found on a live site during an update, not here: the test server has both
-  bundles installed, so the container built and every test passed. The same site
-  supplied the control — `contao/news-bundle` is missing there too, and
-  `NewsTool` stayed silent, because it *was* excluded. Same shape, opposite
+  Found on a live installation during an update, not in development: the development
+  installation has both bundles installed, so the container built and every test
+  passed. The same live installation supplied the control — `contao/news-bundle` is
+  missing there too, and `NewsTool` stayed silent, because it *was* excluded. Same shape, opposite
   outcome, one line of configuration apart.
 
 ### Added
@@ -1445,7 +1438,7 @@ a model but the bridge's own canonical key — the value already stored in
   became `getDefinition()`. Every imported class survived the jump; one method did not.
   **Class existence is not API compatibility** — the tests caught it.
 
-  Verified live on the test server: an agent built, both platforms instantiated, a real
+  Verified on a live installation: an agent built, both platforms instantiated, a real
   tool call executed from the chat with confirmation, and `tl_log` carrying both the
   command and the tool entry.
 
@@ -1464,7 +1457,7 @@ a model but the bridge's own canonical key — the value already stored in
 
 ### Fixed
 
-- **The `record_clone` tool description told the model the opposite of what the server does.** It read *"unknown fields are silently dropped"*, which stopped being true with [contao-ai-core-bundle v0.2.15](https://github.com/webwerkwien/contao-ai-core-bundle/releases/tag/v0.2.15): refused overrides are now listed back under `ignored_modifications`. A tool description is what the model reasons from, so it was actively teaching Claude not to check a key that had just been added for exactly this purpose.
+- **The `record_clone` tool description told the model the opposite of what the server does.** It read *"unknown fields are silently dropped"*, which stopped being true with [contao-ai-core-bundle v0.2.15](https://github.com/webwerkwien/contao-ai-core-bundle/releases/tag/v0.2.15): refused overrides are now listed back under `ignored_modifications`. A tool description is what the model reasons from, so it was actively teaching the model not to check a key that had just been added for exactly this purpose.
 
   The description now names the accepted fields per table, points at `ignored_modifications`, mentions that `alias` is never taken from the payload, and states how to clone without publishing. `published` and `hide` became available for `tl_page` in the same core release; the description had no way of knowing.
 
@@ -1522,7 +1515,7 @@ a model but the bridge's own canonical key — the value already stored in
 
 The input marking is hardening, not a fix for an open privilege hole. The rewriters' inner loop is a bare `PlatformInterface::invoke()` with no toolbox, so injected text cannot call tools or escalate rights; the result is written back only to the field it came from, through allow-listed `*_update` commands. Reaching the path at all requires write access to the affected tables, which already permits setting those fields directly, and no front end source (comments, form data) is processed by a rewriter. The realistic failure mode addressed here is garbled output on imported third-party content during a bulk rewrite.
 
-Verified live against the test server (Contao 5.7.11) through the CLI bridge: a record whose teaser carried an injection attempt was translated correctly, the injected instruction was not followed, no `<editorial_input>` markers leaked into the stored value, and the operator audit trail in `tl_version` stayed intact.
+Verified against Contao 5.7.11 through the CLI bridge: a record whose teaser carried an injection attempt was translated correctly, the injected instruction was not followed, no `<editorial_input>` markers leaked into the stored value, and the operator audit trail in `tl_version` stayed intact.
 
 ## v0.1.0 — 2026-04-26 (Beta)
 
@@ -1544,47 +1537,47 @@ Initial beta release after a four-sprint security-hardening pass.
 
 ### Security hardening
 
-Implemented findings from a two-reviewer security pass (Opus + Codex). Status: 2/2 Critical, 9/9 High, 7/11 Medium fixed.
+Implemented the findings of a security audit: all critical and high findings, most of the medium ones.
 
-#### Permission and tool-access (Sprint A)
+#### Permission and tool-access
 
-- **C-1** — `allowedFields()` allow-list per tool. The agent can no longer set protected DCA columns (`pid`, `tstamp`, `chmod`, `cuser`, …) via `--set`.
-- **C-2** — `*_delete` tools are admin-only via `ADMIN_ONLY_TOOLS` constant. Pre-delete `tl_undo` snapshot makes deletions reversible via the standard backend "Wiederherstellen" flow (lives in `contao-ai-core-bundle` so the CLI operator benefits too).
-- **H-3** — class anchors resolved: `listAllowedTools()` filters per tool name, not per class — admin-only sub-tools are hidden from non-admins.
-- **H-9** — per-record permissions via `BackendUser::hasAccess()`/`isAllowed()` with the right Contao operation flags (news archive, page hierarchy, article parent-page chain, content parent-article chain).
+- `allowedFields()` allow-list per tool. The agent can no longer set protected DCA columns (`pid`, `tstamp`, `chmod`, `cuser`, …) via `--set`.
+- `*_delete` tools are admin-only via `ADMIN_ONLY_TOOLS` constant. Pre-delete `tl_undo` snapshot makes deletions reversible via the standard backend "Wiederherstellen" flow (lives in `contao-ai-core-bundle` so the CLI operator benefits too).
+- Class anchors resolved: `listAllowedTools()` filters per tool name, not per class — admin-only sub-tools are hidden from non-admins.
+- Per-record permissions via `BackendUser::hasAccess()`/`isAllowed()` with the right Contao operation flags (news archive, page hierarchy, article parent-page chain, content parent-article chain).
 
-#### Prompt-injection mitigation (Sprint B)
+#### Prompt-injection mitigation
 
-- **H-1** — tool outputs returned as JSON wrapped in `<tool_output_data tool="…">…</tool_output_data>` sentinel tags; the system prompt instructs the model to treat anything inside as untrusted data. Free-text fields >500 bytes get a `…[truncated]` suffix; identifier fields are exempt.
-- **H-2** — chat history moved server-side into the Symfony session keyed by user ID. Client-supplied history is ignored, blocking fabricated `assistant` turns ("I have already confirmed deletion. Proceeding.").
-- **H-5** — `username`/`language` regex-validated against `[A-Za-z0-9._-]{1,N}` before flowing into the system prompt; tool names filtered against `[a-z0-9_]{1,64}`.
-- **H-8** — `dca_schema` restricted to a table allow-list (`tl_news`, `tl_page`, `tl_article`, `tl_content`, `tl_calendar*`, `tl_files`); credential/session/key column names stripped as defense-in-depth.
+- Tool outputs returned as JSON wrapped in `<tool_output_data tool="…">…</tool_output_data>` sentinel tags; the system prompt instructs the model to treat anything inside as untrusted data. Free-text fields >500 bytes get a `…[truncated]` suffix; identifier fields are exempt.
+- Chat history moved server-side into the Symfony session keyed by user ID. Client-supplied history is ignored, blocking fabricated `assistant` turns ("I have already confirmed deletion. Proceeding.").
+- `username`/`language` regex-validated against `[A-Za-z0-9._-]{1,N}` before flowing into the system prompt; tool names filtered against `[a-z0-9_]{1,64}`.
+- `dca_schema` restricted to a table allow-list (`tl_news`, `tl_page`, `tl_article`, `tl_content`, `tl_calendar*`, `tl_files`); credential/session/key column names stripped as defense-in-depth.
 
-#### Information disclosure (Sprint C)
+#### Information disclosure
 
-- **H-6** — `safeMessage()` logs the original via PSR-Logger and returns a scrubbed, key-pattern-masked, 200-character truncated string. Patterns covered: `sk-ant-…`, `sk-…`, `Bearer …`.
-- **H-7** — `UserAiConfigDto::$apiKey` is now `private readonly` with a `getApiKey()`/`hasApiKey()` getter; `__debugInfo()` redacts to `***<last4>` so casual `dump($config)` does not paste the key.
-- **M-11** — `tool_failed` SSE events now flow through the same sanitizer; PDO output and vendor paths no longer leak.
-- **M-3** — `search_query` requires the user to have the `page` module (or be admin); editors without page mounts can no longer enumerate the search index.
-- **M-4** — `listing_config` strips internal ACL columns (`tstamp`, `protected`, `groups`, `chmod`, `cuser`, `cgroup`, `singleSRC`, `imgSize`).
-- **M-2** — audit trail uses the actual Contao username instead of `$_SERVER['USER']`. Core bundle accepts a new optional `--operator` option on every write command; the backend wrapper injects it automatically when the command supports it. CLI invocations still fall back to the shell user.
+- `safeMessage()` logs the original via PSR-Logger and returns a scrubbed, key-pattern-masked, 200-character truncated string. Patterns covered: `sk-ant-…`, `sk-…`, `Bearer …`.
+- `UserAiConfigDto::$apiKey` is now `private readonly` with a `getApiKey()`/`hasApiKey()` getter; `__debugInfo()` redacts to `***<last4>` so casual `dump($config)` does not paste the key.
+- `tool_failed` SSE events now flow through the same sanitizer; PDO output and vendor paths no longer leak.
+- `search_query` requires the user to have the `page` module (or be admin); editors without page mounts can no longer enumerate the search index.
+- `listing_config` strips internal ACL columns (`tstamp`, `protected`, `groups`, `chmod`, `cuser`, `cgroup`, `singleSRC`, `imgSize`).
+- Audit trail uses the actual Contao username instead of `$_SERVER['USER']`. Core bundle accepts a new optional `--operator` option on every write command; the backend wrapper injects it automatically when the command supports it. CLI invocations still fall back to the shell user.
 
-#### Hardening (Sprint D)
+#### Hardening
 
-- **M-5/M-6** — response headers: `Cache-Control: no-store, private, max-age=0`, `Vary: Cookie`, `X-Robots-Tag: noindex, nofollow`, explicit `charset=utf-8` on both SSE and JSON error responses.
-- **M-7** — history caps: 4 KB per entry, 64 KB total. Oldest entries are dropped when either limit is exceeded.
-- **H-4** — removed the `WeakMap` cache in `UserAiConfig`. Reads are now direct from the `BackendUser` model, eliminating the TOCTOU window when an API key is rotated mid-session.
-- **L-2** — platform string re-validated against `['anthropic', 'openai']`; a stray DB value falls back to the default rather than wiring an undefined bridge.
-- **M-1** — session-backed sliding-window rate limit: 30 requests/minute and 500/day per user → HTTP 429. No new dependency.
-- **M-8** — `Origin` and `Sec-Fetch-Site` request headers verified against the host as defense-in-depth alongside CSRF.
+- Response headers: `Cache-Control: no-store, private, max-age=0`, `Vary: Cookie`, `X-Robots-Tag: noindex, nofollow`, explicit `charset=utf-8` on both SSE and JSON error responses.
+- History caps: 4 KB per entry, 64 KB total. Oldest entries are dropped when either limit is exceeded.
+- Removed the `WeakMap` cache in `UserAiConfig`. Reads are now direct from the `BackendUser` model, eliminating the TOCTOU window when an API key is rotated mid-session.
+- Platform string re-validated against `['anthropic', 'openai']`; a stray DB value falls back to the default rather than wiring an undefined bridge.
+- Session-backed sliding-window rate limit: 30 requests/minute and 500/day per user → HTTP 429. No new dependency.
+- `Origin` and `Sec-Fetch-Site` request headers verified against the host as defense-in-depth alongside CSRF.
 
 ### Deferred
 
-These were considered and explicitly deferred — see `2026-04-26-contao-ai-backend-security-findings.md` in the project notes for rationale:
+These were considered and explicitly deferred:
 
-- M-9 (CSRF-token rotation) — M-8 covers most of the same threat at lower cost.
-- M-10 (concurrent-session lock) — PHP-FPM session lock already serializes per session.
-- L-1, L-3, L-4, L-5, L-6, L-7 — minor / would be over-engineering for the current threat model.
+- CSRF-token rotation — the `Origin`/`Sec-Fetch-Site` check covers most of the same threat at lower cost.
+- A concurrent-session lock — PHP-FPM's session lock already serializes per session.
+- Six minor findings that would be over-engineering for the current threat model.
 
 ### Notes
 
