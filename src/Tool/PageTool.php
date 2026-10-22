@@ -13,7 +13,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PagePublishCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageReadCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 
-#[AsTool('page_create',  'Create a new Contao page (sub-page or root)', method: 'create')]
+#[AsTool('page_create',  'Create a new Contao page (sub-page or root): at the end of a parent (pid), or directly behind an existing page (after)', method: 'create')]
 #[AsTool('page_update',  'Update one or more fields of a Contao page by ID', method: 'update')]
 #[AsTool('page_delete',  'Delete a Contao page by ID, together with its subpages, articles and content elements: do not delete those first, one confirmation covers it all. Requires explicit confirmation.', method: 'delete')]
 #[AsTool('page_read',    'Read a single page by ID', method: 'read')]
@@ -71,6 +71,9 @@ class PageTool extends AbstractCoreCommandTool
         }
         if ($after > 0) {
             $pid = (int) $this->siblingForAfter($this->createCommand, 'tl_page', $after)['pid'];
+        } elseif (0 === $pid && 'root' !== $type) {
+            // Optional since v0.22.0: without either only a root fits (review v0.22.0)
+            throw new ToolRefusedException('pid (übergeordnete Seite) oder after (direkt hinter dieser Seite) angeben; ohne beides nur ein Startpunkt (type root).');
         }
 
         // The voters decide (v0.18.0): edit and hierarchy rights on the parent, the page

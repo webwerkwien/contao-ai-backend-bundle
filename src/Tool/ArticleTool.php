@@ -12,7 +12,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ArticleDeleteCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ArticleReadCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand;
 
-#[AsTool('article_create', 'Create a Contao article inside a page column', method: 'create')]
+#[AsTool('article_create', 'Create a Contao article: at the end of a page (pid), or directly behind an existing article (after)', method: 'create')]
 #[AsTool('article_update', 'Update one or more fields of a Contao article by ID', method: 'update')]
 #[AsTool('article_delete', 'Delete a Contao article by ID, together with its content elements: do not delete them one by one first, one confirmation covers it all. Requires explicit confirmation.', method: 'delete')]
 #[AsTool('article_read',   'Read a single article by ID', method: 'read')]
@@ -51,22 +51,29 @@ class ArticleTool extends AbstractCoreCommandTool
     /**
      * @param string $title    Article title
      * @param int    $pid      Page ID — the article goes to its end; 0 when after is given
-     * @param string $inColumn Layout column, usually main
-     * @param int    $after    ID of an existing article — the new one goes directly behind it, on the same page; 0 to use pid
+     * @param string $inColumn Layout column; empty: main, or with after the column of that article
+     * @param int    $after    ID of an existing article — the new one goes directly behind it, on the same page; 0 to use pid. Give exactly one of pid and after
      */
     #[AiContract(
         writes: true, tables: ['tl_article'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(string $title, int $pid = 0, string $inColumn = 'main', int $after = 0): string
+    public function create(string $title, int $pid = 0, string $inColumn = '', int $after = 0): string
     {
         // Directly behind an article (v0.22.0, core v1.12.0): its page, then the same voters.
         if (($pid > 0) === ($after > 0)) {
             throw new ToolRefusedException('Entweder pid (am Ende der Seite) oder after (direkt hinter diesem Artikel) angeben, genau eines davon.');
         }
+        // The column the core writes: the one given, else the sibling's (core v1.12.0), else
+        // main — and the voters judge that one (review v0.22.0: 'main' was always sent and
+        // overrode the sibling's column).
+        $given = $inColumn;
         if ($after > 0) {
-            $pid = (int) $this->siblingForAfter($this->createCommand, 'tl_article', $after)['pid'];
+            $sibling = $this->siblingForAfter($this->createCommand, 'tl_article', $after);
+            $pid = (int) $sibling['pid'];
+            $inColumn = '' !== $given ? $given : (string) ($sibling['inColumn'] ?? 'main');
         }
+        $inColumn = '' !== $inColumn ? $inColumn : 'main';
 
         // The voters decide (v0.18.0): edit and hierarchy rights for articles on the page,
         // its type, and a layout with a column for articles. `sorting` non-null, as in
@@ -83,7 +90,8 @@ class ArticleTool extends AbstractCoreCommandTool
             '--title'    => $title,
             '--pid'      => $after > 0 ? null : (string) $pid,
             '--after'    => $after > 0 ? (string) $after : null,
-            '--inColumn' => $inColumn,
+            // with after and no column given, the core takes the sibling's
+            '--inColumn' => $after > 0 && '' === $given ? null : $inColumn,
         ], 'article_create');
     }
 

@@ -16,9 +16,11 @@ From the Consho documentation work on consho.eu (2026-10-22).
   goes directly behind an existing one, below the same parent (an element also takes its
   parent table), through the core's `--after`. The voters judge the create below the
   sibling's parent, as they would for `pid`; the sibling must be readable. `pid` and
-  `after`: exactly one for content and articles; a page with `after` takes no `pid`.
-  On c5 the chat inserted an element between two others with `after`, no sorting
-  computed.
+  `after`: exactly one for content and articles; a page with `after` takes no `pid`, and
+  one without either must be a root. An article takes the sibling's column unless
+  `inColumn` is given, and the voters judge that column. `content_create`'s `ptable` is
+  empty by default (an article) and refused with `after`. On c5 the chat inserted an
+  element between two others with `after`, no sorting computed.
 - **`content_find` takes `offset`** — the next page while the answer says `more: true`.
 - Chat runner: `created.between: [a, b]` checks the new record's place; scenario
   `content-create-between`.

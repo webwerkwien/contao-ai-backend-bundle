@@ -53,7 +53,7 @@ class CreateAfterTest extends TestCase
     /**
      * @param list<string> $readable "table:id" the voters let the user read
      */
-    private function tool(bool $coreHasAfter = true, array $readable = ['tl_content:640']): ContentTool
+    private function tool(bool $coreHasAfter = true, array $readable = ['tl_content:640'], bool $deniedNews = false): ContentTool
     {
         $options = [new InputOption('type', null, InputOption::VALUE_REQUIRED), new InputOption('pid', null, InputOption::VALUE_REQUIRED), new InputOption('ptable', null, InputOption::VALUE_REQUIRED)];
         if ($coreHasAfter) {
@@ -88,7 +88,8 @@ class CreateAfterTest extends TestCase
         $records->method('assertCreate')->willReturnCallback(function (string $table, array $new): void {
             $this->createVotes[] = $new;
         });
-        $records->method('contentParentDenial')->willReturn(null);
+        // an editor may not create below news here: the parent table is the sibling's
+        $records->method('contentParentDenial')->willReturnCallback(static fn (array $record): ?string => 'tl_news' === ($record['ptable'] ?? null) && $deniedNews ? 'Keine Rechte auf News.' : null);
 
         $user = $this->createMock(BackendUser::class);
         $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) { 'isAdmin' => false, 'username' => 'redakteur', default => null });
@@ -104,11 +105,32 @@ class CreateAfterTest extends TestCase
 
     public function testAfterSendsOnlyAfterAndTheVotersSeeTheSiblingsParent(): void
     {
-        $this->tool()->create('text', 0, 'tl_article', 640);
+        $this->tool()->create('text', 0, '', 640);
 
         self::assertSame(['type' => 'text', 'after' => '640'], $this->sent);
         self::assertSame(8, $this->createVotes[0]['pid']);
         self::assertSame('tl_news', $this->createVotes[0]['ptable'], 'the sibling\'s parent table, not the default tl_article');
+    }
+
+    /**
+     * The editor's parent-table rule judges the sibling's parent table (review v0.22.0:
+     * a mutation that checked tl_article on the after path passed).
+     */
+    public function testTheParentTableRuleSeesTheSiblingsParentTable(): void
+    {
+        try {
+            $this->tool(deniedNews: true)->create('text', 0, '', 640);
+            self::fail('expected a denial');
+        } catch (ToolAccessDeniedException $e) {
+            self::assertStringContainsString('News', $e->getMessage());
+            self::assertNull($this->sent);
+        }
+    }
+
+    public function testPtableWithAfterIsRefused(): void
+    {
+        $this->expectException(ToolRefusedException::class);
+        $this->tool()->create('text', 0, 'tl_news', 640);
     }
 
     public function testPidStillWorksAsBefore(): void
@@ -135,13 +157,13 @@ class CreateAfterTest extends TestCase
         $this->expectException(ToolRefusedException::class);
         $this->expectExceptionMessage('v1.12.0');
 
-        $this->tool(coreHasAfter: false)->create('text', 0, 'tl_article', 640);
+        $this->tool(coreHasAfter: false)->create('text', 0, '', 640);
     }
 
     public function testASiblingTheUserMayNotReadIsRefused(): void
     {
         try {
-            $this->tool(readable: [])->create('text', 0, 'tl_article', 640);
+            $this->tool(readable: [])->create('text', 0, '', 640);
             self::fail('expected a denial');
         } catch (ToolAccessDeniedException) {
             self::assertNull($this->sent);
@@ -154,6 +176,6 @@ class CreateAfterTest extends TestCase
         $this->expectException(ToolRefusedException::class);
         $this->expectExceptionMessage('Datensatz 999');
 
-        $this->tool()->create('text', 0, 'tl_article', 999);
+        $this->tool()->create('text', 0, '', 999);
     }
 }

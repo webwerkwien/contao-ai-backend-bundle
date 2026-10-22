@@ -56,24 +56,29 @@ class ContentTool extends AbstractCoreCommandTool
     /**
      * @param string $type   Element type, e.g. text, headline, image
      * @param int    $pid    Parent ID (usually the article) — the element goes to its end; 0 when after is given
-     * @param string $ptable Parent table of pid (tl_article, tl_news, …); ignored with after
-     * @param int    $after  ID of an existing element — the new one goes directly behind it, below the same parent; 0 to use pid
+     * @param string $ptable Parent table of pid (tl_article, tl_news, …), empty for tl_article; leave empty with after
+     * @param int    $after  ID of an existing element — the new one goes directly behind it, below the same parent; 0 to use pid. Give exactly one of pid and after
      */
     #[AiContract(
         writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: false, answerShape: ['status', 'id'],
     )]
-    public function create(string $type, int $pid = 0, string $ptable = 'tl_article', int $after = 0): string
+    public function create(string $type, int $pid = 0, string $ptable = '', int $after = 0): string
     {
         // Directly behind an element (v0.22.0, core v1.12.0): its parent and parent table,
         // then the same voters as for pid.
         if (($pid > 0) === ($after > 0)) {
             throw new ToolRefusedException('Entweder pid (am Ende des Artikels) oder after (direkt hinter diesem Element) angeben, genau eines davon.');
         }
+        if ($after > 0 && '' !== $ptable) {
+            throw new ToolRefusedException('after übernimmt die Elterntabelle dieses Elements; ptable dann weglassen.');
+        }
         if ($after > 0) {
             $sibling = $this->siblingForAfter($this->createCommand, 'tl_content', $after);
-            [$pid, $ptable] = [(int) $sibling['pid'], (string) $sibling['ptable']];
+            $pid = (int) $sibling['pid'];
+            $ptable = (string) ($sibling['ptable'] ?? ''); // empty: Contao 4 data, an article
         }
+        $ptable = '' !== $ptable ? $ptable : 'tl_article';
 
         // The voters decide (v0.18.0): the rights on the article, news or event above,
         // the element type, and whether the parent element takes nested elements.
