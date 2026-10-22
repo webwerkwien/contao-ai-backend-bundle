@@ -142,7 +142,7 @@ class ExtTool extends AbstractCoreCommandTool
         foreach ($this->outsideChat($user) as $blocked) {
             if ($blocked['name'] === $command) {
                 throw new ToolRefusedException(\sprintf(
-                    '„%s" wirkt außerhalb der Datenbank (%s) und läuft deshalb nicht im Chat, nur über die Befehlszeile (contao-ai-cli ext run).',
+                    '„%s" lässt sich laut seiner Erweiterung nicht rückgängig machen (%s) und läuft deshalb nicht im Chat, nur über die Befehlszeile (contao-ai-cli ext run).',
                     $command,
                     $blocked['reason'],
                 ));
@@ -302,7 +302,20 @@ class ExtTool extends AbstractCoreCommandTool
         $contract = (array) ($definition['contract'] ?? []);
         $value    = $contract['declared']['irreversible_outside_database'] ?? $contract['checked_with_statement']['irreversible'] ?? null;
 
-        return \is_string($value) && '' !== trim($value) ? $value : null;
+        if (\is_string($value) && '' !== trim($value)) {
+            return $value;
+        }
+
+        // Fail closed: an `irreversible` the core could not read (true instead of a
+        // sentence) is dropped from the fields and only named under `problems` — it
+        // still says the command cannot be undone (review v0.22.1).
+        foreach ((array) ($contract['problems'] ?? []) as $problem) {
+            if (\is_string($problem) && str_starts_with($problem, 'irreversible')) {
+                return 'irreversible declared, but unreadable: ' . $problem;
+            }
+        }
+
+        return null;
     }
 
     /**

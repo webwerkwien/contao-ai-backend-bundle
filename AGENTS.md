@@ -157,6 +157,13 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `LanguageVersionsTool` needs `contao:language:versions` (core ≥ 1.11.0, registered only
   with changelanguage) — a tool of its own, so an older core hides it without hiding
   `language_link`.
+- **The chat runs nothing that does not go through the DCA** (Michael, 2026-10-22). No
+  tool starts a process, `ext_run` skips the core's `contao:` commands, and an extension
+  command whose contract declares `irreversible` — read from
+  `declared.irreversible_outside_database`, the place the core's `ContractPresenter`
+  puts it, or found under `problems` — is not run at all, admins included (v0.22.1).
+  Build test contracts with `ContractPresenter::present()`, never by hand: the hand-built
+  shape is how the confirmation for such commands went missing for six weeks.
 - **What the core names beyond the record asked for goes through the voters too.** Linked
   language versions and website roots (`content_find`, `language_versions`) are filtered
   by `FiltersLanguageVersions`: each entry a read of that record, the rest counted, an

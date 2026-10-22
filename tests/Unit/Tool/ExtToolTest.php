@@ -408,6 +408,35 @@ class ExtToolTest extends TestCase
         $this->tool($this->user(false), $this->console(), ['tl_consho_product', 'tl_consho_price'])->runCommandLine('consho:url:prune');
     }
 
+    public function testAnEditorWhoCouldReachItIsRefusedWithTheReason(): void
+    {
+        try {
+            $this->tool($this->user(false), $this->console(), ['tl_consho_redirect'])->runCommandLine('consho:url:prune');
+            $this->fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            $this->assertStringContainsString('the pruned addresses are deleted', $e->getMessage());
+        }
+
+        $this->assertSame([], array_filter($this->runs, static fn (array $r): bool => 'contao:ai:run' === $r['command']));
+    }
+
+    /**
+     * `irreversible: true` instead of a sentence: the core drops it and names it under
+     * problems. Still not in the chat (review v0.22.1: it ran).
+     */
+    public function testAnUnreadableIrreversibleStillKeepsTheCommandOut(): void
+    {
+        $this->definitions['acme:sync']['contract'] = ContractPresenter::present(
+            ['fields' => ['writes' => true], 'problems' => ['irreversible must be a non-empty string, got true.']],
+            static fn (string $t): bool => true,
+        );
+
+        $answer = self::decode($this->tool($this->user(true), $this->console())->listCommands());
+
+        $this->assertNotContains('acme:sync', array_column($answer['commands'], 'name'));
+        $this->assertContains('acme:sync', array_column($answer['notInChat'], 'name'));
+    }
+
     public function testAnEditorWhoCouldReachItIsToldWhyNot(): void
     {
         $answer = self::decode($this->tool($this->user(false), $this->console(), ['tl_consho_redirect'])->listCommands());

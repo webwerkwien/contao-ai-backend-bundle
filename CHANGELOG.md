@@ -8,14 +8,17 @@ Works with every contao-ai-core-bundle v0.22.0 worked with.
 
 ### Security
 
-- **Extension commands that act outside the database no longer run in the chat** —
-  for admins neither. What a command's contract declares `irreversible` (a published
-  package release, a renewed repository token, a released licence, deleted addresses
-  without undo) is left out of `ext_run`; `ext_list` names it under `notInChat` with the
-  reason, and it remains for the command line. Michael: such tasks must be prevented,
-  they do not run through the DCA. On the test server five Consho commands fall under
-  it, among them `consho:license:publish`, which serves a release to every customer's
-  next `composer update`.
+- **Extension commands that declare an effect the database cannot undo no longer run
+  in the chat** — for admins neither. What a command's contract declares `irreversible`
+  (a published package release, a renewed repository token, a released licence, deleted
+  addresses without undo) is left out of `ext_run`; `ext_list` names it under
+  `notInChat` with the reason, and it remains for the command line. An `irreversible`
+  the core could not read (`true` instead of a sentence) counts as well. What a command
+  does outside the database without declaring it cannot be seen from here — the
+  extension's contract is the only source. Michael: such tasks must be prevented, they
+  do not run through the DCA. On the test server five Consho commands fall under it,
+  among them `consho:license:publish`, which serves a release to every customer's next
+  `composer update`. The confirmation step for such commands (v0.15.x) goes with it.
 - **Fixed: the confirmation for such commands never happened.** The core presents a
   contract's `irreversible` as `declared.irreversible_outside_database` (since
   2026-09-01); `ext_run` read `checked_with_statement.irreversible`, found nothing, and
