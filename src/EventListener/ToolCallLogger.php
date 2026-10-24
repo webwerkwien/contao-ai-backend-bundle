@@ -9,6 +9,7 @@ use Symfony\AI\Agent\Toolbox\Event\ToolCallSucceeded;
 use Symfony\AI\Agent\Toolbox\Exception\InvalidToolCallArgumentsException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
 use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolArgumentMasker;
 
@@ -62,6 +63,22 @@ class ToolCallLogger implements EventSubscriberInterface
     public function startRequest(): void
     {
         $this->toolsCalledThisRequest = [];
+    }
+
+    /**
+     * One line per message with files: name, type and size, never the content
+     * (v1.0.0). WARNING for the same reason as the tool lines (class docblock).
+     *
+     * @param list<ChatAttachment> $files
+     */
+    public function attachmentsReceived(array $files): void
+    {
+        if ([] === $files) {
+            return;
+        }
+
+        $parts = array_map(static fn (ChatAttachment $file): string => \sprintf('%s (%s, %d bytes)', $file->name, $file->mime, $file->size()), $files);
+        $this->logger->warning('contao_ai_backend chat attachments: ' . implode(', ', $parts));
     }
 
     /**

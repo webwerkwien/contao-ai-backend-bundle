@@ -11,6 +11,7 @@ use Symfony\AI\Agent\Toolbox\ToolResult;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Tool\ExecutionReference;
 use Symfony\AI\Platform\Tool\Tool;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
 use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
 
 /**
@@ -57,6 +58,28 @@ class ToolCallLoggerTest extends TestCase
         $listener->onFailed(new ToolCallFailed(new \stdClass(), $this->metadata('page_read'), [], new \RuntimeException('nope')));
 
         $this->assertSame(['info', 'warning'], $this->levels);
+    }
+
+    /**
+     * v1.0.0: a message with files leaves one line — name, type, size. The content
+     * stays out: an uploaded offer or member list does not belong in the system log.
+     */
+    public function testAttachmentsAreLoggedWithoutTheirContent(): void
+    {
+        $listener = new ToolCallLogger($this->logger());
+
+        $listener->attachmentsReceived([new ChatAttachment('Angebot.pdf', 'pdf', 'application/pdf', 'GEHEIMER INHALT')]);
+
+        $this->assertCount(1, $this->messages);
+        $this->assertStringContainsString('Angebot.pdf (application/pdf, 15 bytes)', $this->messages[0]);
+        $this->assertStringNotContainsString('GEHEIMER', implode("\n", $this->messages));
+    }
+
+    public function testNoFilesNoLine(): void
+    {
+        (new ToolCallLogger($this->logger()))->attachmentsReceived([]);
+
+        $this->assertSame([], $this->messages);
     }
 
     /**
