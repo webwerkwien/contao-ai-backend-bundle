@@ -51,6 +51,7 @@ class ContentWritePayloadTest extends TestCase
                 'html'      => ['inputType' => 'textarea', 'sql' => 'text NULL'],
                 'invisible' => ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => false]],
                 'type'      => ['inputType' => 'select', 'sql' => ['type' => 'string', 'length' => 64, 'default' => 'text']],
+                'size'      => ['inputType' => 'imageSize', 'sql' => 'varchar(128) COLLATE ascii_bin NOT NULL default \'\''],
             ],
         ]);
         $this->sent = null;
@@ -187,6 +188,41 @@ class ContentWritePayloadTest extends TestCase
         $this->expectExceptionMessage('Feld "text" erwartet einen einfachen Wert');
 
         $this->send($tool, ['text' => ['value' => 'x']]);
+    }
+
+    /**
+     * An image size is a list, and the model sends it as one (v1.0.0): it reaches the
+     * core as the JSON text the core serializes. Until then it was refused as an object.
+     */
+    public function testAnImageSizeListReachesTheCoreAsJson(): void
+    {
+        $tool = $this->tool(['tl_content::size']);
+
+        $this->send($tool, ['size' => ['800', '', 'proportional']]);
+        $this->assertSame(['size=["800","","proportional"]'], $this->sent);
+
+        $this->send($tool, ['size' => [800, null, 5]]);
+        $this->assertSame(['size=["800","","5"]'], $this->sent, 'numbers and null as the widget submits them');
+    }
+
+    public function testAListForAFieldThatHoldsNoListIsRefused(): void
+    {
+        $tool = $this->tool(['tl_content::text']);
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('Feld "text" erwartet einen einfachen Wert');
+
+        $this->send($tool, ['text' => ['a', 'b']]);
+    }
+
+    public function testAnImageSizeWithNestedValuesIsRefused(): void
+    {
+        $tool = $this->tool(['tl_content::size']);
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('Feld "size"');
+
+        $this->send($tool, ['size' => ['800', ['x'], 'crop']]);
     }
 
     public function testAHeadlineObjectWithOtherKeysIsRefused(): void

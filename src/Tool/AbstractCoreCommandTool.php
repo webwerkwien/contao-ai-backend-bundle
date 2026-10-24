@@ -725,9 +725,11 @@ abstract class AbstractCoreCommandTool
 
         foreach ($fields as $key => $value) {
             if (\is_array($value)) {
-                // Only a field with a unit takes a pair; any other object would reach
-                // the command as the text "Array" (until v0.19.1).
-                $fields[$key] = self::unitPairJson((string) $key, $value, \in_array($key, $this->unitFields($table), true));
+                // Only a field with a unit takes a pair and only a list field a list; any
+                // other object would reach the command as the text "Array" (until v0.19.1).
+                $fields[$key] = array_is_list($value) && \in_array($key, $this->fieldPermission->listFields($table), true)
+                    ? self::listJson((string) $key, $value)
+                    : self::unitPairJson((string) $key, $value, \in_array($key, $this->unitFields($table), true));
             }
         }
 
@@ -797,6 +799,25 @@ abstract class AbstractCoreCommandTool
         $base = substr($key, 0, -5);
 
         return \in_array($base, $unitFields, true) ? $base : null;
+    }
+
+    /**
+     * A list of plain values as the JSON text the core turns into Contao's serialized
+     * list, every entry a string as the back end's widgets submit them.
+     *
+     * @param list<mixed> $value
+     *
+     * @throws ToolRefusedException when an entry is not a plain value
+     */
+    private static function listJson(string $key, array $value): string
+    {
+        foreach ($value as $entry) {
+            if (!(\is_scalar($entry) || null === $entry)) {
+                throw new ToolRefusedException(\sprintf('Feld "%s" erwartet eine Liste einfacher Werte, z. B. ["800","","proportional"]. Es wurde nichts geschrieben.', $key));
+            }
+        }
+
+        return json_encode(array_map(static fn (mixed $entry): string => (string) $entry, $value), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     /**

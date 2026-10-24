@@ -26,7 +26,9 @@ constraint `>=0.1 <2.0` from the installation guide reaches it.
   of this bundle. Tools reach the files of the running message through
   `ChatAttachments`.
 - **Content tools set the element image:** `singleSRC` (the file's UUID) and `size`,
-  besides `addImage`. `size` as a JSON list needs contao-ai-core-bundle v0.16.0 or later.
+  besides `addImage`. A list value (`["800","","proportional"]`) reaches the core as JSON
+  for every field that stores a list — an image size, a multiple choice — instead of
+  being refused as an object; this needs contao-ai-core-bundle v0.16.0 or later.
 
 ### Changed
 

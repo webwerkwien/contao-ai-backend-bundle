@@ -130,6 +130,29 @@ class FieldPermission
     }
 
     /**
+     * The fields of the table whose widget stores a list: an image size
+     * (`[width, height, mode]`) and the multiple choices. A model sends their value as a
+     * list, which goes to the core as JSON (v1.0.0, see AbstractCoreCommandTool::writeFields()).
+     *
+     * @return list<string>
+     */
+    public function listFields(string $table): array
+    {
+        $this->loadDca($table);
+
+        $definitions = $GLOBALS['TL_DCA'][$table]['fields'] ?? [];
+
+        return \is_array($definitions)
+            ? array_map('strval', array_keys(array_filter(
+                $definitions,
+                static fn (mixed $definition): bool => \is_array($definition)
+                    && 'fileTree' !== ($definition['inputType'] ?? null)
+                    && ('imageSize' === ($definition['inputType'] ?? null) || (bool) ($definition['eval']['multiple'] ?? false)),
+            )))
+            : [];
+    }
+
+    /**
      * @param list<string> $denied
      */
     private function refuse(string $table, array $denied): void
