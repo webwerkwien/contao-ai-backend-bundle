@@ -38,6 +38,10 @@ constraint `>=0.1 <2.0` from the installation guide reaches it.
   of failing as a missing CSRF token.
 - Requires `ext-fileinfo`.
 
+### Fixed
+
+- On Contao 6 the message field reached past the right edge of the chat box.
+
 ## v0.23.0 — 2026-10-24
 
 Works with every contao-ai-core-bundle v0.22.1 worked with. Core v1.12.1 refuses an empty
