@@ -3,7 +3,6 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Attachment;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Contracts\Service\ResetInterface;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachments;
 
@@ -19,8 +18,8 @@ class ChatAttachmentsTest extends TestCase
         self::assertNull($store->get('anderes.png'));
         self::assertCount(2, $store->all());
 
-        // A worker serves many requests: Symfony calls reset() between them.
-        self::assertInstanceOf(ResetInterface::class, $store);
+        // A worker serves many requests: Symfony calls reset() between them
+        // (ResetInterface, autoconfigured as kernel.reset).
         $store->reset();
         self::assertSame([], $store->all());
     }

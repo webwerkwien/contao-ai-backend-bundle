@@ -36,6 +36,18 @@ $GLOBALS['TL_LANG']['ai_chat']['internal_error']   = 'Interner Fehler — siehe 
 $GLOBALS['TL_LANG']['ai_chat']['tool_not_allowed'] = 'Dieses Werkzeug ist für Ihr Konto nicht freigegeben.';
 $GLOBALS['TL_LANG']['ai_chat']['output_cut']       = 'Die Antwort des Modells wurde an seiner Längengrenze abgeschnitten; dieser Schritt wurde nicht ausgeführt. Bitte die Anfrage in kleinere Schritte teilen.';
 
+// Anhänge (v1.0.0): Ablehnungen am Server, als `attachment_refused` ohne Fehlerbericht
+$GLOBALS['TL_LANG']['ai_chat']['attachments_too_large']        = 'Die Anhänge sind zusammen zu groß für eine Nachricht. Bitte weniger oder kleinere Dateien senden.';
+$GLOBALS['TL_LANG']['ai_chat']['attachments_too_many']         = 'Höchstens %s Dateien pro Nachricht.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_invalid']           = 'Die Datei „%s“ ist nicht vollständig angekommen.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_duplicate']         = 'Die Datei „%s“ ist zweimal angehängt.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_type_not_allowed']  = 'Dateien wie „%s“ sind in den Systemeinstellungen nicht zum Hochladen freigegeben.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_unreadable']        = 'Diese Datei kann der Chat nicht lesen: „%s“.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_too_large']         = '„%s“ ist größer als die erlaubten %s.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_too_long']          = '„%s“ ist zu lang für den Chat: %s Zeichen, höchstens %s. Bitte kürzen oder aufteilen.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_mismatch']          = 'Der Inhalt von „%s“ passt nicht zur Dateiendung.';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_model_cannot_read'] = 'Das Modell %2$s kann „%1$s“ nicht lesen. Bitte ein anderes Modell wählen.';
+
 // Backend-Meldungen nach dem Erzeugen bzw. Löschen des CLI-Bridge-Tokens.
 $GLOBALS['TL_LANG']['ai_chat']['token_created'] = 'Neuer CLI-Bridge-Token generiert — der Klartext ist unten im Profil-Block einmalig sichtbar.';
 $GLOBALS['TL_LANG']['ai_chat']['token_cleared'] = 'Bridge-Token gelöscht — der CLI-Agent kann sich nicht mehr authentifizieren.';

@@ -22,8 +22,12 @@ use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentPolicy;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentReader;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachments;
 use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
 use Webwerkwien\ContaoAiBackendBundle\Exception\AiConfigException;
+use Webwerkwien\ContaoAiBackendBundle\Exception\AttachmentRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Symfony\AI\Platform\Result\MultiPartResult;
 use Symfony\AI\Platform\Result\TextResult;
@@ -80,6 +84,9 @@ class AiStreamController extends AbstractController
         private readonly ToolCallLogger $toolCallLogger,
         private readonly UserAiConfig $userConfig,
         private readonly ErrorReportBuilder $errorReportBuilder,
+        private readonly AttachmentPolicy $attachmentPolicy,
+        private readonly AttachmentReader $attachmentReader,
+        private readonly ChatAttachments $chatAttachments,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger = new NullLogger(),
         private readonly ?ModelChoice $modelChoice = null,
@@ -228,6 +235,12 @@ class AiStreamController extends AbstractController
             throw new AccessDeniedException('Backend module ai_chat is not granted.');
         }
 
+        // A body above post_max_size reaches PHP empty: without this it would read as
+        // a missing CSRF token. The browser checks the sum before sending (v1.0.0).
+        if ((int) $request->headers->get('Content-Length', '0') > $this->attachmentPolicy->maxRequestBytes()) {
+            return $this->errorResponse(413, $this->label('attachments_too_large'));
+        }
+
         $payload = $this->decodePayload($request);
         $this->assertCsrf($payload['csrfToken'] ?? '');
         $this->assertSameOrigin($request);
@@ -241,8 +254,10 @@ class AiStreamController extends AbstractController
             return $this->errorResponse(400, $this->label('model_not_allowed'));
         }
 
+        // A message may be files alone (v1.0.0); the text limit below is the text's.
+        $rawAttachments = $payload['attachments'] ?? null;
         $userInput = (string) ($payload['message'] ?? '');
-        if ('' === trim($userInput)) {
+        if ('' === trim($userInput) && (!\is_array($rawAttachments) || [] === $rawAttachments)) {
             return $this->errorResponse(400, $this->label('empty_message'));
         }
         if (\strlen($userInput) > self::MAX_USER_INPUT_BYTES) {
@@ -257,13 +272,6 @@ class AiStreamController extends AbstractController
             return $this->errorResponse(412, $e->getMessage());
         }
 
-        $messages = self::buildMessageBag($invocation->systemPrompt, $history, $userInput);
-
-        // Reset the per-request tool-call tracker so we can decide afterwards
-        // whether this turn touched any tool (-> persist a stub) or stayed
-        // purely conversational (-> persist the full assistant text).
-        $this->toolCallLogger->startRequest();
-
         // Synchronous response (no StreamedResponse) — Symfony reverse cache layer mishandles streams.
         // Body is SSE-formatted so the frontend parser works unchanged when real streaming returns.
         $body = '';
@@ -271,6 +279,27 @@ class AiStreamController extends AbstractController
             $body .= 'event: ' . $event . "\n";
             $body .= 'data: ' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) . "\n\n";
         };
+
+        // After the invocation: whether the model reads PDF or images is its catalog's answer.
+        try {
+            $accepted = $this->attachmentReader->read($rawAttachments, $invocation->readableContent, $invocation->model);
+        } catch (AttachmentRefusedException $e) {
+            // An answer, not a defect: no report.
+            $emit('error', ['kind' => 'attachment_refused', 'message' => $this->translator->trans('ai_chat.' . $e->labelKey, $e->parameters, 'contao_ai_chat')]);
+
+            return self::sseResponse($body);
+        }
+        // The history keeps the text with "Anhang: name" lines, never the file.
+        $turnText = $accepted->turnText($userInput);
+
+        $messages = self::buildMessageBag($invocation->systemPrompt, $history, $turnText, $accepted->platformContents());
+
+        // Reset the per-request tool-call tracker so we can decide afterwards
+        // whether this turn touched any tool (-> persist a stub) or stayed
+        // purely conversational (-> persist the full assistant text).
+        $this->toolCallLogger->startRequest();
+        $this->toolCallLogger->attachmentsReceived($accepted->files);
+        $this->chatAttachments->set($accepted->files);
 
         // The user's own key, held so the masker can strike the literal value.
         // A pattern list cannot cover an opaque key; this can.
@@ -291,7 +320,7 @@ class AiStreamController extends AbstractController
                 $assistantContent,
                 $this->toolCallLogger->getToolNames(),
             );
-            $this->appendHistory($request, $user, $userInput, $persistedAssistant);
+            $this->appendHistory($request, $user, $turnText, $persistedAssistant);
         } catch (ToolAccessDeniedException $e) {
             // Access-denied messages are written by us and stay user-facing — log for audit.
             $this->logger->info('contao_ai_backend tool access denied', CredentialMasker::context($e, $apiKey));
@@ -330,8 +359,16 @@ class AiStreamController extends AbstractController
                 'message' => $this->safeMessage($e, $apiKey),
                 'report'  => $this->errorReport($e, $user, $apiKey),
             ]);
+        } finally {
+            // The files of this message are gone with it.
+            $this->chatAttachments->reset();
         }
 
+        return self::sseResponse($body);
+    }
+
+    private static function sseResponse(string $body): Response
+    {
         return new Response($body, 200, [
             // M-6: explicit charset prevents reverse proxies from interpreting as Latin-1.
             'Content-Type'      => 'text/event-stream; charset=utf-8',

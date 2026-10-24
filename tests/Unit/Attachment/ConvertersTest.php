@@ -3,6 +3,7 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Attachment;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentContent;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentConverterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
@@ -13,9 +14,14 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\AttachmentRefusedException;
 
 class ConvertersTest extends TestCase
 {
-    public function testTheTagNameIsStable(): void
+    public function testTheTagNameIsStableAndAttached(): void
     {
-        self::assertSame('contao_ai_backend.attachment_converter', AttachmentConverterInterface::TAG);
+        // Part of the stable surface: add-ons tag their converters with this name,
+        // and autoconfigure does it for them through the attribute.
+        $attributes = (new \ReflectionClass(AttachmentConverterInterface::class))->getAttributes(AutoconfigureTag::class);
+
+        self::assertCount(1, $attributes);
+        self::assertSame('contao_ai_backend.attachment_converter', $attributes[0]->getArguments()[0] ?? null);
     }
 
     public function testPdf(): void

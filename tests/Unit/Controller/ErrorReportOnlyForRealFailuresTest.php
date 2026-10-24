@@ -36,6 +36,7 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
 {
     /** @var array<string, bool> kind => must carry a report */
     private const BRANCHES = [
+        'attachment_refused' => false, // a file the chat does not take: an answer (before the run)
         'access_denied' => false,
         'tool_refused'  => false,
         'tool_failed'   => true,

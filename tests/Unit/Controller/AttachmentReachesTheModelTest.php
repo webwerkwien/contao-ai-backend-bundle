@@ -29,7 +29,10 @@ class AttachmentReachesTheModelTest extends TestCase
 {
     use BuildsAttachmentPolicy;
 
-    public function testThePdfGoesOnceAndTheHistoryKeepsItsName(): void
+    /**
+     * @return array{0: MockHttpClient, 1: \ArrayObject<int, array<string, mixed>>}
+     */
+    private static function anthropicApi(): array
     {
         $sent   = new \ArrayObject();
         $client = new MockHttpClient(static function (string $method, string $url, array $options) use ($sent): MockResponse {
@@ -41,6 +44,13 @@ class AttachmentReachesTheModelTest extends TestCase
                 'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
             ]), ['response_headers' => ['content-type' => 'application/json']]);
         });
+
+        return [$client, $sent];
+    }
+
+    public function testThePdfGoesOnceAndTheHistoryKeepsItsName(): void
+    {
+        [$client, $sent] = self::anthropicApi();
         $platform = Factory::createPlatform('test-key', ...['httpClient' => $client] + (new AnthropicBridge())->factoryArguments());
         $resolver = $this->createMock(PlatformResolver::class);
         $resolver->method('resolve')->willReturn(new ResolvedPlatform($platform, 'claude-sonnet-5-5', new PlatformDescriptor('anthropic', 'Anthropic', Factory::class, 'symfony/ai-anthropic-platform')));
