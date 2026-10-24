@@ -92,7 +92,7 @@ class AbstractEntityRewriterTest extends TestCase
 
     /**
      * v0.20.0: no `temperature`. claude-sonnet-5-5 refuses it ("`temperature` is deprecated
-     * for this model"), and every rewrite was skipped (chat runner on c5, 2026-10-20).
+     * for this model"), and every rewrite was skipped.
      */
     public function testTheRewriteSendsNoTemperature(): void
     {

@@ -9,7 +9,6 @@ use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
  * A turn that used tools is stored as a stub, so stale IDs are not reused. The question it
  * ended with stays (v0.19.3): the user's next message answers it. Without it the model met
  * a "Ja, bitte löschen." with no question in sight and refused a delete it had staged
- * (chat runner, 2026-10-19).
  */
 class HistoryKeepsTheQuestionTest extends TestCase
 {

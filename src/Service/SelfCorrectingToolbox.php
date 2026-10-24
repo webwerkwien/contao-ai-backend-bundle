@@ -62,13 +62,13 @@ final class SelfCorrectingToolbox implements ToolboxInterface
         } catch (ToolboxExecutionException $e) {
             // symfony/ai checks only what its denormalizer understands: an `array`
             // parameter gets the model's value unchecked, and a string for `fields`
-            // fails as a TypeError when the tool is called (measured on c5,
-            // 2026-10-10, page_update). Only that call counts — a TypeError deeper
+            // fails as a TypeError when the tool is called (measured with
+            // page_update). Only that call counts — a TypeError deeper
             // in our own code is a defect.
             $previous = $e->getPrevious();
 
             // A value inside a parameter that the tool itself found wrong — a command
-            // name ext_run does not offer this user (chat test on c5, 2026-10-10).
+            // name ext_run does not offer this user.
             if ($previous instanceof ToolCallMistakeException) {
                 return new ToolResult($toolCall, self::tryAgain(rtrim($previous->getMessage(), '.') . '.'));
             }
@@ -101,7 +101,7 @@ final class SelfCorrectingToolbox implements ToolboxInterface
      * Recognised by PHP's own wording, bound to that method:
      * `<DeclaringClass>::<method>(): Argument #n ($name) must be of type …, … given`.
      * Only the error for the arguments of a call to exactly this method begins
-     * like that. Each part closes a hole the second pre-release review found:
+     * like that. Each part closes a hole found before the release:
      *
      * - A trace check was not enough. `count()`, `strlen()` and the like are
      *   compiled to opcodes and get no frame of their own, so a bug of ours with

@@ -77,7 +77,7 @@ class ModelChoiceTest extends TestCase
 
     /**
      * With an installation list the list is the limit, for the profile too: every editor
-     * can fill in ai_model under personal data (Fable review 2026-10-20).
+     * can fill in ai_model under personal data.
      */
     public function testWithAListAProfileModelOutsideItDoesNotCount(): void
     {
@@ -131,8 +131,8 @@ class ModelChoiceTest extends TestCase
      * symfony/ai v0.14 does not list the Claude 5.5 models. The platform is built the
      * way the chat builds it — through the registry, where the installed package's
      * factory does it and the bridge only adds its catalog. The first version of this
-     * test built the catalog itself and passed while c5 answered "No provider found for
-     * model claude-sonnet-5-5": the bridge's createPlatform() never runs there (rule 24).
+     * test built the catalog itself and passed while a real installation answered "No provider found for
+     * model claude-sonnet-5-5": the bridge's createPlatform() never runs there.
      */
     public function testTheCurrentClaudeModelsReachThePlatformTheChatBuilds(): void
     {

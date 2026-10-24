@@ -47,8 +47,8 @@
        Colours come from Contao's back-end theme variables, so the chat follows the
        user's light or dark scheme (`html[data-color-scheme=dark]` switches them, in
        5.7 and 6.0 alike). Until v0.14.0 they were fixed light values: in dark mode the
-       frame stayed white and the answers were pale grey on pale grey (chat test,
-       2026-10-10). The second value of each var() is only the fallback for a theme
+       frame stayed white and the answers were pale grey on pale grey.
+       The second value of each var() is only the fallback for a theme
        without them.
     #}
     <style{% if csp_nonce('style-src') is defined %} nonce="{{ csp_nonce('style-src') }}"{% endif %}>
@@ -311,7 +311,7 @@
             /* markdown:start */
             /**
              * The model's answer as Markdown (v0.14.0) — a small renderer of our own,
-             * decided with the maintainer on 2026-10-11 over a library.
+             * chosen over a library.
              *
              * Every node is built with createElement and filled with textContent;
              * nothing on this page parses a string as HTML, so HTML in an answer — an

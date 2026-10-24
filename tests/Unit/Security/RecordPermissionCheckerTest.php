@@ -19,7 +19,7 @@ use Webwerkwien\ContaoAiBackendBundle\Security\RecordPermissionChecker;
  * Until v0.18.0 this class rebuilt the voters by hand and admins skipped it. Creating a
  * news archive, calendar or FAQ category was the `cud` voter alone, and until v0.10.0 a
  * denial fell back to the `newp`/`calp`/`faqp` arrays of Contao 5.3 to 5.6 — a second
- * door (review 2026-10-03). The voters now decide both, including `cud`.
+ * door. The voters now decide both, including `cud`.
  */
 class RecordPermissionCheckerTest extends TestCase
 {

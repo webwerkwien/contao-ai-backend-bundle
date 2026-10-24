@@ -11,7 +11,7 @@ use Symfony\AI\Platform\Contract\JsonSchema\Factory;
  * if symfony/ai finds it. Its MethodDescriber matches `@param \S+ $name`, so a type with a
  * space (`array<string, scalar|null>`) hides the whole description. Thirteen parameters
  * had one that never reached the model, among them `fields` of every *_update tool with its
- * list of allowed field names (found 2026-10-19, v0.19.2): the chat on showcase guessed
+ * list of allowed field names (v0.19.2): the chat guessed
  * a headline's level as `unit`, then as `hl`.
  *
  * Every tool method, every documented parameter: the schema must carry its description.

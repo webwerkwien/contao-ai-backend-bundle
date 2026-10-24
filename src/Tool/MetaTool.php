@@ -46,7 +46,7 @@ class MetaTool extends AbstractCoreCommandTool
     }
 
     /**
-     * H-8: Editors must not enumerate the schema of `tl_user` (password, session,
+     * Editors must not enumerate the schema of `tl_user` (password, session,
      * privateKey) or other admin-only tables. Tables outside the allow-list and
      * sensitive fields (`hideInput`/`encrypt`/password) get filtered before the
      * payload reaches the agent.
@@ -82,7 +82,7 @@ class MetaTool extends AbstractCoreCommandTool
             );
         }
 
-        // L-1: Die Werkzeug-Beschreibung sagt "a table the current user has
+        // Die Werkzeug-Beschreibung sagt "a table the current user has
         // module access to" — bis 2026-09-02 stand dem nichts im Code gegenüber.
         $this->assertModuleAccessForTable($table);
 
@@ -90,7 +90,7 @@ class MetaTool extends AbstractCoreCommandTool
     }
 
     /**
-     * The palette of a record (v0.16.0: "agents should not guess", Michael 2026-10-12).
+     * The palette of a record (v0.16.0: "agents should not guess").
      * Same table allow-list and module check as dca_schema; the field names that must
      * never reach the agent are filtered out of the answer.
      *
@@ -187,7 +187,7 @@ class MetaTool extends AbstractCoreCommandTool
     }
 
     /**
-     * M-3: search_query returns the full Contao search index (member-only URLs,
+     * search_query returns the full Contao search index (member-only URLs,
      * internal redirects). Restrict to backend users with the `page` module so
      * the result mirrors what they could already see in the page tree.
      *
@@ -212,7 +212,7 @@ class MetaTool extends AbstractCoreCommandTool
      * Listing-config payload keys that must not flow back to the agent — internal
      * permission / audit columns plus visibility controls that have nothing to do
      * with the listing layout the agent cares about. Anything outside this list
-     * passes through (M-4).
+     * passes through.
      */
     private const LISTING_CONFIG_BLOCKED = [
         'tstamp', 'protected', 'groups', 'guests',
@@ -250,7 +250,7 @@ class MetaTool extends AbstractCoreCommandTool
         }
 
         if ('listing_config' === $toolName) {
-            // M-4: tl_module->row() returns the complete row including internal
+            // tl_module->row() returns the complete row including internal
             // ACL/audit columns. Strip the ones that aren't relevant for listing
             // configuration so the agent sees a focused payload.
             foreach (self::LISTING_CONFIG_BLOCKED as $key) {

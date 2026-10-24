@@ -7,8 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Webwerkwien\ContaoAiBackendBundle\Service\SystemPromptProvider;
 
 /**
- * A non-admin reaches an extension's commands (v0.16.1, Consho chat test with
- * testredakteur, 2026-10-12): the two hard "refuse without looking anything up" rules
+ * A non-admin reaches an extension's commands (v0.16.1): the two hard "refuse without looking anything up" rules
  * named no exception, and the fixed table list made a shop's data look nonexistent.
  * Through the real prompt file, rendered for an editor with only the news module.
  */
@@ -20,7 +19,7 @@ class SystemPromptExtensionsTest extends TestCase
      */
     private function promptFor(array $modules, array $tools): string
     {
-        $data = ['isAdmin' => false, 'modules' => $modules, 'username' => 'testredakteur', 'language' => 'de'];
+        $data = ['isAdmin' => false, 'modules' => $modules, 'username' => 'redakteur', 'language' => 'de'];
         $user = $this->createMock(BackendUser::class);
         $user->method('__get')->willReturnCallback(static fn (string $key): mixed => $data[$key] ?? null);
         // `$user->modules ?? []` asks __isset first; unanswered, every editor has no module.

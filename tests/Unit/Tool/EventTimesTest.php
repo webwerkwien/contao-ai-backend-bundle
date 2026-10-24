@@ -84,8 +84,7 @@ class EventTimesTest extends TestCase
     }
 
     /**
-     * A time makes the core set addTime: that right is needed too, as through --set
-     * (Fable review 2026-10-19).
+     * A time makes the core set addTime: that right is needed too, as through --set.
      */
     public function testATimeNeedsTheRightOnAddTime(): void
     {

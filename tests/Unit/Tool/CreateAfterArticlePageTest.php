@@ -30,7 +30,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PageReadCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 
 /**
- * `article_create` and `page_create` with `after` (v0.22.0; review: no test, and a
+ * `article_create` and `page_create` with `after` (v0.22.0; there was no test, and a
  * mutation that voted on the article's ID as the page passed). The voters judge the
  * sibling's page or parent — and for an article the column the core will write: the
  * sibling's, unless one is given (`main` was always sent and overrode it).

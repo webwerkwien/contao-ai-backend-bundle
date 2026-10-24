@@ -308,7 +308,7 @@ final class RunChatScenariosCommand extends Command
             }
 
             // Scrubbed as the chat page does before anything reaches --out: a provider's
-            // error can carry a key fragment or a path (Fable review 2026-10-19).
+            // error can carry a key fragment or a path.
             $key = (string) $user->__get('ai_api_key');
             if (null !== $error) {
                 $error['message'] = AiStreamController::scrubMessage((string) $error['message'], $this->projectDir, $key, 2000);

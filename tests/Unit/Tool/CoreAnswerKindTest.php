@@ -19,7 +19,7 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool;
  * core-bundle v1.3.0 marks a defect with `exception` — on the answer, or on an
  * entry of a bulk update's `errors`. That is tool_failed with a report; a refusal
  * stays tool_refused. A bulk update answers `status: partial` without a `message`,
- * which used to read "unbekannter Fehler" and drop every reason (review H4).
+ * which used to read "unbekannter Fehler" and drop every reason.
  */
 class CoreAnswerKindTest extends TestCase
 {
@@ -65,7 +65,7 @@ class CoreAnswerKindTest extends TestCase
             $this->answer(['status' => 'error', 'message' => 'InvalidArgumentException: A website root belongs at the top level.', 'code' => 1]);
             $this->fail('expected a refusal');
         } catch (ToolRefusedException $e) {
-            // The class means nothing to an editor (chat test on c5, 2026-10-10).
+            // The class means nothing to an editor.
             $this->assertSame('Tool "probe" abgelehnt: A website root belongs at the top level.', $e->getMessage());
         }
     }

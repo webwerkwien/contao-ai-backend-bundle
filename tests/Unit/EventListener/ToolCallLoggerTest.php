@@ -146,7 +146,7 @@ class ToolCallLoggerTest extends TestCase
 
     public function testAFailedCallLogsItsArgumentsMaskedToo(): void
     {
-        // Fable review before v0.14.1: the failed entry logged them whole — and
+        // Before v0.14.1 the failed entry logged them whole — and
         // ext_run fails often, when the model guesses an option name.
         $context = null;
         $logger  = $this->createMock(LoggerInterface::class);

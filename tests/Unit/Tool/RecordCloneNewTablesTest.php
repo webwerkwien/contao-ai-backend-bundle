@@ -24,7 +24,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
 
 /**
  * The clones of core v1.8.0 in the chat (v0.19.0): form, newsletter channel, module and
- * layout, through the real tool (rule 24), and the question before a channel takes its
+ * layout, through the real tool, and the question before a channel takes its
  * recipients along — they consented to the source channel, not to the copy.
  */
 class RecordCloneNewTablesTest extends TestCase
@@ -246,7 +246,7 @@ class RecordCloneNewTablesTest extends TestCase
     private function allowListDb(array &$updates): Connection
     {
         $connection = $this->createMock(Connection::class);
-        // Only the user's own groups (review: a wrong id list stayed green while the mock
+        // Only the user's own groups (a wrong id list stayed green while the mock
         // ignored its parameters).
         $connection->method('fetchAllAssociative')
             ->with('SELECT id, forms FROM tl_user_group WHERE id IN (?)', [[1, 4]], [ArrayParameterType::INTEGER])

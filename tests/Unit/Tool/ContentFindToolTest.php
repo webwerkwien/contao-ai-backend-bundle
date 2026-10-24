@@ -53,7 +53,7 @@ class ContentFindToolTest extends TestCase
         $records = $this->createMock(DataContainerAccess::class);
         $records->method('fetchRecord')->willReturnCallback(static fn (string $table, int $id): array => ['id' => $id, 'pid' => 1, 'ptable' => 'tl_article']);
         // A plain id is an element (tl_content); anything else is named "table:id", so a
-        // vote on the wrong table fails (review 2026-10-20).
+        // vote on the wrong table fails.
         $records->method('isGranted')->willReturnCallback(static fn (ReadAction $action): bool => ('tl_content' === $action->getDataSource() && \in_array((int) $action->getCurrentId(), $readable, true))
             || \in_array($action->getDataSource() . ':' . $action->getCurrentId(), $readable, true));
         $records->method('contentParentDenial')->willReturnCallback(static fn (array $record): ?string => \in_array((int) $record['id'], $parentDenied, true) ? 'Kein Zugriff auf die Eltern-Tabelle.' : null);
@@ -197,7 +197,7 @@ class ContentFindToolTest extends TestCase
 
     /**
      * An element of a news entry: its versions are entries, voted on as news — not as
-     * articles or pages (review 2026-10-20: the branch had no test).
+     * articles or pages (the branch had no test before).
      */
     public function testTheVersionsOfANewsEntryAreVotedOnAsNews(): void
     {

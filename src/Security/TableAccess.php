@@ -12,7 +12,7 @@ use Contao\BackendUser;
  * For tables the tools do not know in advance: an extension's, named in the
  * `tables` of a command's `#[AiContract]`. Module rights are what the back end already
  * grants per user group, so an editor reaches through the chat what he reaches in the
- * back end — decided with the maintainer on 2026-10-10 instead of a separate allow-list.
+ * back end — instead of a separate allow-list.
  * Admins reach every table, as in Contao.
  *
  * `hasAccess()` on the given user rather than the voter: the CLI bridge runs tools for

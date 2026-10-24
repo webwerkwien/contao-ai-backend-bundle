@@ -12,13 +12,13 @@ use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 /**
  * The one place that decides whether a profile can run — and what is missing.
  *
- * Three findings from the 2026-09-02 review live here as tests, because they
+ * Three defects fixed on 2026-09-02 live here as tests, because they
  * were one cause with three faces: the rule "ask the descriptor, not for a key"
  * moved into AgentFactory and three other call sites kept their own answer.
  *
- * - H-1 `record_rewrite` demanded a key unconditionally and knew two providers
- * - H-2 the chat UI hid itself whenever no key was stored
- * - H-3 a stored base URL was dropped for providers whose factory has no such
+ * - `record_rewrite` demanded a key unconditionally and knew two providers
+ * - the chat UI hid itself whenever no key was stored
+ * - a stored base URL was dropped for providers whose factory has no such
  *       parameter — accepted by the form, discarded on use
  */
 class PlatformResolverTest extends TestCase
@@ -56,10 +56,10 @@ class PlatformResolverTest extends TestCase
 
     public function testASelfHostedProviderNeedsNoKey(): void
     {
-        // H-2. Ollama takes a host instead of a key. Before the fix this profile
+        // Ollama takes a host instead of a key. Before the fix this profile
         // produced "no API key" and the chat module rendered nothing at all.
         $blocker = $this->resolver()->missingRequirement($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'ollama',
             'ai_model'    => 'llama3.1',
         ]));
@@ -70,7 +70,7 @@ class PlatformResolverTest extends TestCase
     public function testAKeyProviderWithoutAKeyNamesTheProvider(): void
     {
         $blocker = $this->resolver()->missingRequirement($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'anthropic',
         ]));
 
@@ -80,9 +80,9 @@ class PlatformResolverTest extends TestCase
 
     public function testAnUninstalledProviderIsNamedRatherThanReplaced(): void
     {
-        // C-1's other half: the profile is refused, not quietly redirected.
+        // The other half: the profile is refused, not quietly redirected.
         $blocker = $this->resolver()->missingRequirement($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'mistral',
             'ai_api_key'  => 'MISTRAL-KEY',
         ]));
@@ -100,7 +100,7 @@ class PlatformResolverTest extends TestCase
         }
 
         $blocker = $this->resolver()->missingRequirement($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'openresponses',
         ]));
 
@@ -110,7 +110,7 @@ class PlatformResolverTest extends TestCase
 
     public function testAnEndpointForAProviderThatHasNoneIsRefusedNotDropped(): void
     {
-        // 🔴 H-3. OpenAI's factory has no `baseUrl` parameter. The old code
+        // 🔴 OpenAI's factory has no `baseUrl` parameter. The old code
         // skipped the stored value without a word, so a user could point at a
         // gateway, see no error, and have the key go to api.openai.com anyway.
         $this->expectException(AiConfigException::class);
@@ -146,7 +146,7 @@ class PlatformResolverTest extends TestCase
         // The positive path, so the tests above cannot all pass by refusing
         // everything — the failure mode this suite keeps producing.
         $resolved = $this->resolver()->resolve($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'anthropic',
             'ai_api_key'  => 'sk-ant-test-key-1234567890',
             'ai_model'    => 'claude-sonnet-4-5-20250929',

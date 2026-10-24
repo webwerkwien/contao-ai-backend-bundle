@@ -196,7 +196,7 @@ abstract class AbstractCoreCommandTool
      * a positive reply; the second call passes through and executes.
      *
      * Storing the staged entry server-side rather than in the chat history
-     * is what makes confirmation flows survive the Phase-7 Smart-History
+     * is what makes confirmation flows survive the Smart-History
      * stub: the agent's own assistant text is replaced before persistence,
      * but the pending entry lives in a separate session slot keyed by user.
      *
@@ -220,7 +220,7 @@ abstract class AbstractCoreCommandTool
         if (0 === $userId) {
             return null;
         }
-        // 🔴 C-1 (Audit 2026-09-02): Ein zweiter Aufruf im SELBEN Turn löst nichts
+        // 🔴 Ein zweiter Aufruf im SELBEN Turn löst nichts
         // mehr aus. Vorher konnte das Modell hier zweimal hintereinander rufen —
         // die Frage an den Benutzer war nur ein Satz in der `note`, und die
         // Werkzeugschleife treibt seit symfony/ai 0.13 das Modell selbst.
@@ -259,7 +259,7 @@ abstract class AbstractCoreCommandTool
     protected const FIELD_TRUNCATION_BYTES = 500;
 
     /**
-     * 🔴 H-1 (Audit 2026-09-02): `JSON_HEX_TAG` kam dazu, und zwar aus einem
+     * `JSON_HEX_TAG` kam dazu, und zwar aus einem
      * Grund, der ohne Messung nicht sichtbar ist.
      *
      * Der Vorwurf lautete: Datensatz-Inhalt könne den Sentinel schließen
@@ -306,7 +306,7 @@ abstract class AbstractCoreCommandTool
     }
 
     /**
-     * H-1: tool outputs are returned as a JSON-encoded string wrapped in a sentinel
+     * Tool outputs are returned as a JSON-encoded string wrapped in a sentinel
      * tag pair. The system prompt instructs the model to treat anything inside the
      * wrapper as untrusted data, mitigating prompt injection via DB content.
      *
@@ -316,7 +316,7 @@ abstract class AbstractCoreCommandTool
     {
         $this->assertAccess($toolName);
 
-        // M-2: stamp the audit trail with the actual Contao backend user. The core
+        // Stamp the audit trail with the actual Contao backend user. The core
         // bundle accepts an optional `--operator` on every write command — when the
         // CLI runs the same command, the option stays empty and it falls back to
         // $_SERVER['USER']. We only set it when (a) the command declares the option
@@ -414,7 +414,7 @@ abstract class AbstractCoreCommandTool
             //
             // Der Core stellt jeder Meldung die Klasse voran (JsonErrorBoundary);
             // bei einer Ablehnung ist das immer `InvalidArgumentException:` und
-            // sagt einem Redakteur nichts (Chat-Test auf c5, 2026-10-10).
+            // sagt einem Redakteur nichts.
             throw new ToolRefusedException(\sprintf('Tool "%s" abgelehnt: %s', $toolName, self::withoutRefusalClass($message)));
         }
 
@@ -434,7 +434,7 @@ abstract class AbstractCoreCommandTool
     /**
      * The core names its own console commands as the lookup in a refusal
      * (`contao:dca:options tl_content type`); in the chat they are tools (v0.16.0,
-     * "agents should not guess", Michael 2026-10-12). A command the chat has no tool
+     * "agents should not guess"). A command the chat has no tool
      * for stays as it is.
      */
     public static function withToolNames(string $message): string
@@ -490,7 +490,7 @@ abstract class AbstractCoreCommandTool
      *
      * A bulk update with `--ids` answers `status: partial` with the reasons per
      * record in `errors` and no `message`; this used to read "unbekannter Fehler"
-     * and drop every reason (review H4, 2026-10-09). At most five reasons.
+     * and drop every reason. At most five reasons.
      *
      * @param array<mixed> $decoded
      */
@@ -547,7 +547,7 @@ abstract class AbstractCoreCommandTool
 
     /**
      * Hook for subclasses to filter the decoded payload before it's wrapped.
-     * Default: no-op. Used by MetaTool to strip sensitive DCA fields (H-8).
+     * Default: no-op. Used by MetaTool to strip sensitive DCA fields.
      *
      * @param array<string, mixed> $decoded
      */
@@ -673,8 +673,8 @@ abstract class AbstractCoreCommandTool
     /**
      * A `fields` or `record` parameter as the model sends it: a list, an object, or the
      * same as JSON text (v0.19.3). The text form came as a TypeError the model had to be
-     * told about and try again — 11 of 206 calls in the chat runner's first runs
-     * (2026-10-19), a full extra round trip each. `record_list` and `ext_run` took it all
+     * told about and try again — 11 of 206 calls in the chat runner's first
+     * runs, a full extra round trip each. `record_list` and `ext_run` took it all
      * along. Text that is not JSON goes back to the model as its mistake.
      *
      * @param array<int|string, mixed>|string $value
@@ -705,8 +705,8 @@ abstract class AbstractCoreCommandTool
      * the JSON string the core reads.
      *
      * symfony/ai turns `array<string, scalar|null> $fields` into a list of scalars, so a
-     * model that wants to set a headline's level has no object to put it in. On showcase
-     * it sent the level as a field of its own (2026-10-19), and the chat answered
+     * model that wants to set a headline's level has no object to put it in. In one chat
+     * it sent the level as a field of its own, and the chat answered
      * `Feld "unit" ist für dieses Tool nicht zum Schreiben freigegeben`. The core takes
      * `headline_unit` for exactly this; a bare `unit` (and a bare `value` with it) goes
      * there when only one `inputUnit` field can be meant.
@@ -998,7 +998,7 @@ abstract class AbstractCoreCommandTool
     /**
      * Modul-Prüfung für eine Tabelle. Admins passieren.
      *
-     * 🔴 L-1 (Audit 2026-09-02): `dca_schema` versprach in seiner eigenen
+     * `dca_schema` versprach in seiner eigenen
      * Werkzeug-Beschreibung *"a Contao table the current user has module access
      * to"* und prüfte nur die Tabellen-Allow-Liste. Dritter Fall desselben
      * Musters an einem Tag — eine Beschreibung, die einen Schutz zusagt, den der
@@ -1037,7 +1037,7 @@ abstract class AbstractCoreCommandTool
     }
 
     /**
-     * Phase 10.1: optional acting-user override for stateless bridge calls.
+     * Optional acting-user override for stateless bridge calls.
      * The CLI-Bridge controller authenticates via Bearer token outside the
      * contao_backend firewall, so TokenChecker::hasBackendUser() returns
      * false (firewall-context mismatch). The bridge sets the resolved user

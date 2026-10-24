@@ -65,7 +65,7 @@ class ArticleTool extends AbstractCoreCommandTool
             throw new ToolRefusedException('Entweder pid (am Ende der Seite) oder after (direkt hinter diesem Artikel) angeben, genau eines davon.');
         }
         // The column the core writes: the one given, else the sibling's (core v1.12.0), else
-        // main — and the voters judge that one (review v0.22.0: 'main' was always sent and
+        // main — and the voters judge that one (until v0.22.0 'main' was always sent and
         // overrode the sibling's column).
         $given = $inColumn;
         if ($after > 0) {
@@ -113,7 +113,7 @@ class ArticleTool extends AbstractCoreCommandTool
 
         // Taking a live article offline removes its content from every visitor at
         // once, like unpublishing a page, which has asked since 2026-09-02. The
-        // article did not (decided 2026-10-19, v0.19.3).
+        // article did not (v0.19.3).
         $published = $fields['published'] ?? null;
         // "false" as text too, as the core reads it (EventTimes::flag); false itself casts to ''
         if (null !== $published && \in_array(strtolower(trim((string) $published)), ['', '0', 'false'], true) && !empty($article['published'])) {

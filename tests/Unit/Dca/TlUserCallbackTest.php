@@ -17,7 +17,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
  * The token widget names the second half of the bridge under the generated token (v0.16.3,
- * showcase.conpai.eu): optional, with this site's address, and without the token itself.
+ * an installation): optional, with this site's address, and without the token itself.
  */
 class TlUserCallbackTest extends TestCase
 {
@@ -25,7 +25,7 @@ class TlUserCallbackTest extends TestCase
 
     private ?RequestStack $stack = null;
 
-    private function widget(bool $justGenerated, string $url = 'https://showcase.example.org/contao?do=user&act=edit&id=7'): string
+    private function widget(bool $justGenerated, string $url = 'https://www.example.org/contao?do=user&act=edit&id=7'): string
     {
         if (null === $this->stack) {
             $session = new Session(new MockArraySessionStorage());
@@ -62,7 +62,7 @@ class TlUserCallbackTest extends TestCase
 
         $this->assertSame(1, substr_count($html, self::TOKEN), 'the token itself is shown exactly once');
         $this->assertStringContainsString(
-            'contao-ai-cli --session &lt;name&gt; bridge configure --url https://showcase.example.org --test',
+            'contao-ai-cli --session &lt;name&gt; bridge configure --url https://www.example.org --test',
             $html,
         );
         $this->assertStringContainsString('Optional', $html);
@@ -86,13 +86,13 @@ class TlUserCallbackTest extends TestCase
         $this->assertStringNotContainsString('bridge configure', $again);
     }
 
-    /** Review before v0.16.3: behind a TLS proxy without trusted_proxies the request says http. */
+    /** Behind a TLS proxy without trusted_proxies the request says http. */
     public function testTheCommandAlwaysUsesHttpsTheOnlySchemeTheCliAccepts(): void
     {
-        $html = $this->widget(true, 'http://showcase.example.org:8080/contao?do=user&act=edit&id=7');
+        $html = $this->widget(true, 'http://www.example.org:8080/contao?do=user&act=edit&id=7');
 
-        $this->assertStringContainsString('--url https://showcase.example.org:8080 --test', $html);
-        $this->assertStringNotContainsString('http://showcase', $html);
+        $this->assertStringContainsString('--url https://www.example.org:8080 --test', $html);
+        $this->assertStringNotContainsString('http://www', $html);
     }
 
     public function testWithoutAFreshTokenThereIsNoCommandButTheHelpSaysOptional(): void

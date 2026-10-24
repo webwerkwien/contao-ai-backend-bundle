@@ -38,7 +38,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
 
 /**
  * The field rights reach every tool: each write path is called through the real tool
- * with the real FieldPermission, and a refused write never runs its command (rule 24:
+ * with the real FieldPermission, and a refused write never runs its command (the
  * the test calls the place, it does not copy it).
  *
  * The record-level checks (Contao's data container voters) go through a granting
@@ -198,7 +198,7 @@ class FieldRightsWiringTest extends TestCase
 
     /**
      * The payload shapes the model sends are normalised before the check, so a list of
-     * pairs is checked like an object (review 2026-10-14: no test sent that shape).
+     * pairs is checked like an object (no test sent that shape before).
      *
      * @dataProvider updateTools
      *
@@ -258,7 +258,7 @@ class FieldRightsWiringTest extends TestCase
     /**
      * Nothing granted: every value a create sets other than its default is named — so a
      * create that stopped checking one of them (the title, the alias, the headline) is
-     * caught, not only the one field the case above leaves out (second review).
+     * caught, not only the one field the case above leaves out.
      *
      * @return iterable<string, array{class-string<AbstractCoreCommandTool>, list<mixed>, string}>
      */
@@ -344,7 +344,7 @@ class FieldRightsWiringTest extends TestCase
     }
 
     /**
-     * Found in the review of v0.16.4: {"published": "1"} published a clone for an editor
+     * Until v0.16.4 {"published": "1"} published a clone for an editor
      * whose group grants no `tl_page::published`.
      */
     public function testACloneOverrideWithoutTheRightRunsNothing(): void
@@ -361,7 +361,7 @@ class FieldRightsWiringTest extends TestCase
     /**
      * A clone copies its source; it is no record with defaults. {"hide": ""} would show a
      * hidden page in the navigation, so an override needs its right even when it equals
-     * the field's default (review 2026-10-14).
+     * the field's default.
      */
     public function testACloneOverrideNeedsItsRightEvenAsTheDefault(): void
     {
@@ -376,8 +376,8 @@ class FieldRightsWiringTest extends TestCase
 
     /**
      * A null override is written by the core too ('' or, for a flag, '0'), so it needs
-     * the right like any other — skipping nulls let {"hide": null} through (second
-     * review, 2026-10-14). Also as a JSON string, the shape the model sometimes sends.
+     * the right like any other — skipping nulls let {"hide": null} through
+     * before. Also as a JSON string, the shape the model sometimes sends.
      */
     public function testANullCloneOverrideNeedsItsRight(): void
     {
@@ -423,8 +423,8 @@ class FieldRightsWiringTest extends TestCase
 
     /**
      * Skipped with its reason, not refused: the fields the user may edit are written,
-     * the others appear under `skipped` (Michael, 2026-10-14). On two tables, so the
-     * right is asked for the table actually rewritten (second review).
+     * the others appear under `skipped`. On two tables, so the
+     * right is asked for the table actually rewritten.
      *
      * @dataProvider rewriteTables
      *

@@ -25,7 +25,7 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
  * - **ext_run** runs one through the core's `contao:ai:run`, which checks the
  *   declaration and the command line and records the invocation before it starts.
  *
- * **Who sees what (decided with the maintainer, 2026-10-10).** No allow-list in the
+ * **Who sees what.** No allow-list in the
  * configuration: the declaration is the extension author's consent, and the user's
  * back-end module rights decide the rest. A command is offered when the user may reach
  * every table its contract names in `tables` (TableAccess, the rule of Contao's own
@@ -61,8 +61,8 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
 class ExtTool extends AbstractCoreCommandTool
 {
     /**
-     * The option through which a command learns who acts (v0.16.2, Consho chat test
-     * 2026-10-12: versions were stored under the shell user). Set here from the signed-in
+     * The option through which a command learns who acts (v0.16.2; before,
+     * versions were stored under the shell user). Set here from the signed-in
      * user, never by the model — it would put any name into the version history.
      */
     private const OPERATOR = 'operator';
@@ -136,8 +136,8 @@ class ExtTool extends AbstractCoreCommandTool
         $options   = $this->asArray($options);
         $available = $this->available($user);
 
-        // Not in the chat at all, for nobody (v0.22.1, Michael: "solche Aufgaben müssen
-        // ebenfalls verhindert werden" — what does not run through the DCA). Said, not
+        // Not in the chat at all, for nobody (v0.22.1: what does not
+        // run through the DCA does not run). Said, not
         // hidden, to someone who could otherwise reach the command.
         foreach ($this->outsideChat($user) as $blocked) {
             if ($blocked['name'] === $command) {
@@ -185,9 +185,9 @@ class ExtTool extends AbstractCoreCommandTool
      *
      * A foreign command need not answer in JSON, and where it does, a log line can stand
      * before it in the same output (a refusal that Symfony also logs as console.CRITICAL,
-     * measured on c5 with consho:connect:products). The last line is the answer if it
+     * measured with consho:connect:products). The last line is the answer if it
      * is a JSON object — only the last: a text answer that echoes data somewhere in
-     * the middle must not have a line of it taken for the answer (review K5). Without
+     * the middle must not have a line of it taken for the answer. Without
      * one, the text is, and on failure also the message.
      */
     private static function jsonOf(int $code, string $output): string
@@ -308,7 +308,7 @@ class ExtTool extends AbstractCoreCommandTool
 
         // Fail closed: an `irreversible` the core could not read (true instead of a
         // sentence) is dropped from the fields and only named under `problems` — it
-        // still says the command cannot be undone (review v0.22.1).
+        // still says the command cannot be undone.
         foreach ((array) ($contract['problems'] ?? []) as $problem) {
             if (\is_string($problem) && str_starts_with($problem, 'irreversible')) {
                 return 'irreversible declared, but unreadable: ' . $problem;
@@ -323,8 +323,8 @@ class ExtTool extends AbstractCoreCommandTool
      * arguments in the order the command defines them; every value quoted.
      *
      * Quotes alone protect nothing from Symfony's option parsing: StringInput strips
-     * them while tokenizing and then parses like ArgvInput (pre-release review S1,
-     * measured against symfony/console):
+     * them while tokenizing and then parses like ArgvInput (measured against
+     * symfony/console):
      *
      * - An argument `--root=9` became the option root, `-5` an unknown option.
      *   Behind `--` every token is an argument.
@@ -369,7 +369,7 @@ class ExtTool extends AbstractCoreCommandTool
 
             if (!($optionSpecs[$name]['accepts_value'] ?? false)) {
                 // A flag is on or off; anything else ("yes", a list) was dropped without
-                // a word before (second pre-release review) and goes back to the model.
+                // a word before and goes back to the model.
                 $flag = \is_scalar($value) || null === $value ? strtolower(var_export($value, true)) : 'list';
 
                 if (\in_array($flag, ['true', "'1'", '1', "'true'"], true)) {
@@ -407,7 +407,7 @@ class ExtTool extends AbstractCoreCommandTool
                 }
 
                 // Positional: a later argument cannot be given without this one. It was
-                // dropped without a word (second pre-release review, M-B) — a write could
+                // dropped without a word — a write could
                 // run with half its input.
                 $later = array_values(array_intersect(\array_slice($names, $index + 1), array_keys($arguments)));
 

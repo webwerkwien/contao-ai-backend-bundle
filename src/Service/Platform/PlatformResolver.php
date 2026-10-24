@@ -15,7 +15,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
  * On 2026-09-02 the provider list became derived instead of hand-maintained, and
  * `AgentFactory` was rewritten to ask the descriptor whether a key is required.
  * **Three other places asking the same question were left as they were**, and a
- * review found all three:
+ * a check found all three:
  *
  * - `RecordRewriteTool` still demanded an API key unconditionally and resolved
  *   the platform through the two hand-written bridge classes — so `record_rewrite`

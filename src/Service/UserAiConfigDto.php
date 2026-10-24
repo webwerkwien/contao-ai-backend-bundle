@@ -3,7 +3,7 @@
 namespace Webwerkwien\ContaoAiBackendBundle\Service;
 
 /**
- * H-7: API key is private with a getter, so casual `dump($config)`/`var_dump`
+ * API key is private with a getter, so casual `dump($config)`/`var_dump`
  * inside a profiler or stack-trace screenshot does not paste the plaintext key
  * across the screen. `\SensitiveParameter` only suppresses display in stack
  * traces of *function arguments*, not in serialized object dumps.

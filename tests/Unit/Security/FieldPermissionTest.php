@@ -175,7 +175,7 @@ class FieldPermissionTest extends TestCase
     }
 
     /**
-     * Closed where the rule cannot be read (review 2026-10-14): a field the DCA does not
+     * Closed where the rule cannot be read: a field the DCA does not
      * know, and a table whose DCA did not load — isFieldExcluded() would say "not
      * excluded" for both and let the write through.
      */
@@ -186,7 +186,7 @@ class FieldPermissionTest extends TestCase
 
     /**
      * A field the installation does not have is named as such, not as a missing right
-     * (second review: `keywords` was offered by two tools and does not exist in Contao 5).
+     * (`keywords` was offered by two tools and does not exist in Contao 5).
      */
     public function testAnUnknownFieldIsNamedAsUnknown(): void
     {

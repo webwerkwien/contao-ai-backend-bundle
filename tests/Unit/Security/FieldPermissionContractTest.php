@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * What FieldPermission and its tests assume about Contao, read from Contao's own files
- * (rule 25: the other tests write the DCA by hand, this one checks the hand against the
+ * (the other tests write the DCA by hand, this one checks the hand against the
  * source). If Contao opens one of these fields (`'exclude' => false`) or changes how a
  * default is declared, this fails before the tests can pass on a picture of the past.
  */

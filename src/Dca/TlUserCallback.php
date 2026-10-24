@@ -12,7 +12,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
- * Phase 10.2: DCA input_field_callback für tl_user.ai_cli_token.
+ * DCA input_field_callback für tl_user.ai_cli_token.
  *
  * Ersetzt das normale Eingabefeld komplett: zeigt Status (vorhanden/leer)
  * und zwei POST-Buttons (Generate/Rotate, Clear). Der Klartext-Token erscheint
@@ -47,8 +47,8 @@ class TlUserCallback
     /**
      * load_callback for tl_user.ai_model (v0.20.0): an empty field shows, as placeholder,
      * the model that runs then — the installation's or the provider's default. Until then
-     * an empty field said nothing, and showcase ran on claude-sonnet-4-5 without anyone
-     * seeing it (2026-10-19). The widget is built after the load callbacks from the same
+     * an empty field said nothing, and an installation ran on claude-sonnet-4-5 without
+     * anyone seeing it. The widget is built after the load callbacks from the same
      * DCA entry, so setting the placeholder here reaches it.
      */
     public function modelPlaceholder(mixed $value, DataContainer $dc): mixed
@@ -99,7 +99,7 @@ class TlUserCallback
         );
         $hasToken = '' !== $hash;
 
-        // Phase 10.2-UX: read + consume the one-shot cleartext (set by the
+        // Read + consume the one-shot cleartext (set by the
         // controller right before redirecting back). Single render, then
         // gone — even an F5 reload doesn't re-show it.
         $oneShotToken = '';
@@ -207,14 +207,14 @@ class TlUserCallback
      * The second half of the bridge, under the token it needs (v0.16.3).
      *
      * Generating the token looked like the whole setup; contao-ai-cli then reported the
-     * bridge as not configured and nothing here said why (showcase.conpai.eu,
-     * 2026-10-13). Said as optional — only `bridge clone`/`bridge rewrite` from the
+     * bridge as not configured and nothing here said why.
+     * Said as optional — only `bridge clone`/`bridge rewrite` from the
      * terminal use the token, the chat does not. The command carries this site's address
      * and no token: without `--token`/`--token-stdin` the CLI asks for it with hidden
      * input, so it never stands in a command line or the shell history.
      *
      * Always `https://`: the CLI refuses any other bridge URL, and behind a TLS proxy
-     * without trusted_proxies the request's own scheme reads http (review before v0.16.3).
+     * without trusted_proxies the request's own scheme reads http.
      * Fixed text colours: the box keeps its light background in the dark back-end theme.
      */
     private function nextStep(): string

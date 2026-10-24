@@ -112,7 +112,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `FieldPermission`. `ext_run`
   offers a foreign command only if every table of its `#[AiContract]` is reachable, none
   named means admin-only. Don't add a configuration allow-list beside it (decided with
-  the maintainer, 2026-10-10).
+  by design).
 - **Every write the chat makes passes `FieldPermission`** (v0.17.0): `buildSetOptions($fields,
   $table)` for updates, `assertFieldsCreatable()` for the values a create sets (a field's
   default needs no right, as in the back end), `assertFieldsWritable()` for anything else
@@ -130,7 +130,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   **Never ask `contao_dc.*` through the global `isGranted()`:** these voters only deny or
   abstain and `DefaultDataContainerVoter` grants last, which needs the priority strategy;
   Contao applies it only inside its own firewalls, and the CLI bridge (`/_ai_cli/macro`)
-  runs in none, where the global check allowed everything (measured on c5, 2026-10-14).
+  runs in none, where the global check allowed everything.
   `DataContainerAccess` decides with its own `AccessDecisionManager` and `PriorityStrategy`
   over the tagged voters.
   Mind three things the voters assume: the DCA is loaded (the service does it; otherwise
@@ -161,7 +161,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   Where `symfony/ai-<provider>-platform` is installed, `PlatformRegistry` builds the platform
   with the package's factory and the bridge's `createPlatform()` never runs. The model catalog
   addition for Claude 5.5 lived there first, passed a test that built the catalog itself, and
-  failed on c5 with "No provider found for model". `ModelChoiceTest` builds the platform the
+  failed with "No provider found for model". `ModelChoiceTest` builds the platform the
   way the chat does. The models a user may pick come from `ModelChoice` — the installation's
   `contao_ai_backend.models`, else the bridge's `getModels()` — and the stream controller
   refuses any other name from the browser.
@@ -171,7 +171,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `LanguageVersionsTool` needs `contao:language:versions` (core ≥ 1.11.0, registered only
   with changelanguage) — a tool of its own, so an older core hides it without hiding
   `language_link`.
-- **The chat runs nothing that does not go through the DCA** (Michael, 2026-10-22). No
+- **The chat runs nothing that does not go through the DCA.** No
   tool starts a process, `ext_run` skips the core's `contao:` commands, and an extension
   command whose contract declares `irreversible` — read from
   `declared.irreversible_outside_database`, the place the core's `ContractPresenter`
@@ -294,7 +294,7 @@ Everything else still ends the turn: a refusal, a denied permission and a crash 
 to the user. A registered name the toolbox cannot find is a lost tool object, ours to
 fix, and stays an exception. symfony/ai's denormalizer does not check an `array`
 parameter — the six `*_update` tools take `array $fields` — so a string there fails as a
-`TypeError` when the tool method is called (measured on c5, symfony/ai 0.14.1). That one
+`TypeError` when the tool method is called (measured with symfony/ai 0.14.1). That one
 goes back to the model as well, recognised by PHP's wording for exactly that method —
 `<DeclaringClass>::<method>(): Argument #n (…) must be of type …` (`isArgumentTypeError()`).
 A trace check is not enough: `\count()`, `strlen()` and the like run as opcodes without a

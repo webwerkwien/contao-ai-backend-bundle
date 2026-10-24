@@ -97,7 +97,7 @@ class SystemPromptProvider
      */
     public function forUser(BackendUser $user, array $allowedToolNames): string
     {
-        // H-5: sanitize all template substitutions — values flow into the system prompt
+        // Sanitize all template substitutions — values flow into the system prompt
         // unmodified, so a hostile username/language could inject Markdown sections or
         // override prior instructions. Identifier-shaped fields are regex-validated;
         // the tool list is filtered to a strict identifier alphabet.

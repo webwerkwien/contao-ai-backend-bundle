@@ -13,7 +13,7 @@ use Webwerkwien\ContaoAiCoreBundle\Service\Dca\StructuredFields;
  * accepts has to be one the core decodes.
  *
  * Checked against Contao's own DCA files and the core's own list of input types, not
- * against definitions written here (rule 25).
+ * against definitions written here.
  */
 class ListFieldsMatchCoreTest extends TestCase
 {

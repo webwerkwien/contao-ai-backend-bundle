@@ -13,8 +13,8 @@ use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
  * bridge's own (AnthropicBridge::MODELS, OpenAiBridge::MODELS); the first is the default.
  * A model in the user's profile (`ai_model`) is among the choices and preselected — it is
  * that user's default — unless the installation lists models for the platform and this
- * one is not among them: then the list is the limit, for the profile too (Fable review
- * 2026-10-20; every editor can fill in `ai_model` under personal data, so without this
+ * one is not among them: then the list is the limit, for the profile too
+ * (every editor can fill in `ai_model` under personal data, so without this
  * the list limited the chat's select and nothing else). The server takes nothing else
  * from the browser: a model name the page sends is checked here, or anyone could spend
  * money on any model.

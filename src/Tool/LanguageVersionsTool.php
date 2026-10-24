@@ -19,10 +19,10 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
  * contao:language:versions — offered only where the core has it, which is only where
  * terminal42/contao-changelanguage is installed.
  *
- * A chat on showcase changed the English slider headline and told the user the page
+ * A chat changed the English slider headline and told the user the page
  * existed in English only; the linked German page had the same slider. Asked to take the
  * login article offline, it never mentioned the German one. It had nothing to look it up
- * with (2026-10-20). This is that lookup; content_find names the versions of its hits.
+ * with. This is that lookup; content_find names the versions of its hits.
  *
  * Versions and roots the user may not read are left out and counted, as in content_find.
  */
@@ -94,7 +94,7 @@ class LanguageVersionsTool extends AbstractCoreCommandTool
         }
 
         [$decoded['versions'], $hiddenVersions] = $this->readable($table, $decoded['versions']);
-        // The main version's id stays only where the main version itself does (review L5).
+        // The main version's id stays only where the main version itself does.
         if ((int) ($decoded['main'] ?? 0) !== $id && !\in_array((int) ($decoded['main'] ?? 0), array_map(static fn (array $v): int => (int) ($v['id'] ?? 0), $decoded['versions']), true)) {
             unset($decoded['main']);
         }

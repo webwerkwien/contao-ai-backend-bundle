@@ -76,7 +76,7 @@ class DataContainerAccessTest extends TestCase
      * The priority strategy, as in Contao's firewalls, in every context: a voter's
      * "denied" wins over the default voter's "granted" behind it. Under Symfony's
      * default strategy — which the global check uses for the CLI bridge, outside any
-     * Contao firewall — the "granted" would win; measured on c5 2026-10-14, where a
+     * Contao firewall — the "granted" would win; measured on an installation where a
      * console script got "allowed" for everything.
      */
     public function testADenialWinsOverTheDefaultVoterBehindIt(): void
@@ -217,7 +217,7 @@ class DataContainerAccessTest extends TestCase
         yield 'nested, parent missing'   => [['ptable' => 'tl_content', 'pid' => 8], [], false];
         yield 'two levels below a news'  => [['ptable' => 'tl_content', 'pid' => 8], ['tl_content' => [8 => ['id' => 8, 'ptable' => 'tl_content', 'pid' => 9], 9 => ['id' => 9, 'ptable' => 'tl_news', 'pid' => 4]]], true];
         // An element that is its own parent: the depth limit (Contao's own, ten levels)
-        // ends the walk instead of looping forever (second review 2026-10-14).
+        // ends the walk instead of looping forever.
         yield 'its own parent'           => [['ptable' => 'tl_content', 'pid' => 8], ['tl_content' => [8 => ['id' => 8, 'ptable' => 'tl_content', 'pid' => 8]]], false];
     }
 

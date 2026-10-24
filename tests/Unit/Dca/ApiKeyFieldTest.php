@@ -43,7 +43,7 @@ class ApiKeyFieldTest extends TestCase
     /**
      * The record the save callback sees carries the values being saved when the write
      * comes through contao-ai-core-bundle (`--set ai_api_key=********`): reading the key
-     * from it stored the mask (review 2026-10-14). Here it carries the mask on purpose.
+     * from it stored the mask. Here it carries the mask on purpose.
      */
     private function dc(): DataContainer
     {

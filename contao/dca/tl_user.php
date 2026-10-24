@@ -11,7 +11,7 @@ use Contao\CoreBundle\DataContainer\PaletteManipulator;
 // sein **eigenes** Profil bearbeitet — auch ohne Admin-Rechte. Ein dort
 // eintragbarer Endpunkt heißt: jeder Backend-Redakteur bestimmt, **wohin der
 // Server HTTP-Anfragen stellt** (`http://169.254.169.254/`, `http://localhost:6379`).
-// Klassisches SSRF, gefunden bei der Audit-Runde am 2026-09-02.
+// Klassisches SSRF.
 //
 // ⚠️ Contaos Feldrechte (`exclude` + `alexf`, „Erlaubte Felder") lösen das NICHT.
 // Gemessen in `vendor/contao/core-bundle/contao/dca/tl_user.php`, Callback
@@ -130,7 +130,7 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_model'] = [
     'sql'       => "varchar(128) NOT NULL default ''",
 ];
 
-// Phase 10.2: ai_cli_token — readonly text input zeigt nur "vorhanden/leer"
+// ai_cli_token — readonly text input zeigt nur "vorhanden/leer"
 // (über input_field_callback gerendert); echte Aktion läuft über den Wizard,
 // der den AiCliTokenController via POST anspricht. Klartext-Token wird einmalig
 // nach erfolgreichem Rotate via Flash-Bag in BE.info angezeigt.

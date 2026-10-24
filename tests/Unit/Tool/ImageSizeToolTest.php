@@ -29,7 +29,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ImageSizeReadCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\ImageSizeUpdateCommand;
 
 /**
- * Image sizes in the chat (v0.19.0), through the real tools (rule 24): the rights asked
+ * Image sizes in the chat (v0.19.0), through the real tools: the rights asked
  * before a command runs, the confirmation before a delete, the allow-list after a create,
  * and that a variant counts as editing its size.
  */

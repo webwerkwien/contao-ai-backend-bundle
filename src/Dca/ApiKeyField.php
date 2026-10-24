@@ -24,7 +24,7 @@ use Doctrine\DBAL\Connection;
  *
  * Not from `getCurrentRecord()`: in a write through contao-ai-core-bundle that record
  * already carries the values being saved, so `--set ai_api_key=********` would have
- * stored the mask (review 2026-10-14). And the unchanged mask is not answered with the
+ * stored the mask. And the unchanged mask is not answered with the
  * mask either, although that would spare the write: under "edit multiple → override"
  * Contao compares against an empty value and would store the mask as the key.
  *

@@ -113,8 +113,8 @@ class DataContainerAccess
      * default (affirmative) strategy decides, where one "granted" outvotes every "denied"
      * and the default voter allows everything. The chat runs in the back-end firewall,
      * but the CLI bridge (`/_ai_cli/macro`, no `_scope`) runs in none: there the global
-     * check allowed an error page below a regular page and a root anywhere for an editor
-     * (measured on c5 2026-10-14). Deciding here gives the back end's answer in every
+     * check allowed an error page below a regular page and a root anywhere for an editor.
+     * Deciding here gives the back end's answer in every
      * context. The voters' own sub-questions (module, page rights) each have one voter,
      * which answers them the same under either strategy.
      */
@@ -214,7 +214,7 @@ class DataContainerAccess
      * The voters' answer. The DCA is loaded first: `TableAccessVoter` reads the fields
      * from `$GLOBALS['TL_DCA']` without loading it; without them it treats every field as
      * excluded and refuses an editor who lacks the right on all fields of the table (its
-     * own comment says "abstains", the code denies — Fable review 2026-10-14).
+     * own comment says "abstains", the code denies).
      * Without a signed-in user nothing is granted.
      */
     public function isGranted(CreateAction|ReadAction|UpdateAction|DeleteAction $action): bool
@@ -358,7 +358,7 @@ class DataContainerAccess
      * Parent tables whose content Contao's voters check — each only while the voter that
      * judges it is installed: articles (core), news and events (their bundles), each also
      * through nested elements. A `tl_news` table left behind by a removed news bundle
-     * has nobody to judge it (Fable review 2026-10-14).
+     * has nobody to judge it.
      */
     private const VOTED_CONTENT_PARENTS = [
         'tl_article'         => 'Contao\CoreBundle\Security\Voter\DataContainer\ArticleContentVoter',

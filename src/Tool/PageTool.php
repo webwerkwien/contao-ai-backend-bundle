@@ -72,7 +72,7 @@ class PageTool extends AbstractCoreCommandTool
         if ($after > 0) {
             $pid = (int) $this->siblingForAfter($this->createCommand, 'tl_page', $after)['pid'];
         } elseif (0 === $pid && 'root' !== $type) {
-            // Optional since v0.22.0: without either only a root fits (review v0.22.0)
+            // Optional since v0.22.0: without either only a root fits
             throw new ToolRefusedException('pid (übergeordnete Seite) oder after (direkt hinter dieser Seite) angeben; ohne beides nur ein Startpunkt (type root).');
         }
 

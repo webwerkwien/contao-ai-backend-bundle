@@ -187,8 +187,8 @@ class ExtToolTest extends TestCase
     }
 
     /**
-     * The command learns who acts (v0.16.2, Consho chat test 2026-10-12: tl_version said
-     * "web246", userid 0). Parsed the way contao:ai:run parses it, not compared as text.
+     * The command learns who acts (v0.16.2; before, tl_version said
+     * the shell user, userid 0). Parsed the way contao:ai:run parses it, not compared as text.
      */
     public function testACommandWithAnOperatorOptionGetsTheSignedInUser(): void
     {
@@ -216,7 +216,7 @@ class ExtToolTest extends TestCase
         $this->assertSame('acme:sync', end($this->runs)['--command-line']);
     }
 
-    /** A flag named operator takes no user; `--operator "editor"` would not bind (review). */
+    /** A flag named operator takes no user; `--operator "editor"` would not bind. */
     public function testAnOperatorFlagGetsNoUser(): void
     {
         $this->definitions['acme:sync']['options']['operator'] = ['accepts_value' => false, 'description' => 'Operator mode'];
@@ -254,7 +254,7 @@ class ExtToolTest extends TestCase
     }
 
     /**
-     * What Symfony makes of the line, not what the line looks like (review S1): it is
+     * What Symfony makes of the line, not what the line looks like: it is
      * parsed here with the StringInput contao:ai:run uses. Before, an argument
      * `--root=9` became the option, `-5` an unknown option, and `''` in an option
      * value vanished.
@@ -300,7 +300,7 @@ class ExtToolTest extends TestCase
     }
 
     /**
-     * Second pre-release review, M-B: a later argument without the earlier one was
+     * A later argument without the earlier one was
      * dropped without a word, and the command ran with half its input.
      */
     public function testALaterArgumentWithoutTheEarlierOneGoesBackToTheModel(): void
@@ -422,7 +422,7 @@ class ExtToolTest extends TestCase
 
     /**
      * `irreversible: true` instead of a sentence: the core drops it and names it under
-     * problems. Still not in the chat (review v0.22.1: it ran).
+     * problems. Still not in the chat (until v0.22.1 it ran).
      */
     public function testAnUnreadableIrreversibleStillKeepsTheCommandOut(): void
     {
@@ -447,7 +447,7 @@ class ExtToolTest extends TestCase
 
     /**
      * A refusal that Symfony also logs puts a log line before the JSON in the same
-     * output (consho:connect:products without --root, c5).
+     * output (consho:connect:products without --root).
      */
     public function testTheJsonAfterALogLineIsTheAnswer(): void
     {

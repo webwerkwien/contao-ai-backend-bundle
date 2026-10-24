@@ -22,7 +22,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\SearchQueryCommand;
 
 /**
  * The chat can look fields and values up instead of guessing them (v0.16.0, "agents
- * should not guess", Michael 2026-10-12): dca_palette and dca_options, bounded like
+ * should not guess"): dca_palette and dca_options, bounded like
  * dca_schema; a refusal that names the core's console lookup names the tool instead.
  * Through the real tool methods; the core commands are stand-ins that record their input.
  */

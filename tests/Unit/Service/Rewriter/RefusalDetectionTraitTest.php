@@ -7,7 +7,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\RefusalDetectionTrait;
 
 /**
  * Guards the pattern that keeps LLM clarification replies out of editorial
- * fields. It lives in one place now because it had drifted — the Phase-10.4
+ * fields. It lives in one place now because it had drifted — an
  * extension reached News/Event/Faq but not Content/Page/Article.
  */
 class RefusalDetectionTraitTest extends TestCase

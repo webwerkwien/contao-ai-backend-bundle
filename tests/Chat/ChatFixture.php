@@ -333,9 +333,9 @@ final class ChatFixture
     /**
      * Removes this build and whatever a scenario added in its containers' tables: a new
      * record whose first version was written by a test user or the runner, or a root of
-     * the fixture's domain. Anything else new is reported, not deleted: c5 is shared with
-     * other sessions. Until the Fable review of 2026-10-19 the test was the title — an
-     * archive "Aktuelles 2027" of a parallel session would have gone too.
+     * the fixture's domain. Anything else new is reported, not deleted: the test installation
+     * may be shared. The test used to be the title — an archive "Aktuelles 2027" made by
+     * someone else would have gone too.
      *
      * @return list<string> records found new but left alone
      */

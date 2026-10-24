@@ -8,7 +8,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Exception;
  *
  * symfony/ai recognises a wrong parameter of the tool method; it cannot recognise a
  * wrong value inside one — `ext_run`'s `command` is a string either way. The chat
- * test on c5 (2026-10-10) showed the gap: the model invented `product:list`, the
+ * test showed the gap: the model invented `product:list`, the
  * refusal ended the turn, and the user saw a refusal for a question that had an
  * answer. {@see \Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox}
  * hands this one back to the model instead, as it does with wrong parameters.

@@ -102,8 +102,7 @@ class RecordListTool extends AbstractCoreCommandTool
         array|string $filter = [],
         array|string $fields = [],
     ): string {
-        // Claude sendet `array`-Parameter manchmal als JSON-String (siehe
-        // Fallstricke-Doku Phase 9.2 record_clone modifications). Decode-First,
+        // Das Modell sendet `array`-Parameter manchmal als JSON-String. Decode-First,
         // dann Normalize-Pipeline.
         if (\is_string($filter)) {
             $decoded = json_decode($filter, true);
@@ -139,7 +138,7 @@ class RecordListTool extends AbstractCoreCommandTool
 
     /**
      * Strip sensitive columns + filter results by per-record permissions
-     * (H-9-style) so an editor cannot enumerate records they couldn't see in
+     * so an editor cannot enumerate records they couldn't see in
      * the regular backend.
      */
     protected function postProcessDecoded(array &$decoded, string $toolName): void
@@ -219,7 +218,7 @@ class RecordListTool extends AbstractCoreCommandTool
             // Since v0.18.0 the question the back end asks before it lists a record:
             // `ReadAction` with the full row (the list may carry fewer columns than the
             // voters read — pid, ptable, type). Until then a rebuild per table; one of
-            // them (M-1, audit 2026-09-02) let the calendar module show every calendar.
+            // them (until 2026-09-02) let the calendar module show every calendar.
             'tl_news', 'tl_news_archive', 'tl_page', 'tl_article', 'tl_content',
             'tl_calendar', 'tl_calendar_events', 'tl_faq_category', 'tl_faq', 'tl_image_size' => array_filter(
                 $results,

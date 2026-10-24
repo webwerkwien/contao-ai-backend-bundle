@@ -100,7 +100,7 @@ class LanguageToolTest extends TestCase
 
     /**
      * The right of the table linked: a grant on news archives says nothing about
-     * calendars (second review, 2026-10-14).
+     * calendars.
      */
     public function testTheRightIsTheOneOfTheLinkedTable(): void
     {

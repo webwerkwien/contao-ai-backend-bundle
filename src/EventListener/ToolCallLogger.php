@@ -99,7 +99,7 @@ class ToolCallLogger implements EventSubscriberInterface
     }
 
     /**
-     * 🔴 M-4 (Audit 2026-09-02): `getArguments()` ging vollständig und ungemaskt
+     * `getArguments()` ging vollständig und ungemaskt
      * ins Log. Ein Redakteur, der über ein Update-Werkzeug einen Text mit
      * `sk-proj-…` oder einem Bearer-Token schreibt, hatte den vollständigen Wert
      * dauerhaft im Logfile — auf WARNING-Ebene. Die Maskierung schützte bis

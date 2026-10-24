@@ -9,10 +9,10 @@ namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
  * Short source values tempt some models to answer with "I'm ready to transform
  * the text, please provide…" instead of transforming anything. Without this
  * guard that sentence is written into the record — which is exactly what
- * happened to a news headline on 2026-05-08 (see Phase 10.4 findings).
+ * happened to a news headline on 2026-05-08.
  *
  * The pattern lives here rather than in each rewriter because it had already
- * drifted: the Phase-10.4 extension (Anthropic-style "I'm ready to / Happy to /
+ * drifted: an extension (Anthropic-style "I'm ready to / Happy to /
  * Sure,") was applied to News, Event and Faq but never to Content, Page and
  * Article, leaving `record_rewrite` on those tables able to persist refusal
  * text months after the bug was considered fixed. One definition, six users.

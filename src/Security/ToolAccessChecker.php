@@ -15,7 +15,7 @@ class ToolAccessChecker
      * added later (events, FAQ, image sizes and their variants) are not: Contao's
      * voters decide them and the server asks the user before each (requireConfirmation,
      * ConfirmationGateTest). The sentence here claimed every delete was admin-only
-     * until the image sizes came (review before v0.19.0).
+     * until the image sizes came.
      *
      * @var list<string>
      */
@@ -24,7 +24,7 @@ class ToolAccessChecker
         'page_delete',
         'article_delete',
         'content_delete',
-        // Phase 9.5 (2026-05-06): record_clone und record_rewrite sind nicht
+        // record_clone und record_rewrite sind nicht
         // mehr admin-only. Editoren mit Modul-Mount + Container-Anlage-Recht
         // (in 5.3 die Felder newp/calendarp/faqp, in 5.7 das Feld `cud` mit
         // `contao_user.cud.<tabelle>::create`, gemessen 2026-10-15; bzw.
@@ -76,13 +76,13 @@ class ToolAccessChecker
         'content_read'   => ['module' => 'article', 'op' => 'read'],
         // v0.20.0: finding elements by their text; each hit is voted on as a read
         'content_find'   => ['module' => 'article', 'op' => 'read'],
-        // Phase 9.5: Macro-Tools haben keinen festen Modul-Gate — sie spannen
+        // Macro-Tools haben keinen festen Modul-Gate — sie spannen
         // mehrere Tabellen und müssen pro Aufruf gegen die Source-Tabelle
         // voten (RecordPermissionChecker). Hier mit `op=any` markiert; die
         // tatsächliche Modul-Membership wird im Tool selbst geprüft.
         'record_clone'   => ['module' => '*', 'op' => 'macro'],
         'record_rewrite' => ['module' => '*', 'op' => 'macro'],
-        // Phase 9.5: gleiches Pattern für die Read-only-Tools, deren
+        // Gleiches Pattern für die Read-only-Tools, deren
         // Modul-Gate per-Tabelle im Tool selbst läuft (RecordListTool::
         // assertModuleAccess, MetaTool::dcaSchema-Allow-List). Ohne diesen
         // Eintrag warf assertCanUseTool für Non-Admins „requires module

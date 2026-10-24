@@ -30,9 +30,9 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PageCreateCommand;
 
 /**
  * Every tool asks Contao's record voters (v0.18.0) with the table, the record and the
- * values it writes, through the real tool (rule 24: the test calls the place, it does
+ * values it writes, through the real tool (the test calls the place, it does
  * not copy it); a refusal runs no command. What the voters answer is Contao's — tested
- * against the real voters on c5, not here.
+ * against the real voters on a test installation, not here.
  */
 class RecordRightsWiringTest extends TestCase
 {
@@ -316,8 +316,8 @@ class RecordRightsWiringTest extends TestCase
     }
 
     /**
-     * A missing parent element is "not found" for an editor too, not a denial (Fable
-     * review 2026-10-14: the bridge answered 403 instead of 422).
+     * A missing parent element is "not found" for an editor too, not a denial (the
+     * bridge used to answer 403 instead of 422).
      */
     public function testAMissingParentElementIsNotFoundForAnEditor(): void
     {
@@ -337,7 +337,7 @@ class RecordRightsWiringTest extends TestCase
     }
 
     /**
-     * Content in news and events: allowed like in the back end (Michael, 2026-10-14),
+     * Content in news and events: allowed like in the back end,
      * the voters judge the archive or calendar.
      */
     public function testAnEditorWritesContentInANews(): void

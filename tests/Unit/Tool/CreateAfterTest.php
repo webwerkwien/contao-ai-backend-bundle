@@ -113,7 +113,7 @@ class CreateAfterTest extends TestCase
     }
 
     /**
-     * The editor's parent-table rule judges the sibling's parent table (review v0.22.0:
+     * The editor's parent-table rule judges the sibling's parent table (before v0.22.0
      * a mutation that checked tl_article on the after path passed).
      */
     public function testTheParentTableRuleSeesTheSiblingsParentTable(): void

@@ -15,7 +15,7 @@ use Symfony\AI\Platform\PlatformInterface;
  * Every rewriter used to carry its own copy of rewriteField(), resultToText()
  * and isPlausible() — six near-identical implementations, differing only in a
  * byte cap and the per-field form-factor description. That duplication was not
- * theoretical: the Phase-10.4 refusal-pattern fix reached three of the six
+ * theoretical: a refusal-pattern fix reached three of the six
  * copies and silently left `record_rewrite` on tl_content, tl_page and
  * tl_article able to persist clarification replies for months (issue #1).
  *
@@ -47,7 +47,7 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
     protected const MIN_SOURCE_LENGTH_FOR_RATIO = 30;
 
     /**
-     * Phase-9.4: very short inputs tempt some models into clarification replies
+     * Very short inputs tempt some models into clarification replies
      * ("I need a headline to transform..."). Below this length the value is
      * passed through verbatim instead of being sent to the model at all.
      */
@@ -95,7 +95,7 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
         try {
             // No `temperature` any more (v0.20.0): it was 0.3, and the current models refuse
             // it — "`temperature` is deprecated for this model" from claude-sonnet-5-5, so
-            // every rewrite was skipped (chat runner on c5, 2026-10-20). The instructions in
+            // every rewrite was skipped. The instructions in
             // the system prompt keep the rewrite close to the original.
             $result = $platform->invoke($model, $messages);
         } catch (\Throwable) {
@@ -129,7 +129,7 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
     }
 
     /**
-     * 🔴 M-3 (Audit 2026-09-02): LLM-Ausgabe ging bis dahin ungeprüft in die
+     * LLM-Ausgabe ging bis dahin ungeprüft in die
      * Datenbank — validiert wurden nur Leerwert, Länge, Längenverhältnis und
      * einige Verweigerungsphrasen. Für ein HTML-Feld wie `tl_content.text` oder
      * `tl_faq.answer` heißt das: was der Anbieter zurückgibt, wird gespeichert.

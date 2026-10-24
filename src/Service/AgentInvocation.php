@@ -18,7 +18,7 @@ final readonly class AgentInvocation
      * @param list<string> $registeredToolNames Every tool name in the run's toolbox,
      *   the ones left out of $allowedToolNames included. A call of one of these that
      *   symfony/ai 0.14 refuses is a permission the run did not grant; a call of any
-     *   other name is a name the model invented (review W2, 2026-10-09).
+     *   other name is a name the model invented.
      * @param list<string> $readableContent AttachmentContent kinds the model reads besides
      *   text (document, image), from the model catalog (v1.0.0). Empty: text only.
      */

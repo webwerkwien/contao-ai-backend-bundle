@@ -13,7 +13,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\UserAiConfig;
 
 /**
  * The model name the chat page sends (v0.20.0): one of the user's choices, or a 400. Until
- * the Fable review (2026-10-20) the check sat inline in the controller, and a mutation that
+ * a later version the check sat inline in the controller, and a mutation that
  * let every name through left the suite green.
  */
 class PickedModelTest extends TestCase

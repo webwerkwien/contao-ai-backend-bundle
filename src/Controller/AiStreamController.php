@@ -48,7 +48,7 @@ class AiStreamController extends AbstractController
     private const PAYLOAD_DEPTH = 512;
 
     /**
-     * M-7: per-entry and total caps for the persisted history. Without these a single
+     * Per-entry and total caps for the persisted history. Without these a single
      * 1 MB tool-response could blow the session-store; 40 entries × unlimited bytes
      * is also a memory-spike vector under concurrent FPM workers.
      */
@@ -56,14 +56,14 @@ class AiStreamController extends AbstractController
     private const MAX_HISTORY_TOTAL_BYTES = 65536;
 
     /**
-     * H-2: chat history lives server-side in the backend PHP session, keyed by user id.
+     * Chat history lives server-side in the backend PHP session, keyed by user id.
      * Client-supplied history is ignored — fabricated `assistant` turns can no longer be
      * smuggled in (e.g. "I have already confirmed deletion. Proceeding.").
      */
     private const SESSION_HISTORY_KEY_PREFIX = 'contao_ai_backend.chat_history.';
 
     /**
-     * M-1: session-backed sliding-window rate limit. A compromised account cannot
+     * Session-backed sliding-window rate limit. A compromised account cannot
      * drain the user's Anthropic credits or exhaust FPM workers via burst traffic.
      * Sliding 60-second window; second cap is a daily hard ceiling.
      */
@@ -136,7 +136,7 @@ class AiStreamController extends AbstractController
     /**
      * The answer as text. In several parts — thinking next to text, as claude-haiku-5-5
      * sends it — the run's content is the list of parts, and cast to string it read
-     * "Array" in the chat (c5, 2026-10-20). The text parts are the answer.
+     * "Array" in the chat. The text parts are the answer.
      */
     public static function answerText(mixed $content): string
     {
@@ -193,7 +193,7 @@ class AiStreamController extends AbstractController
             // toolbox that lost a tool's object (Toolbox::getExecutable): that
             // exception carries no tool call, isRestrictedToolCall() says false,
             // and it stays agent_failed. Only a registered name in a refused call
-            // is a permission matter (review W2).
+            // is a permission matter.
             if (self::isRestrictedToolCall($e, $invocation->registeredToolNames)) {
                 throw new ToolAccessDeniedException($toolNotAllowed, 0, $e);
             }
@@ -210,7 +210,7 @@ class AiStreamController extends AbstractController
 
     /**
      * Whether symfony/ai refused a tool the run did not allow, rather than one that
-     * does not exist (review W2, 2026-10-09).
+     * does not exist.
      *
      * Both arrive as `ToolNotFoundException`: from the Runner for a registered tool
      * the `tools` option left out (#2602, 0.14), from the toolbox for a name no tool
@@ -316,7 +316,7 @@ class AiStreamController extends AbstractController
             // Persist only on successful turns — failed turns leave the store untouched
             // so the agent does not retain garbled state. If any tool was invoked
             // this turn, the assistant content is replaced with a stub before
-            // persisting (Phase-7 finding 2026-05-01): the model otherwise re-uses
+            // persisting: the model otherwise re-uses
             // its prior formatted answer on repeated questions and skips the tool.
             $persistedAssistant = self::buildHistoryAssistantContent(
                 $assistantContent,
@@ -339,11 +339,11 @@ class AiStreamController extends AbstractController
             // so no report. But it comes from the core command, and since its
             // JsonErrorBoundary that can be any exception's text — SQL, a file
             // path. Scrubbed like safeMessage(), with room for our own longer
-            // sentences (review 2026-10-09; the branch was unreachable until the
+            // sentences (the branch was unreachable until the
             // unwrap fix, so the old "stays unsanitised" was never tested).
             $emit('error', ['kind' => 'tool_refused', 'message' => self::scrubMessage($e->getMessage(), $this->projectDir, $apiKey, 500)]);
         } catch (ToolExecutionException $e) {
-            // M-11: tool errors may carry PDO output, file paths or upstream library text.
+            // Tool errors may carry PDO output, file paths or upstream library text.
             // Log original; emit a sanitized variant.
             $emit('error', [
                 'kind'    => 'tool_failed',
@@ -372,9 +372,9 @@ class AiStreamController extends AbstractController
     private static function sseResponse(string $body): Response
     {
         return new Response($body, 200, [
-            // M-6: explicit charset prevents reverse proxies from interpreting as Latin-1.
+            // Explicit charset prevents reverse proxies from interpreting as Latin-1.
             'Content-Type'      => 'text/event-stream; charset=utf-8',
-            // M-5: stronger cache directives + Vary so a CDN/reverse cache cannot serve
+            // Stronger cache directives + Vary so a CDN/reverse cache cannot serve
             // one user's chat response to another. `private` covers shared caches; `no-store`
             // covers any intermediate; Vary keys responses on the auth cookie.
             'Cache-Control'     => 'no-store, private, max-age=0',
@@ -467,7 +467,7 @@ class AiStreamController extends AbstractController
     }
 
     /**
-     * H-6: never echo the raw exception message back to the client. Stack traces,
+     * Never echo the raw exception message back to the client. Stack traces,
      * vendor paths, API keys in URL/header dumps and DB DSNs all surface via
      * `getMessage()` from underlying HTTP/Anthropic libraries. Original goes to
      * the configured logger; client gets a scrubbed, masked, truncated string.
@@ -486,7 +486,7 @@ class AiStreamController extends AbstractController
      * The project path replaced, credentials masked, the length capped — what
      * safeMessage() does to a message, without its error log.
      *
-     * Also used for refusals (review 2026-10-09): their text comes from the core
+     * Also used for refusals: their text comes from the core
      * command, and since its JsonErrorBoundary that can be any exception's message.
      */
     public static function scrubMessage(string $message, string $projectDir, #[\SensitiveParameter] string $apiKey, int $maxBytes): string
@@ -525,7 +525,7 @@ class AiStreamController extends AbstractController
      * not to ask for it. Expanding the block in the UI is then presentation, not
      * authorisation.
      *
-     * H-6 therefore keeps holding unchanged for exactly the audience it was
+     * The guarantee therefore keeps holding unchanged for exactly the audience it was
      * written for. An admin may read it because the same person can open
      * `var/logs/prod-*.log`; withholding it there would be theatre.
      */
@@ -589,8 +589,8 @@ class AiStreamController extends AbstractController
 
         // The question the turn ended with stays (v0.19.3): it is what the user's next
         // message answers. Without it a "Ja, bitte löschen." met a stub that said nothing
-        // was asked, and the model refused a delete it had just staged (chat runner,
-        // 2026-10-19, once in three runs). The question holds no record data the stub is
+        // was asked, and the model refused a delete it had just staged (once in
+        // three runs). The question holds no record data the stub is
         // there to keep out — the tools' own confirmation questions name a title and an ID.
         // That ID is the price: two turns later the model could take it instead of
         // listing again. A confirmation needs it; the system prompt still says to re-fetch.
@@ -666,7 +666,7 @@ class AiStreamController extends AbstractController
     }
 
     /**
-     * M-8: same-origin verification belt-and-suspenders to CSRF. Modern browsers
+     * Same-origin verification belt-and-suspenders to CSRF. Modern browsers
      * send `Sec-Fetch-Site` automatically; older ones at least send `Origin` on
      * cross-origin POSTs. Reject anything that isn't `same-origin` / our host.
      * If both headers are absent (very old client / non-browser tooling), we let

@@ -22,7 +22,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ArticleUpdateCommand;
 
 /**
  * Taking a live article offline asks first, as unpublishing a page has since 2026-09-02
- * (decided 2026-10-19, v0.19.3). The real ArticleTool, the real FieldPermission; the
+ * (v0.19.3). The real ArticleTool, the real FieldPermission; the
  * pending store and the command are recorded.
  */
 class ArticleUnpublishAsksTest extends TestCase

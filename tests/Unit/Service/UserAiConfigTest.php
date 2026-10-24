@@ -68,10 +68,10 @@ class UserAiConfigTest extends TestCase
     {
         // Deliberately NOT `anthropic`: that is the value the default would also
         // produce, so an assertion on it would pass even if nothing was read.
-        // (Fable review, M-4 — the same "green through the fallback" shape this
-        // file's header already warns about.)
+        // (The same "green through the fallback" shape this file's
+        // header already warns about.)
         $dto = $this->config()->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'openai',
             'ai_api_key'  => 'sk-openai-secret',
         ]));
@@ -81,7 +81,7 @@ class UserAiConfigTest extends TestCase
     }
 
     /**
-     * 🔴 C-1. This test asserted the exact opposite until 2026-09-02: that an
+     * 🔴 This test asserted the exact opposite until 2026-09-02: that an
      * uninstalled provider falls back to `anthropic`. It was green, and it
      * certified a credential leak.
      *
@@ -96,7 +96,7 @@ class UserAiConfigTest extends TestCase
     public function testAPlatformThatIsNotInstalledIsNotSwapped(): void
     {
         $dto = $this->config()->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'mistral',
             'ai_api_key'  => 'MISTRAL-KEY',
         ]));
@@ -111,7 +111,7 @@ class UserAiConfigTest extends TestCase
         // quietly building a platform for someone else.
         $registry = new PlatformRegistry([]);
         $dto      = (new UserAiConfig($registry))->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'mistral',
             'ai_api_key'  => 'MISTRAL-KEY',
         ]));
@@ -129,7 +129,7 @@ class UserAiConfigTest extends TestCase
         // Nothing configured at all — there is no key that could be sent to the
         // wrong place, so a default costs nothing.
         $dto = $this->config()->getForUser($this->user([
-            'username' => 'michael',
+            'username' => 'redakteur',
         ]));
 
         self::assertSame('anthropic', $dto->platform);
@@ -139,9 +139,9 @@ class UserAiConfigTest extends TestCase
     public function testAKeyWithoutAProviderIsNotGuessed(): void
     {
         // A key is present but no provider was ever chosen. Picking one would be
-        // the same mistake as C-1, one step earlier.
+        // the same mistake as the fallback above, one step earlier.
         $dto = $this->config()->getForUser($this->user([
-            'username'   => 'michael',
+            'username'   => 'redakteur',
             'ai_api_key' => 'SOME-KEY',
         ]));
 
@@ -151,7 +151,7 @@ class UserAiConfigTest extends TestCase
     public function testABaseUrlIsCarriedThroughAndTrimmed(): void
     {
         $dto = $this->config()->getForUser($this->user([
-            'username'     => 'michael',
+            'username'     => 'redakteur',
             'ai_platform'  => 'anthropic',
             'ai_api_key'   => 'sk-ant-secret',
             'ai_base_url'  => '  http://localhost:11434  ',
@@ -166,7 +166,7 @@ class UserAiConfigTest extends TestCase
         // The difference matters at the call site: null means "use the bridge's
         // own default", an empty string would be passed on as a base URL of "".
         $dto = $this->config()->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'anthropic',
             'ai_api_key'  => 'sk-ant-secret',
             'ai_base_url' => '   ',
@@ -179,7 +179,7 @@ class UserAiConfigTest extends TestCase
     public function testTheModelIsOptionalAndNullWhenBlank(): void
     {
         $dto = $this->config()->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'anthropic',
             'ai_api_key'  => 'sk-ant-secret',
             'ai_model'    => '',
@@ -191,7 +191,7 @@ class UserAiConfigTest extends TestCase
     public function testTheDebugDumpNeverShowsTheWholeKey(): void
     {
         $dto = $this->config()->getForUser($this->user([
-            'username'    => 'michael',
+            'username'    => 'redakteur',
             'ai_platform' => 'anthropic',
             'ai_api_key'  => 'sk-ant-api03-VERYSECRETVALUE',
         ]));

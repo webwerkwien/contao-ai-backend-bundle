@@ -18,7 +18,7 @@ use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
  * (core v1.10.0) — offered only where the core has it.
  *
  * Until now the chat found an element through the search index or by listing table after
- * table: on showcase 9–10 calls and half a minute for one slider headline (2026-10-19). The
+ * table: 9–10 calls and half a minute for one slider headline. The
  * index answers pages, not elements, and a page with `noindex` is never in it.
  *
  * The core trusts its operator; here every hit goes through Contao's voters as a read of
@@ -91,8 +91,7 @@ class ContentFindTool extends AbstractCoreCommandTool
         if (0 !== $code || !\is_array($decoded) || 'ok' !== ($decoded['status'] ?? null)) {
             return $this->answer($code, $output, 'content_find');
         }
-        // Fail closed: an answer without its result list does not go to the model unfiltered
-        // (Fable review 2026-10-20).
+        // Fail closed: an answer without its result list does not go to the model unfiltered.
         if (!\is_array($decoded['results'] ?? null)) {
             throw new ToolExecutionException('Tool "content_find": contao:content:find answered without a result list.');
         }
@@ -109,7 +108,7 @@ class ContentFindTool extends AbstractCoreCommandTool
         if (isset($decoded['roots'])) {
             [$decoded['roots'], $hiddenRoots] = $this->readable('tl_page', $decoded['roots']);
             // Said, not only left out: one visible root would read as a site in one
-            // language (review 2026-10-20).
+            // language.
             if ($hiddenRoots > 0) {
                 $decoded['hiddenRoots'] = $hiddenRoots;
             }

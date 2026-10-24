@@ -16,17 +16,17 @@ use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
 
 /**
- * record_clone: Phase-9 macro tool that clones a Contao container record and
+ * record_clone: macro tool that clones a Contao container record and
  * its child cascade in one server-side operation. Avoids the N+1 tool-call
  * pattern (`news_archive_create` + N×`news_read` + N×`news_create`) that
  * blows the rate-limit and context window on a normal LLM-orchestrated run.
  *
- * Phase-9.2 scope: tl_news_archive (cascades to tl_news). Further entities
+ * First scope: tl_news_archive (cascades to tl_news). Further entities
  * (tl_calendar → tl_calendar_events, tl_faq_category → tl_faq, tl_page →
  * tl_article → tl_content) follow in 9.4 by registering additional
  * EntityClonerInterface implementations under the same tagged-iterator.
  *
- * Phase 9.5 (2026-05-06): Editor-Zugang. Source-Voter via
+ * Editor-Zugang: Source-Voter via
  * RecordPermissionChecker (gleiche Patterns wie NewsTool/PageTool/...,
  * nur zentral) + Container-Anlage-Voter (newp/calp/faqp 'create' bzw.
  * USER_CAN_EDIT_PAGE_HIERARCHY auf source.pid für tl_page).
@@ -82,7 +82,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
     ];
 
     /**
-     * Phase 9.5.5 — Auto-Grant nach Container-Anlage. Mapping Source-Table →
+     * Auto-Grant nach Container-Anlage. Mapping Source-Table →
      * tl_user-Allow-List-Feld. Nach erfolgreichem Klon wird der neue
      * Container-ID an die Liste des aktuellen non-admin-Users angehängt,
      * damit er sich nicht selbst aussperrt. tl_page bewusst nicht enthalten:
@@ -124,7 +124,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Phase 9.5: sichtbar wenn der User mind. ein Source-Modul mounted hat.
+     * Sichtbar, wenn der User mind. ein Source-Modul mounted hat.
      * Per-Aufruf-Voter (assertSourceAccess + assertCanCreateContainer)
      * entscheidet dann, ob die konkrete Tabelle/ID erlaubt ist.
      */
@@ -189,7 +189,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // hierarchy right on it, recordCopyDenialReason()). Then the right to create
         // the new container next to it. Until v0.19.2 the source needed the edit right,
         // although this comment already said "read": an editor allowed to create
-        // archives but not to change them could not clone one (chat runner, 2026-10-19).
+        // archives but not to change them could not clone one.
         if ('tl_page' === $sourceTable) {
             $reason = $this->permissionChecker->recordCopyDenialReason($user, 'tl_page', $sourceId);
             if (null !== $reason) {
@@ -200,7 +200,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         }
         $this->permissionChecker->assertCanCreateContainer($user, $sourceTable, $sourceId);
 
-        // Phase 9.5.3: bei tl_page recursive=true muss der Editor jede Subpage
+        // Bei tl_page recursive=true muss der Editor jede Subpage
         // im Source-Tree edit-berechtigt sein, weil der Core-Cloner aktuell
         // keine Skip-Liste akzeptiert (Pre-Flight statt Skip-mit-Note). Zeigen
         // wir refused-IDs explizit, damit Claude/Operator den Scope anpassen
@@ -235,13 +235,13 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // like any write it needs the field right (v0.17.0). Until then {"published": "1"}
         // published a clone for an editor whose group grants no `tl_page::published`.
         // Not the create rule: a clone copies its source, it is no record with defaults,
-        // so {"hide": ""} would show a hidden page in the navigation (Fable review
-        // 2026-10-14). The core unpublishes a cloned page by itself; nobody needs to
+        // so {"hide": ""} would show a hidden page in the navigation.
+        // The core unpublishes a cloned page by itself; nobody needs to
         // pass {"published": ""}.
         //
         // Every key, null included: the core writes a null override too — as '' or, for
         // a flag, '0' — so {"hide": null} showed a hidden page once nulls were skipped
-        // here (second review, 2026-10-14). Unlike buildSetOptions(), nothing drops them
+        // here. Unlike buildSetOptions(), nothing drops them
         // on the way to the command.
         $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys($modifications)));
 
@@ -300,7 +300,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Phase 9.5.5: nach erfolgreichem Klon dem aktuellen non-admin-User die
+     * Nach erfolgreichem Klon dem aktuellen non-admin-User die
      * neue Container-ID in seine Allow-List eintragen — sonst hat er gerade
      * was angelegt, das er selbst nicht mehr sehen darf. Stock Contao macht
      * das im `oncopy_callback` des UserRootListener, der hier nicht greift:

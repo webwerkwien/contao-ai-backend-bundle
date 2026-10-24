@@ -47,7 +47,7 @@ class ContentTool extends AbstractCoreCommandTool
             // `published` was listed until v0.16.4; a content element's visibility is
             // `invisible` in Contao 5, so the write always failed. Removed then without
             // a replacement, so the chat could not hide or show an element at all —
-            // the eye icon in the back end (showcase, 2026-10-19). Back in v0.19.2.
+            // the eye icon in the back end. Back in v0.19.2.
             'headline', 'text', 'html', 'addImage',
             // the image itself (v1.0.0): the core converts the UUID and the JSON size
             'singleSRC', 'size',
@@ -85,7 +85,7 @@ class ContentTool extends AbstractCoreCommandTool
         // The voters decide (v0.18.0): the rights on the article, news or event above,
         // the element type, and whether the parent element takes nested elements.
         // A missing parent element is "not found" for everyone, as elsewhere — not a
-        // denial for editors only (Fable review 2026-10-14). Other parent tables are
+        // denial for editors only. Other parent tables are
         // judged first, so an editor's foreign table is never looked up.
         if ('tl_content' === $ptable && null === $this->dcAccess->fetchRecord($ptable, $pid)) {
             throw new ToolRefusedException(\sprintf('Eltern-Inhaltselement %d nicht gefunden.', $pid));

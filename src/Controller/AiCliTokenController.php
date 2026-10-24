@@ -18,7 +18,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfToken;
 
 /**
- * Phase 10.2: Backend-Profil-UI für tl_user.ai_cli_token. Generiert einen
+ * Backend-Profil-UI für tl_user.ai_cli_token. Generiert einen
  * neuen 64-char Hex-Token, hasht ihn (password_hash, PASSWORD_DEFAULT) und
  * speichert nur den Hash. Der Klartext-Token wird einmalig in der Flash-Bag
  * angezeigt — nach dem Refresh ist er weg, der User muss ihn kopieren.

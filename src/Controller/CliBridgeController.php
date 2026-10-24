@@ -23,7 +23,7 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 
 /**
- * Phase 10.1: HTTP-Endpoint, den der Python-CLI-Agent aufruft, um Macro-Tools
+ * HTTP-Endpoint, den der Python-CLI-Agent aufruft, um Macro-Tools
  * (record_clone, record_rewrite) ohne Browser-Wechsel auszuführen.
  *
  * Auth ist Bearer-Token (tl_user.ai_cli_token, password_hash gespeichert).
@@ -31,7 +31,7 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
  *
  * Vor dem Tool-Aufruf wird ein Symfony-Security-PostAuthenticationToken in den
  * TokenStorage geschoben, damit BackendUser::getInstance() / TokenChecker und
- * die nachgeschalteten Phase-9.5-Voter exakt wie im Backend-Chat funktionieren.
+ * die nachgeschalteten Voter exakt wie im Backend-Chat funktionieren.
  * Nach dem Aufruf wird der Token wieder entfernt — der Request bleibt stateless.
  */
 class CliBridgeController extends AbstractController
@@ -95,7 +95,7 @@ class CliBridgeController extends AbstractController
         }
 
         // Push the resolved user into the security context for the duration of
-        // the tool invocation. The Phase-9.5 AuthorizationChecker (Voter pipeline)
+        // the tool invocation. The AuthorizationChecker (Voter pipeline)
         // reads the token from TokenStorage and works outside the contao_backend
         // firewall — but Contao's TokenChecker::hasBackendUser() refuses unless
         // the firewall context matches, so AbstractCoreCommandTool's user lookup

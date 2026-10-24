@@ -87,8 +87,8 @@ class ToolArgumentsMatchCommandTest extends TestCase
 
             // runCommand($this->xyzCommand, [ 'key' => …, '--opt' => … ], 'tool'), also through
             // the guard of an optional command: runCommand($this->requireCommand($this->xyzCommand,
-            // 'tool'), [ … ], 'tool') — dca_palette/dca_options escaped this scan until the
-            // review before v0.16.0.
+            // 'tool'), [ … ], 'tool') — dca_palette/dca_options escaped this scan before
+            // v0.16.0.
             preg_match_all(
                 "/runCommand\\(\\s*(?:\\\$this->requireCommand\\(\\s*)?\\\$this->(\\w+Command)(?:\\s*,\\s*'[^']*'\\s*\\))?\\s*,\\s*\\[(.*?)\\]\\s*,\\s*'([^']+)'/s",
                 $source,

@@ -7,7 +7,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 /**
  * Single-use, time-bounded staging area for "destructive" tool calls.
  *
- * The Smart-History stub design (Phase 7) deliberately strips tool outputs
+ * The Smart-History stub design deliberately strips tool outputs
  * from the persisted assistant turn so the LLM cannot copy stale data on a
  * repeat question. As a side effect, multi-turn confirmation flows
  * ("delete X" → "are you sure?" → "yes" → execute) lose the agent's own
@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * - **Turn-bound**: an entry staged in one HTTP request cannot be consumed in
  *   that same request. See below.
  *
- * ## 🔴 C-1 (Audit 2026-09-02): warum die Turn-Bindung dazukam
+ * ## 🔴 Warum die Turn-Bindung dazukam
  *
  * Bis dahin war die einzige Instanz, die einen Menschen zwischen Frage und
  * Ausführung schaltete, ein Satz im JSON an das Modell: *„Frage den User
@@ -108,7 +108,7 @@ class PendingActionStore
      */
     public function consume(int $userId, string $tool, string $key): ?array
     {
-        // C-1: nicht im selben Request einlösbar. Der Eintrag bleibt bewusst
+        // Nicht im selben Request einlösbar. Der Eintrag bleibt bewusst
         // stehen — der nächste Turn soll ihn noch bestätigen können.
         if ($this->stagedInCurrentTurn($userId, $tool, $key)) {
             return null;

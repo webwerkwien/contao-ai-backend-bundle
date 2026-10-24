@@ -144,7 +144,7 @@ class ChatPageIsTwigTest extends TestCase
      * deep and keeps subfolders in the name only below a `.twig-root` marker
      * (5.3, 5.7 and 6.0 alike). So the question is not "is the file there" but
      * "would Contao call it what we call it" — and Contao answers it: this asks
-     * the real TemplateLocator, not a copy of its rule (review 2026-10-03: the
+     * the real TemplateLocator, not a copy of its rule (the
      * first version of this test re-implemented the rule, and would have stayed
      * green had Contao changed it).
      *
@@ -354,8 +354,8 @@ class ChatPageIsTwigTest extends TestCase
     // ── wiring ───────────────────────────────────────────────────────────
 
     /**
-     * The listener tests above build their objects themselves (review
-     * 2026-10-03, rule 25). This checks the half that is visible without a
+     * The listener tests above build their objects
+     * themselves. This checks the half that is visible without a
      * kernel: both classes get an autoconfigured definition from services.yaml,
      * and their attributes name the right event and priority.
      *

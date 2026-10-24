@@ -8,7 +8,7 @@
   ["fenced code keeps markdown literal", "```bash\n**nicht fett** <x>\n```", "<pre><code>**nicht fett** &lt;x&gt;</code></pre>"],
   ["unclosed fence while streaming", "```\nabc", "<pre><code>abc</code></pre>"],
   ["table", "| a | b |\n|---|---|\n| 1 | **2** |", "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td><strong>2</strong></td></tr></tbody></table>"],
-  ["https link", "[Produktseite](https://c5.axeltest.at/x.html)", "<p><a href=\"https://c5.axeltest.at/x.html\" target=\"_blank\" rel=\"noopener noreferrer\">Produktseite</a></p>"],
+  ["https link", "[Produktseite](https://example.org/x.html)", "<p><a href=\"https://example.org/x.html\" target=\"_blank\" rel=\"noopener noreferrer\">Produktseite</a></p>"],
   ["path link", "[Seite](/contao?do=page)", "<p><a href=\"/contao?do=page\" target=\"_blank\" rel=\"noopener noreferrer\">Seite</a></p>"],
   ["javascript link stays text", "[klick](javascript:alert(1))", "<p>klick (javascript:alert(1))</p>"],
   ["data link stays text", "[x](data:text/html,<b>)", "<p>x (data:text/html,&lt;b&gt;)</p>"],

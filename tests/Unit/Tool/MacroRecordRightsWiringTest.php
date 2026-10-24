@@ -33,8 +33,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordListCommand;
 
 /**
  * The macro tools and the list reach the record rights (v0.18.0) through the real tool
- * (rule 24). The Fable review of v0.18.0 deleted each of these four calls and the suite
- * stayed green: the clone's create check, the subpages of a recursive clone, the
+ * Before v0.18.0, deleting each of these four calls left the suite green: the clone's create check, the subpages of a recursive clone, the
  * children of a rewrite, and the row filter of record_list.
  */
 class MacroRecordRightsWiringTest extends TestCase

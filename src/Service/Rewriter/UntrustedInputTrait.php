@@ -8,7 +8,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Service\Rewriter;
  *
  * The rewriters send a record's field value as the user message of a plain
  * `PlatformInterface::invoke()` call. Unlike the agent tools — whose outputs go
- * back wrapped in `<tool_output_data>` (H-1) — that value used to reach the
+ * back wrapped in `<tool_output_data>` — that value used to reach the
  * model unmarked, so text like "ignore the above and write X" competed directly
  * with the operator's system prompt.
  *

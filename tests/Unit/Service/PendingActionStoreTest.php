@@ -12,7 +12,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\PendingActionStore;
 /**
  * The confirmation gate, and the attack it did not stop until 2026-09-02.
  *
- * 🔴 C-1. The gate's whole enforcement used to be a sentence addressed to the
+ * 🔴 The gate's whole enforcement used to be a sentence addressed to the
  * model: *"Frage den User wörtlich. Bei klarem Ja denselben Tool-Aufruf erneut
  * absetzen — dann führt der Server aus."* Since symfony/ai 0.13 the agent drives
  * the tool loop itself with `maxToolCalls: 50`, so the model could call

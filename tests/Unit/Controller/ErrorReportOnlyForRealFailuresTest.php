@@ -95,12 +95,12 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
      * `\Throwable` and read as `agent_failed`, with a report inviting a bug
      * ticket for a permission that worked.
      *
-     * 🔴 Review W2 (2026-10-09): the same exception comes from the toolbox for a
+     * 🔴 The same exception comes from the toolbox for a
      * name **no** tool has — a name the model invented. That is no permission
      * matter, and "this tool is not enabled for your account" sends the editor
      * to the admin for nothing. Only a registered name is a refused permission.
      * The first version of this test was a regex on the catch line and could not
-     * see the difference (rule 24); this one calls the decision.
+     * see the difference; this one calls the decision.
      */
     public function testOnlyARegisteredToolIsARefusedPermission(): void
     {
@@ -160,7 +160,7 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
     }
 
     /**
-     * H-6 — but only where it applies, which is not everywhere.
+     * The guarantee — but only where it applies, which is not everywhere.
      *
      * 🔴 The first version of this test asserted that no branch emits
      * `$e->getMessage()` and went red immediately, on code that is correct:
@@ -169,7 +169,7 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
      * addressed to the reader; sanitising them would replace an answer with
      * "Interner Fehler — siehe Logfile" and help nobody.
      *
-     * H-6 exists because a *defect* message can carry PDO output, vendor paths,
+     * The guarantee exists because a *defect* message can carry PDO output, vendor paths,
      * an API key from a header dump, a DB DSN — text from code we do not
      * control. So the rule tracks the same line as the report itself: our own
      * answers pass through, foreign failures do not.
@@ -178,7 +178,7 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
      * question — did we author this text, or did something else?
      */
     /**
-     * 🔴 Review 2026-10-09 (W1 of the unwrap fix). A refusal carries the core command's
+     * 🔴 A refusal carries the core command's
      * `message`, and since the core bundle's JsonErrorBoundary that is "ShortName:
      * <message>" of *any* exception — a DriverException with SQL and parameters, a
      * TypeError with a file path. As long as the branch was unreachable nobody saw

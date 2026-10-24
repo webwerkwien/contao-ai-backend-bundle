@@ -263,7 +263,7 @@ A refusing callback often gives its reason only there.
 
 **Who sees what is decided server-side, at the moment the event is emitted.** An
 admin receives the full report including the (masked) exception message; anyone
-else receives the summary with the message stripped, so the H-6 guarantee — the
+else receives the summary with the message stripped, so the guarantee — the
 raw exception never reaches the client — keeps holding unchanged for the audience
 it was written for. The browser only expands the block; it never fetches more.
 

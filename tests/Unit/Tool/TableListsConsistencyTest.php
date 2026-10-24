@@ -12,7 +12,7 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\RecordListTool;
  * Four lists name the tables the chat may overview, and they must agree (v0.19.0):
  * record_list's allow-list, dca_schema's, the table → module map, and the module → tables
  * map the system prompt shows. The image sizes reached one of them and the changelog
- * promised all; the review before the tag found it, no test did.
+ * promised all; no test noticed.
  */
 class TableListsConsistencyTest extends TestCase
 {

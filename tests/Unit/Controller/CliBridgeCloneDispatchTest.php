@@ -13,8 +13,8 @@ use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 
 /**
  * The bridge hands a clone to cloneFromBridge() — the path where the CLI has asked —
- * and passes withRecipients through (v0.19.0). The Fable review set the flag to false
- * in the controller and the whole suite stayed green.
+ * and passes withRecipients through (v0.19.0). Setting the flag to false in the
+ * controller left the whole suite green.
  */
 class CliBridgeCloneDispatchTest extends TestCase
 {

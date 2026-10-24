@@ -136,8 +136,8 @@ class PlatformRegistryTest extends TestCase
 
     public function testEveryPlatformWeRequireActuallyShowsUp(): void
     {
-        // Michael's rule, 2026-09-02: "was wir über das Dropdown anbieten muss
-        // auch mitgezogen werden." One direction is free — the list *is* the
+        // The rule: what the dropdown offers has to be carried
+        // through as well. One direction is free — the list *is* the
         // installed set, so it cannot offer something absent.
         //
         // This is the other direction: every platform package the bundle

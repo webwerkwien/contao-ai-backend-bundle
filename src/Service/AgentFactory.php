@@ -69,7 +69,7 @@ class AgentFactory
         $agent = new Agent($platform, $resolved->modelForRun(), toolbox: $toolbox);
 
         // Every name in the toolbox, admin-only sub-tools included — what tells a
-        // refused permission from an invented name (review W2).
+        // refused permission from an invented name.
         $registeredToolNames = [];
         foreach ($allowedTools as $tool) {
             foreach ($tool->getToolNames() as $name) {

@@ -24,7 +24,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\NewsUpdateCommand;
 use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
 
 /**
- * record_rewrite: Phase-9.3+9.4 macro tool that re-routes editorial text
+ * record_rewrite: macro tool that re-routes editorial text
  * fields through the inner LLM platform with operator-supplied instructions
  * and writes results back through the regular *_update command pipeline so
  * audit-trail (tl_version + --operator) stays identical to a manual edit.
@@ -36,8 +36,8 @@ use Webwerkwien\ContaoAiCoreBundle\Command\PageUpdateCommand;
  * refuses with "kein Update-Command für Tabelle X" instead of failing at
  * construct time.
  *
- * Phase-9.3 covers tl_news (single + recursive over tl_news_archive).
- * Phase-9.4 adds tl_calendar_events (single + recursive over tl_calendar)
+ * It covers tl_news (single + recursive over tl_news_archive),
+ * tl_calendar_events (single + recursive over tl_calendar)
  * and tl_faq (single + recursive over tl_faq_category).
  */
 #[AsTool(
@@ -96,7 +96,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Phase 9.5: sichtbar wenn der User ein Source-/Container-Modul mounted
+     * Sichtbar, wenn der User ein Source-/Container-Modul mounted
      * hat. Source-Modul-Map (tabellen-übergreifend, deckt single + recursive ab).
      *
      * @var array<string, string>
@@ -153,10 +153,10 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             throw new ToolRefusedException('record_rewrite benötigt nicht-leere Anweisungen.');
         }
 
-        // Phase 9.5: Source-Voter. Single-Record: edit-Recht auf die zu
+        // Source-Voter. Single-Record: edit-Recht auf die zu
         // schreibende Zeile selbst. Recursive: edit-Recht auf den Container
         // (Lese-Recht reicht nicht, weil wir die Children gleich beschreiben).
-        // 🔴 M-2 (Audit 2026-09-02): Die Werkzeug-Berechtigung lief bisher erst in
+        // Die Werkzeug-Berechtigung lief bisher erst in
         // runCommand() — also NACH dem LLM-Aufruf. Ein Benutzer, der den Datensatz
         // zwar bearbeiten darf, `record_rewrite` aber nicht benutzen darf, hatte
         // dessen Inhalt damit bereits an den Anbieter geschickt, bevor er die
@@ -170,7 +170,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
 
         $this->permissionChecker->assertRecordAccess($user, $table, $id, 'edit');
 
-        // 🔴 H-1 (Fable review, 2026-09-02): these three lines used to demand an
+        // These three lines used to demand an
         // API key unconditionally and resolve the platform through the two
         // hand-written bridge classes. Result: `record_rewrite` answered
         // "Unbekannte KI-Plattform" for every derived provider, refused Ollama
@@ -199,7 +199,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
 
             // A field the user may not edit in the back end is not written; it joins
             // the skipped fields with its reason, the rest of the record goes on
-            // (v0.17.0, Michael: skip rather than refuse the record). Its text has been
+            // (v0.17.0: skip rather than refuse the record). Its text has been
             // to the provider by now — reading is not restricted in Contao either.
             foreach ($this->fieldPermission->denied($user, $targets['rewriter_table'], array_keys($rewritten['fields'])) as $field) {
                 unset($rewritten['fields'][$field]);
@@ -317,7 +317,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             $capped = true;
         }
 
-        // Phase 9.5.3: Per-Child-Voter. Editor mit news-Modul + Zugriff auf
+        // Per-Child-Voter. Editor mit news-Modul + Zugriff auf
         // Archiv 1 darf z.B. trotzdem nicht über recursive in Archiv 7
         // schreiben, das nur transitiv per Container-Lookup auftaucht. Skip
         // mit Note statt Hart-Abbruch — Caller bekommt `refused: [...]` und

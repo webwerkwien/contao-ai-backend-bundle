@@ -10,7 +10,7 @@ use Webwerkwien\ContaoAiBackendBundle\Security\ToolArgumentMasker;
 /**
  * Secrets in tool arguments stay out of logs (v0.14.1), in every form ext_run takes
  * its options — a map, a list per option, a JSON string (ExtTool::asArray()) — and
- * the forms the Fable review before the release found open.
+ * the forms found open before the release.
  */
 class ToolArgumentMaskerTest extends TestCase
 {
@@ -59,7 +59,7 @@ class ToolArgumentMaskerTest extends TestCase
 
     public function testAPassphraseWithSpacesInASetElementGoesWhole(): void
     {
-        // Review 3 before v0.14.1: the value pattern stopped at the first space.
+        // Before v0.14.1 the value pattern stopped at the first space.
         $masked = ToolArgumentMasker::mask(['options' => ['set' => ['passphrase=correct horse S3CRET staple', 'title=Mein Laden']]]);
 
         $this->assertSame(['passphrase=***', 'title=Mein Laden'], $masked['options']['set']);

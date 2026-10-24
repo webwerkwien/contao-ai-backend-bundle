@@ -22,7 +22,7 @@ use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
  * DataContainerAccess gets the voters through `#[AutowireIterator('security.voter')]`; the
  * design rests on Contao's DefaultDataContainerVoter (priority -1024) coming last. Built
  * here by Symfony's own container from the attribute, with the default voter registered
- * first and a denying voter after it (Fable review 2026-10-14).
+ * first and a denying voter after it.
  */
 class DataContainerAccessWiringTest extends TestCase
 {

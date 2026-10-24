@@ -7,7 +7,7 @@ use Symfony\Component\Process\ExecutableFinder;
 
 /**
  * The chat shows the model's answer as Markdown (v0.14.0) with a renderer of its own
- * in the page template, decided with the maintainer on 2026-10-11.
+ * in the page template.
  *
  * Two promises: the rendering is right (cases.json, run through the template's real
  * renderMarkdown against a minimal DOM in harness.js), and nothing on the page ever
@@ -72,7 +72,7 @@ class ChatMarkdownTest extends TestCase
         // Which hrefs open is behaviour, checked in cases.json: harness.js resolves
         // every href like a browser and fails a link that leaves the host. A check
         // on the wording here would pass a hole next to the line and fail a correct
-        // rewrite of it (Fable review 2 before v0.14.0) — only the tab attributes
+        // rewrite of it (before v0.14.0) — only the tab attributes
         // stay, the fake DOM keeps them as written.
         $this->assertStringContainsString("a.rel = 'noopener noreferrer'", $template);
     }

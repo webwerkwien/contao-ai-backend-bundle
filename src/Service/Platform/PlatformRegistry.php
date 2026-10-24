@@ -47,7 +47,7 @@ class PlatformRegistry
      * Anthropic a model catalog with the models symfony/ai does not list yet. Where the
      * package is installed, its factory builds the platform and the bridge's own
      * createPlatform() never runs; without this the catalog addition was dead code and
-     * `claude-sonnet-5-5` failed with "No provider found" (measured on c5, 2026-10-20).
+     * `claude-sonnet-5-5` failed with "No provider found".
      * Only arguments the factory declares are passed.
      *
      * @return array<string, mixed>
@@ -117,7 +117,7 @@ class PlatformRegistry
     /**
      * Why a package that looks like a bridge did not become one.
      *
-     * M-1: every rejection below used to be a bare `return null`. A rename
+     * Every rejection below used to be a bare `return null`. A rename
      * upstream — `PlatformFactory` became `Factory` in symfony/ai 0.13 — would
      * therefore empty the dropdown in production without a single log line. That
      * exact rename already cost an hour this morning, and only a counter in a
@@ -228,7 +228,7 @@ class PlatformRegistry
             ));
         }
 
-        // 🔴 H-3 (Fable review, 2026-09-02). Both branches below used to *skip*
+        // 🔴 Both branches below used to *skip*
         // silently when the provider had no such parameter. Concretely: OpenAI's
         // factory takes no `baseUrl`, so a user could enter a gateway address,
         // save without error, and have every request — key included — go to
@@ -411,7 +411,7 @@ class PlatformRegistry
             $hasValue = $parameter->isDefaultValueAvailable() || $parameter->allowsNull();
             $default  = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null;
 
-            // H-4: a scalar we neither recognise nor can fill. Cartesia's factory
+            // A scalar we neither recognise nor can fill. Cartesia's factory
             // wants `string $version` next to the key; offering it would put a
             // provider in the dropdown that ends in ArgumentCountError — an
             // HTTP 500, because the controller only catches AiConfigException.
@@ -450,7 +450,7 @@ class PlatformRegistry
             return $this->skip($package, 'createPlatform() has no `name` default to use as the platform key');
         }
 
-        // M-2: a bridge with neither a key nor an endpoint has nothing a user
+        // A bridge with neither a key nor an endpoint has nothing a user
         // could fill in. Bedrock takes its credentials from the AWS environment
         // and TransformersPHP runs in-process — both are application settings,
         // not per-user ones, and this bundle stores per user. Showing them means

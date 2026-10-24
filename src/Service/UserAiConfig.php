@@ -18,13 +18,13 @@ class UserAiConfig
     }
 
     /**
-     * H-4: previous implementation cached the DTO in a `\WeakMap<BackendUser, …>`.
+     * Previous implementation cached the DTO in a `\WeakMap<BackendUser, …>`.
      * Under long-running runtimes (Octane, Workerman) and even within a single FPM
      * request that rotates the key in another tab, the cache returned the *old* DTO
      * because the BackendUser instance was the same. Reading directly from the user
      * model removes the TOCTOU window entirely — the model is the source of truth.
      *
-     * L-2: platform string is re-validated. A stray DB value (manual edit, schema
+     * Platform string is re-validated. A stray DB value (manual edit, schema
      * drift, partial migration) cannot make us hand off to a non-existent bridge
      * later. Since 2026-09-02 the check asks {@see PlatformRegistry} instead of a
      * hard-coded pair — the list is derived from the installed bridges, so a
@@ -33,7 +33,7 @@ class UserAiConfig
      * A stored provider that is *not* installed is passed through unchanged and
      * only logged here. Refusing it is `PlatformRegistry::get()`'s job, which
      * names the provider and lists the available ones. This class reads; it does
-     * not decide — and above all it does not substitute (see C-1 below).
+     * not decide — and above all it does not substitute (see below).
      */
     public function getForUser(BackendUser $user): UserAiConfigDto
     {
@@ -42,7 +42,7 @@ class UserAiConfig
         $baseUrl  = trim((string) ($user->ai_base_url ?? ''));
         $model    = trim((string) ($user->ai_model ?? ''));
 
-        // 🔴 C-1, 2026-09-02: hier stand ein Rückfall auf `anthropic`, sobald die
+        // 🔴 Bis 2026-09-02 stand hier ein Rückfall auf `anthropic`, sobald die
         // gespeicherte Plattform nicht installiert war — **unter Beibehaltung des
         // Schlüssels**. Ein `composer remove symfony/ai-mistral-platform` hätte
         // damit gereicht, um den Mistral-Schlüssel eines Benutzers beim nächsten

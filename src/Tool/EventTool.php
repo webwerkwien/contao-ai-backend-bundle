@@ -116,7 +116,7 @@ class EventTool extends AbstractCoreCommandTool
         // A day as 2026-11-27 and a time as 10:00 go to the command's own options, which
         // turn them into the stored timestamps (and set addTime for a time). Through
         // --set the core refuses them: those columns hold Unix timestamps. Until v0.19.2
-        // the chat could not move an event or give it a time (chat runner, 2026-10-19).
+        // the chat could not move an event or give it a time.
         $times = [];
         foreach (self::TIME_OPTIONS as $field => $pattern) {
             $value = $fields[$field] ?? null;
@@ -132,7 +132,7 @@ class EventTool extends AbstractCoreCommandTool
                 throw new ToolRefusedException('Datum und Uhrzeit eines Termins lassen sich im Chat erst mit contao-ai-core-bundle ab v0.28.0 ändern. Es wurde nichts geschrieben.');
             }
             // A time makes the core set addTime, so its right is needed as well — as it
-            // is when addTime comes through --set (Fable review 2026-10-19).
+            // is when addTime comes through --set.
             $rights = array_keys($times);
             if (isset($times['startTime']) || isset($times['endTime'])) {
                 $rights[] = 'addTime';

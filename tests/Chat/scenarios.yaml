@@ -13,7 +13,7 @@
 # Every scenario starts from the same fixture: scenarios delete, hide and rename
 # fixture records, so the runner restores it before each one.
 #
-# Not covered on purpose: ext_run (the extension commands on c5 write shop data),
+# Not covered on purpose: ext_run (extension commands may write shop data),
 # listing_config (needs a listing module), the *_read tools on their own (the model
 # reaches for them along the way; the call log shows it).
 #
@@ -43,7 +43,7 @@
 version: 1
 
 # ---------------------------------------------------------------------------
-# Fixture: built before a run on c5 (Contao 5.7), removed after it. Own root, own
+# Fixture: built before a run (developed on Contao 5.7), removed after it. Own root, own
 # domain, own users; nothing outside it is touched.
 # ---------------------------------------------------------------------------
 fixture:
@@ -173,7 +173,7 @@ scenarios:
     requires: [language_versions]
     turns: ["Ändere den Text 'Our prices start at 490 euros' auf 'Our prices start at 520 euros'."]
     expect:
-      # showcase, 2026-10-20: changed the English text and claimed there was no other
+      # A chat changed the English text and claimed there was no other
       # language. The linked German page has to be named, and left alone (v0.21.0).
       outcome: done
       max_calls: 4
@@ -189,12 +189,12 @@ scenarios:
       - "Hallo, kannst du im Element {ct_intro} den Text auf 'Wir sind fünf Leute in Wien.' ändern? Danke dir!"
       - "Super. Mach bitte auch die Überschrift von {ct_intro} zu einer h3."
     expect:
-      # showcase, 2026-10-20: switched from "du" to "Sie" within one conversation (v0.21.1)
+      # A chat switched from "du" to "Sie" within one conversation (v0.21.1)
       outcome: done
       records:
         ct_intro: { fields: { text: { contains: "fünf Leute" }, headline.unit: "h3" } }
       # case-sensitive inside a sentence: "Sie"/"Ihnen"/"Ihre" not after a sentence end,
-      # so "sie" (the pages) and "ihnen" (them) do not count (review 2026-10-20)
+      # so "sie" (the pages) and "ihnen" (them) do not count
       says_not: ['(?-i)(?<![.!?:;»"]\s)(?<!\A)\b(Sie|Ihnen|Ihre?[mnrs]?)\b']
 
   - id: language-versions-unpublish
@@ -202,7 +202,7 @@ scenarios:
     requires: [language_versions]
     turns: ["Nimm den Artikel auf der Seite Prices offline.", "Ja"]
     expect:
-      # showcase, 2026-10-20: took the login article offline, never mentioned the German one
+      # A chat took the login article offline, never mentioned the German one
       outcome: done
       records:
         prices_en_main: { fields: { published: false } }
@@ -346,7 +346,7 @@ scenarios:
     user: editor
     turns: ["Der Artikel auf der Seite Angebot soll offline gehen."]
     expect:
-      # like a page: taking content away from every visitor asks first (decided 2026-10-19)
+      # like a page: taking content away from every visitor asks first
       outcome: asks
       records:
         angebot_main: { fields: { published: true } }

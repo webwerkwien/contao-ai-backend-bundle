@@ -38,7 +38,7 @@ class ChatViewContext
     {
         $config = $this->userConfig->getForUser($user);
 
-        // 🔴 H-2 (Fable review, 2026-09-02): this passed `hasKey =>
+        // This passed `hasKey =>
         // $config->hasApiKey()` and the template hid the entire chat when it was
         // false. A user on Ollama has no key and needs none — so the case the
         // derived registry was built for could not be reached through the UI at

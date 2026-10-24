@@ -27,18 +27,18 @@ use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
  * Toolbox and Runner of the installed symfony/ai, the model replaced by a
  * scripted mock platform.
  *
- * 🔴 Measured on 2026-10-09 (symfony/ai 0.14.1, and per the pre-release review
- * 0.13 the same): the toolbox wraps every exception a tool throws in its own
+ * 🔴 Measured on 2026-10-09 (symfony/ai 0.14.1, and 0.13
+ * the same): the toolbox wraps every exception a tool throws in its own
  * `Toolbox\Exception\ToolExecutionException`, unless it implements
  * `ToolExecutionExceptionInterface` — ours do not. So none of the chat's catch
  * blocks for `access_denied`, `tool_refused` and `tool_failed` was ever reached:
  * "Seite 9 nicht gefunden" arrived as `agent_failed`, with a report inviting a
  * bug ticket. The tests that guarded the branches read the controller's source
- * and could not see it (rule 24). `runAgent()` unwraps ours.
+ * and could not see it. `runAgent()` unwraps ours.
  *
  * The same harness covers the refusal of symfony/ai 0.14 (#2602): a registered
  * tool the run left out becomes `ToolAccessDeniedException`, a name no tool has
- * stays `ToolNotFoundException` (review W2).
+ * stays `ToolNotFoundException`.
  */
 class AgentRunErrorsTest extends TestCase
 {
@@ -93,7 +93,7 @@ class AgentRunErrorsTest extends TestCase
     }
 
     /**
-     * Review W2 of the unwrap fix: only our three exceptions are unwrapped. A
+     * Only our three exceptions are unwrapped. A
      * foreign one (a RuntimeException out of Contao) stays the toolbox's, falls to
      * \Throwable and reads as agent_failed with a report — a defect, as it should.
      * Unwrapping everything left the suite green until this test.
@@ -180,7 +180,7 @@ class AgentRunErrorsTest extends TestCase
     }
 
     /**
-     * The chat test on c5 (2026-10-10): the model invented `product:list` for ext_run,
+     * In a chat test the model invented `product:list` for ext_run,
      * the refusal ended the turn. A value the tool itself names as the model's
      * mistake goes back to the model like a wrong parameter.
      */
@@ -209,7 +209,7 @@ class AgentRunErrorsTest extends TestCase
 
     /**
      * symfony/ai does not check an `array` parameter; a string for `fields` fails as a
-     * TypeError at the call (measured on c5, page_update, 2026-10-10). PHP's own text
+     * TypeError at the call (measured with page_update). PHP's own text
      * names the server path — the model gets ours.
      */
     public function testAStringForAnArrayParameterGoesBackToTheModelWithoutAPath(): void
@@ -237,7 +237,7 @@ class AgentRunErrorsTest extends TestCase
     }
 
     /**
-     * Second pre-release review: `\count()` is compiled to an opcode and gets no
+     * `\count()` is compiled to an opcode and gets no
      * trace frame of its own, so a bug with it in the tool method had the tool
      * method on top — and was handed to the model as its mistake.
      */

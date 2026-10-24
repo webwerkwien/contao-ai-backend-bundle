@@ -16,8 +16,8 @@ use Webwerkwien\ContaoAiBackendBundle\Service\AgentInvocation;
 
 /**
  * An answer in several parts — thinking next to text, as claude-haiku-5-5 sends it — is
- * the text parts (v0.20.0). Cast to string the MultiPartResult read "Array" in the chat
- * (c5, 2026-10-20). Through the real agent and runAgent(), as the chat page runs it.
+ * the text parts (v0.20.0). Cast to string the MultiPartResult read "Array" in the chat.
+ * Through the real agent and runAgent(), as the chat page runs it.
  */
 class MultiPartAnswerTest extends TestCase
 {

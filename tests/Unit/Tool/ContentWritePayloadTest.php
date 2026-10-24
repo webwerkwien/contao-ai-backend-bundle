@@ -28,7 +28,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand;
  *
  * symfony/ai describes `array $fields` as a list of scalars, so a headline's level
  * arrived as a field of its own and was refused: `Feld "unit" ist für dieses Tool nicht
- * zum Schreiben freigegeben` (showcase, 2026-10-19). And a content element could not be
+ * zum Schreiben freigegeben`. And a content element could not be
  * hidden at all, `invisible` was not on the list.
  *
  * The real tool with the real FieldPermission; the command records its `--set`.
@@ -119,7 +119,7 @@ class ContentWritePayloadTest extends TestCase
 
     /**
      * The voters are asked with what the core writes, the folded level included — not
-     * with the model's raw `unit` (Fable review 2026-10-19: removing the call before
+     * with the model's raw `unit` (removing the call before
      * writtenValues() passed every other test).
      */
     public function testTheVotersSeeTheFoldedValues(): void

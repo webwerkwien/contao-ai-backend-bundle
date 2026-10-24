@@ -55,7 +55,7 @@ class ToolMapCoversEveryToolTest extends TestCase
 
     /**
      * The names as the shipped code reads them — getToolNames(), class- and method-level
-     * attributes alike (rule 24), not a copy of its reflection.
+     * attributes alike, not a copy of its reflection.
      *
      * @return list<string>
      */
@@ -116,7 +116,7 @@ class ToolMapCoversEveryToolTest extends TestCase
 
     /**
      * The system prompt names what a user may NOT call from a list of its own; a tool
-     * missing there is neither offered nor ruled out, and the model guesses (review).
+     * missing there is neither offered nor ruled out, and the model guesses.
      */
     public function testTheSystemPromptKnowsEveryTool(): void
     {
@@ -129,7 +129,7 @@ class ToolMapCoversEveryToolTest extends TestCase
     }
 
     /**
-     * What the chat page counts and the agent gets, through a real tool (rule 24).
+     * What the chat page counts and the agent gets, through a real tool.
      */
     public function testAnEditorIsOfferedTheFaqToolsWithTheModuleOnly(): void
     {

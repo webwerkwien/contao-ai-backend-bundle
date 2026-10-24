@@ -29,7 +29,7 @@ use PHPUnit\Framework\TestCase;
  * Console output of the core bundle and the CLI stay English. They address
  * agents and developers, not editors, and `TL_LANG` is not even loaded there.
  * The line runs by audience, not by file type: back-end interface bilingual,
- * tool output English (decision Michael, 2026-09-05).
+ * tool output English.
  */
 class BilingualLabelsTest extends TestCase
 {

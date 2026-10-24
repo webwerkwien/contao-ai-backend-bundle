@@ -74,7 +74,7 @@ final class ToolArgumentMasker
         }
 
         // A whole value that is `name=…` — an element of ext_run's `set` list — goes
-        // after the `=` entirely: a passphrase may contain spaces (review 3).
+        // after the `=` entirely: a passphrase may contain spaces.
         if (1 === preg_match('/^\s*(' . self::NAME . ')\s*=/i', $text, $whole)) {
             return $whole[1] . '=' . self::MASK;
         }
