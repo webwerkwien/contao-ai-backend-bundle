@@ -88,6 +88,17 @@ that existed before the fix, and that could not be rewritten, is the proof.
 - **No internals in the CHANGELOG** — nor in the GitHub release notes, which copy it: no names, no review or
   acceptance tags, no servers or hosts, no test data, no keys or key IDs. Only what changes for the people using
   the bundle.
+- **Public surface since 1.0** — see README *Stability*; a change there is a major.
+  symfony/ai types never cross it (`AttachmentContent`, not `ContentInterface`): the
+  provider library is pre-1.0 and moves under us, the extension points must not.
+- **Attachments are checked in a fixed order, cheapest and most certain first.**
+  `Content-Length` against `post_max_size` comes before the JSON is decoded: above it PHP
+  drops the body, which would otherwise read as a missing CSRF token. Then
+  `AttachmentReader`: count, name, duplicate, Contao's upload types, a converter, the
+  base64 length *before* decoding (a 30 MB string is never decoded to learn it is too
+  large), strict decoding, size, `finfo` against the extension, conversion, and whether
+  the model reads the result. A file's content never reaches the history, the log or an
+  error report — only its name, type and size.
 - PHP 8.2+, `declare(strict_types=1)` in every file.
 - Tools extend `AbstractCoreCommandTool` and are auto-tagged via `_instanceof`.
 - **Every tool name needs an entry in `ToolAccessChecker::TOOL_MAP` and in

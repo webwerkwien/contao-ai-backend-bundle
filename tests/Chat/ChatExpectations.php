@@ -73,7 +73,7 @@ final class ChatExpectations
         $ok = match ($outcome) {
             'done'    => null === $error && !$staged,
             'asks'    => null === $error && $asked && 0 === $writes,
-            'refused' => \in_array($error, ['access_denied', 'tool_refused'], true) || (null === $error && 0 === $writes && !$staged),
+            'refused' => \in_array($error, ['access_denied', 'tool_refused', 'attachment_refused'], true) || (null === $error && 0 === $writes && !$staged),
             default   => false,
         };
         if (!$ok) {

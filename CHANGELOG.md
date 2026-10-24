@@ -1,6 +1,38 @@
 # Changelog
 
-All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
+All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
+
+## v1.0.0 — 2026-10-24
+
+The first stable release. What stays compatible until 2.0 is listed in the README
+(*Stability*). Works with every contao-ai-core-bundle v0.23.0 worked with; the
+constraint `>=0.1 <2.0` from the installation guide reaches it.
+
+### Added
+
+- **Files in the chat.** The paperclip next to *Send* attaches up to five files to a
+  message: PDF, JPEG/PNG/GIF/WebP and plain text (`txt`, `md`, `csv`). Offered are the
+  types in Contao's upload settings that the chosen model can read, up to Contao's
+  maximum upload size. The model reads a file together with its message; the history
+  keeps only a line `Anhang: <name>`, never the file. A text over 100 000 characters is
+  refused, not cut.
+- **New error kind `attachment_refused`**, without an error report: a file the chat
+  does not take (type, size, content not matching its extension, too long) or a model
+  that cannot read it is named before the model is called.
+- **`AttachmentConverterInterface`** (tag `contao_ai_backend.attachment_converter`):
+  other bundles add file formats, and with a tag priority above 0 replace a converter
+  of this bundle. Tools reach the files of the running message through
+  `ChatAttachments`.
+- **Content tools set the element image:** `singleSRC` (the file's UUID) and `size`,
+  besides `addImage`.
+
+### Changed
+
+- **Enter sends the message, Shift+Enter breaks the line.**
+- A message may consist of attachments alone.
+- A request above PHP's `post_max_size` is answered with HTTP 413 and a message, instead
+  of failing as a missing CSRF token.
+- Requires `ext-fileinfo`.
 
 ## v0.23.0 — 2026-10-24
 

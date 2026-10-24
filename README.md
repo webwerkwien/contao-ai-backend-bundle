@@ -2,9 +2,10 @@
 
 In-browser AI agent for the Contao 5.7 and 6 backend. Editors and admins chat with an AI agent (any provider `symfony/ai` supports) that can read and modify Contao content through a curated set of tools — no SSH, no CLI. Plus an HTTPS bridge endpoint that lets [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) trigger bulk macro operations from the terminal without switching to the browser.
 
-> **Pre-1.0.** Runs in production on the author's own installations. Interfaces — tool
-> signatures, bridge JSON, DCA fields — still change between minor versions, and
-> `symfony/ai` is itself pre-1.0. Read the changelog before updating.
+> **Stable since 1.0.** What stays compatible until 2.0 is listed under *Stability*:
+> routes, bridge JSON, user fields, tool names, the stream's error kinds and the
+> extension points. `symfony/ai` is itself pre-1.0; none of its types are part of that
+> list, so its updates stay inside the bundle.
 
 > **You bring your own model access.** Each backend user enters their provider's credentials — an API key, or an endpoint for a self-hosted model (see *Providers*) — in their profile (System → Users → AI agent). Without a key, the chat module is disabled for that user. The bundle does not ship with a service-level key.
 
@@ -24,7 +25,7 @@ contao-ai-backend-bundle is the **browser client** for AI-powered Contao content
 
 ## Requirements
 
-- PHP ^8.2
+- PHP ^8.2 with `ext-fileinfo` (since v1.0.0, for the file check of attachments)
 - Contao 5.7 or 6.x (`^5.7 || ^6.0`)
 
 `symfony/ai` needs Symfony 7.3 or later, which rules out Contao 5.3 (Symfony 6.4). Up to v0.9.3 the requirements said `^5.3`, but the bundle could never actually be installed there. Contao 5.4 to 5.6 are not supported either; on those, Composer keeps v0.9.3.
@@ -105,6 +106,37 @@ Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry.
 The chat sits in the "System" group of the back-end menu, at `/contao/ai-chat`. Its template is `@Contao/backend/ai_chat.html.twig` and can be overridden in `templates/backend/ai_chat.html.twig` like any Contao template.
 
 Since v0.14.0 answers are shown as Markdown (headings, lists, tables, code, links) and the chat follows the back end's light and dark scheme. The renderer lives in the template and builds every element as text, so HTML in an answer is never parsed; links open only for http(s) and for paths on this host. An overridden template keeps whatever renderer it was copied with — compare it after an update.
+
+Enter sends a message, Shift+Enter breaks the line (v1.0.0).
+
+## Files in the chat
+
+Since v1.0.0 the paperclip next to *Send* attaches files to a message: up to five, and a
+message may consist of files alone. The model reads them together with that message.
+
+| Kind | Extensions | How the model gets it |
+|---|---|---|
+| PDF | `pdf` | as a document, if the chosen model reads PDF |
+| Images | `jpg`, `jpeg`, `png`, `gif`, `webp` | as an image, if the chosen model reads images |
+| Plain text | `txt`, `md`, `csv` | as text, up to 100 000 characters (Windows-1252 is converted to UTF-8) |
+
+The limits come from where they are already set:
+
+- **Which types:** the intersection of Contao's *upload types* (System → Settings) and the
+  kinds above that the chosen model reads. The file picker offers only those.
+- **How large:** Contao's *maximum upload size* per file, and PHP's `post_max_size` for the
+  whole request.
+- **Content:** the file's content has to match its extension (`finfo`); a renamed file is
+  refused. A text over 100 000 characters is refused with its length, not cut.
+
+A refused file ends the turn with the error kind `attachment_refused` before the model is
+asked, with a message that names the file and the reason, and without an error report.
+
+What it does not do: a file is not stored, neither in the file manager nor in the
+conversation. The history keeps a line `Anhang: <name>`, so the next message knows a
+file was there but not what it said; attach it again to ask more. SVG is not read.
+
+The log records name, type and size of every attachment, never its content.
 
 ## Available tools
 
@@ -193,20 +225,25 @@ Chat responses arrive as `text/event-stream` (SSE-style frames over `fetch`-`Rea
 - `start` — model id
 - `message` — content chunk (currently emitted once per response; chunked streaming will be added when the underlying platform bridge supports it)
 - `done` — successful completion
-- `error` — `kind: access_denied | tool_refused | tool_failed | agent_failed`
+- `error` — `kind: access_denied | tool_refused | output_cut | attachment_refused | tool_failed | agent_failed`
 
-The four `error` kinds split into two groups, and the split matters:
+The `error` kinds split into two groups, and the split matters:
 
 | kind | what happened | `report` field |
 | --- | --- | --- |
 | `access_denied` | a permission worked as designed | — |
 | `tool_refused` | the command ran, understood the request and declined (e.g. "News-Eintrag 42 nicht gefunden") | — |
+| `output_cut` | the model's answer reached its output limit; that step did not run (v0.23.0) | — |
+| `attachment_refused` | an attached file was not taken, or the model cannot read it (v1.0.0) | — |
 | `tool_failed` | a tool broke | ✓ |
 | `agent_failed` | the agent broke | ✓ |
 
-The first two are *answers* and carry no report — offering to report them would
+The first four are *answers* and carry no report — offering to report them would
 train users to send noise and bury the two cases that are genuinely defects. The
 last two carry `report`, a ready-to-forward Markdown block.
+
+A request above PHP's `post_max_size` is answered with HTTP 413 and a JSON `message`
+before any event, since PHP drops such a body entirely.
 
 Since v0.12.0 a crash inside a core command is `tool_failed` rather than `tool_refused`
 (with contao-ai-core-bundle v1.3.0 or later, which marks it). Two mistakes of the model
@@ -223,6 +260,64 @@ admin receives the full report including the (masked) exception message; anyone
 else receives the summary with the message stripped, so the H-6 guarantee — the
 raw exception never reaches the client — keeps holding unchanged for the audience
 it was written for. The browser only expands the block; it never fetches more.
+
+## Stability
+
+From 1.0.0 on, the following changes only with a major version:
+
+- **Routes:** the chat page `/contao/ai-chat`, the stream `POST /contao/ai-chat/stream`
+  and its JSON body (`csrfToken`, `message`, `model`, `attachments: [{name, type, data}]`),
+  the bridge `POST /_ai_cli/macro` and its JSON.
+- **User fields:** `ai_platform`, `ai_model`, `ai_base_url`, `ai_api_key`, `ai_cli_token`
+  in `tl_user`, and the configuration keys under `contao_ai_backend`.
+- **Tools:** the tool names in *Available tools* and their parameters. New tools and new
+  optional parameters come in minor versions.
+- **Stream:** the event names and the `error` kinds above. A new kind comes in a minor
+  version only if it carries no report.
+- **Extension points:** `AttachmentConverterInterface` and its tag
+  `contao_ai_backend.attachment_converter` (priority included), `ChatAttachment`,
+  `AttachmentContent`, `ChatAttachments` and `AttachmentRefusedException`.
+- **Template:** the name `@Contao/backend/ai_chat.html.twig` and its blocks. The markup
+  inside a block may change in minor versions; compare an overridden copy after updates.
+
+No `symfony/ai` type is part of this list. What the chat sends to a provider, prompts
+included, is not either: it follows the models.
+
+## Adding file formats
+
+Another bundle can teach the chat more file types. Implement
+`AttachmentConverterInterface`; with autoconfigure on, the tag is set by the interface:
+
+```php
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentContent;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentConverterInterface;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
+
+final class OdtConverter implements AttachmentConverterInterface
+{
+    public function extensions(): array
+    {
+        return ['odt'];
+    }
+
+    public function acceptsMime(string $extension, string $mime): bool
+    {
+        return 'application/vnd.oasis.opendocument.text' === $mime;
+    }
+
+    public function convert(ChatAttachment $file): array
+    {
+        return [AttachmentContent::text(\sprintf("Anhang „%s“:\n\n%s", $file->name, $this->plainText($file->bytes)))];
+    }
+}
+```
+
+The chat offers the extension once Contao's upload types allow it. One converter per
+extension: the highest tag `priority` wins, the bundle's own converters have 0. With a
+priority above 0 a bundle replaces a free converter for the same extension. To refuse a file,
+throw `AttachmentRefusedException('my_key', [$file->name])`; the chat shows
+`$GLOBALS['TL_LANG']['ai_chat']['my_key']` from the bundle's own language file, with the
+parameters for its `%s`. During the message, tools reach its files through `ChatAttachments`.
 
 ## Development
 

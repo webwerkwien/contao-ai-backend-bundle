@@ -33,8 +33,11 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Yaml\Yaml;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentReader;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachments;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 use Webwerkwien\ContaoAiBackendBundle\EventListener\ToolCallLogger;
+use Webwerkwien\ContaoAiBackendBundle\Exception\AttachmentRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
@@ -62,6 +65,9 @@ final class RunChatScenariosCommand extends Command
     /** @var array<int|string, array<string, mixed>> calls of the turn running, by call id */
     private array $calls = [];
 
+    /** where the scenario file lies: a turn's attachments are relative to it */
+    private string $scenarioDir = '';
+
     /**
      * @param UserProviderInterface<BackendUser> $users
      */
@@ -81,6 +87,8 @@ final class RunChatScenariosCommand extends Command
         /** @var iterable<VoterInterface> */
         #[AutowireIterator('security.voter')]
         private readonly iterable $voters,
+        private readonly AttachmentReader $attachmentReader,
+        private readonly ChatAttachments $chatAttachments,
     ) {
         parent::__construct();
     }
@@ -102,6 +110,7 @@ final class RunChatScenariosCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $spec = Yaml::parseFile((string) $input->getArgument('file'));
+        $this->scenarioDir = \dirname((string) $input->getArgument('file'));
         $fixture = new ChatFixture($this->writer, $this->db, $this->framework, $this->projectDir . '/var/chat-runner-state.json');
         $expectations = new ChatExpectations($this->db, $fixture);
 
@@ -175,7 +184,10 @@ final class RunChatScenariosCommand extends Command
             $expect = (array) $scenario['expect'];
             $snapshot = $expectations->snapshot($expect);
             $started = microtime(true);
-            $recorded = $this->runTurns($user, array_map(fn (string $turn): string => $this->fill($turn, $fixture), $turns), !$input->getOption('without-token'));
+            $filled = array_map(fn (string|array $turn): string|array => \is_array($turn)
+                ? ['text' => $this->fill((string) ($turn['text'] ?? ''), $fixture)] + $turn
+                : $this->fill($turn, $fixture), $turns);
+            $recorded = $this->runTurns($user, $filled, !$input->getOption('without-token'));
             $failures = $expectations->check($expect, $snapshot, $recorded);
 
             $ok = [] === $failures;
@@ -240,7 +252,10 @@ final class RunChatScenariosCommand extends Command
      * One request per turn, as the chat page has; one session per scenario, which holds
      * the sign-in and the staged confirmations between turns.
      *
-     * @param list<string> $turns
+     * A turn is its text, or {text, attach: [path, …]} with files relative to the
+     * scenario file (v1.0.0). They pass the same reader as on the chat page.
+     *
+     * @param list<string|array{text?: string, attach?: list<string>}> $turns
      *
      * @return list<array<string, mixed>>
      */
@@ -255,7 +270,8 @@ final class RunChatScenariosCommand extends Command
 
         $history = [];
         $recorded = [];
-        foreach ($turns as $text) {
+        foreach ($turns as $turn) {
+            [$text, $files] = \is_array($turn) ? [(string) ($turn['text'] ?? ''), (array) ($turn['attach'] ?? [])] : [$turn, []];
             $this->pushRequest($session);
             $this->tokenStorage->setToken($signIn ? $token : null);
             $this->calls = [];
@@ -264,11 +280,16 @@ final class RunChatScenariosCommand extends Command
 
             try {
                 $invocation = $this->agentFactory->createForUser($user);
-                $messages = AiStreamController::buildMessageBag($invocation->systemPrompt, $history, $text);
+                $raw = array_map(fn (string $path): array => ['name' => basename($path), 'data' => base64_encode((string) file_get_contents($this->scenarioDir . '/' . $path))], $files);
+                $accepted = $this->attachmentReader->read($raw, $invocation->readableContent, $invocation->model);
+                $messages = AiStreamController::buildMessageBag($invocation->systemPrompt, $history, $accepted->turnText($text), $accepted->platformContents());
                 $this->toolCallLogger->startRequest();
+                $this->chatAttachments->set($accepted->files);
                 $answer = AiStreamController::runAgent($invocation, $messages, 'Dieses Werkzeug steht dir nicht zur Verfügung.');
-                $history[] = ['role' => 'user', 'content' => $text];
+                $history[] = ['role' => 'user', 'content' => $accepted->turnText($text)];
                 $history[] = ['role' => 'assistant', 'content' => AiStreamController::buildHistoryAssistantContent($answer, $this->toolCallLogger->getToolNames())];
+            } catch (AttachmentRefusedException $e) {
+                $error = ['kind' => 'attachment_refused', 'message' => $e->labelKey . ' ' . json_encode($e->parameters, JSON_UNESCAPED_UNICODE)];
             } catch (ToolAccessDeniedException $e) {
                 $error = ['kind' => 'access_denied', 'message' => $e->getMessage()];
             } catch (ToolRefusedException $e) {
@@ -281,6 +302,7 @@ final class RunChatScenariosCommand extends Command
             } catch (\Throwable $e) {
                 $error = ['kind' => 'agent_failed', 'message' => $e::class . ': ' . $e->getMessage()];
             } finally {
+                $this->chatAttachments->reset();
                 $this->tokenStorage->setToken(null);
                 $this->requestStack->pop();
             }

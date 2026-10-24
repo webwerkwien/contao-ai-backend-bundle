@@ -18,6 +18,8 @@
 # reaches for them along the way; the call log shows it).
 #
 # Placeholders `{ref}` are replaced with the id of the fixture record named `ref`.
+# A turn is a string, or `{text: …, attach: [path, …]}` with files relative to this
+# file (tests/Chat/files); they pass the same checks as on the chat page.
 # Prompts are mostly German, as the editors write; some English, as the UI is bilingual.
 #
 # expect:
@@ -810,3 +812,25 @@ scenarios:
     expect:
       outcome: done
       created: { table: tl_content, parent: team_main, fields: { text: { contains: "hiring" } } }
+
+  # --- Attachments (v1.0.0) --------------------------------------------------
+
+  - id: attachment-pdf-to-element
+    user: editor
+    turns:
+      - text: "Leg aus dem angehängten PDF ein Textelement im Artikel {team_main} an: Überschrift und erster Absatz."
+        attach: [files/veranstaltung.pdf]
+    expect:
+      outcome: done
+      calls: [content_create, content_update]
+      created: { table: tl_content, parent: team_main, fields: { text: { contains: "Kahlenberger Kirche" } } }
+
+  - id: attachment-content-mismatch
+    user: editor
+    turns:
+      - text: "Fass das angehängte PDF zusammen."
+        attach: [files/kein-pdf.pdf]
+    expect:
+      # text with a .pdf name: refused before the model is asked, nothing called
+      outcome: refused
+      max_calls: 0
