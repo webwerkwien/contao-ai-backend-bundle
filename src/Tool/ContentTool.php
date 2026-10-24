@@ -49,6 +49,8 @@ class ContentTool extends AbstractCoreCommandTool
             // a replacement, so the chat could not hide or show an element at all —
             // the eye icon in the back end (showcase, 2026-10-19). Back in v0.19.2.
             'headline', 'text', 'html', 'addImage',
+            // the image itself (v1.0.0): the core converts the UUID and the JSON size
+            'singleSRC', 'size',
             'invisible', 'start', 'stop',
         ];
     }
@@ -107,7 +109,7 @@ class ContentTool extends AbstractCoreCommandTool
 
     /**
      * @param int $id Content element ID
-     * @param array<string,scalar|null>|string $fields Field names and their new values, e.g. ["text", "<p>Neu</p>", "invisible", "1"]. Allowed field names: headline, text, html, addImage, invisible, start, stop. headline as plain text keeps its level (h1–h6); to set the level, send headline as JSON {"unit":"h2","value":"Titel"}, or headline_unit alone to change only the level. invisible "1" hides the element, "" shows it again (the eye icon in the back end). Pass exactly the fields that should change.
+     * @param array<string,scalar|null>|string $fields Field names and their new values, e.g. ["text", "<p>Neu</p>", "invisible", "1"]. Allowed field names: headline, text, html, addImage, singleSRC, size, invisible, start, stop. An image: addImage "1" and singleSRC with the file's UUID from the file manager (record_list on tl_files with a path filter tells it); size is a JSON list [width, height, mode], e.g. ["800","","proportional"], or ["","","5"] for the image size with id 5. headline as plain text keeps its level (h1–h6); to set the level, send headline as JSON {"unit":"h2","value":"Titel"}, or headline_unit alone to change only the level. invisible "1" hides the element, "" shows it again (the eye icon in the back end). Pass exactly the fields that should change.
      */
     #[AiContract(
         writes: true, tables: ['tl_content'], trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
