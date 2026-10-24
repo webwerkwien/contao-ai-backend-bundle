@@ -116,16 +116,21 @@ message may consist of files alone. The model reads them together with that mess
 
 | Kind | Extensions | How the model gets it |
 |---|---|---|
-| PDF | `pdf` | as a document, if the chosen model reads PDF |
+| PDF | `pdf` | as a document, if the chosen model reads PDF and the provider carries it (below) |
 | Images | `jpg`, `jpeg`, `png`, `gif`, `webp` | as an image, if the chosen model reads images |
 | Plain text | `txt`, `md`, `csv` | as text, up to 100 000 characters (Windows-1252 is converted to UTF-8) |
 
 The limits come from where they are already set:
 
-- **Which types:** the intersection of Contao's *upload types* (System → Settings) and the
-  kinds above that the chosen model reads. The file picker offers only those.
+- **Which types:** the file picker offers what Contao's *upload types* (System → Settings)
+  allow and the chat reads. Whether the chosen model reads it is checked on sending — the
+  model can be switched below the input, so a refusal names the model.
+- **PDF needs a provider that carries it:** Anthropic and OpenAI, the two connections in
+  `symfony/ai` that send a document. With any other provider (OpenRouter, OpenAI-compatible
+  services, Ollama, …) a PDF is refused before the request; images and text work there.
 - **How large:** Contao's *maximum upload size* per file, and PHP's `post_max_size` for the
-  whole request.
+  whole request. The web server's own body limit (nginx: `client_max_body_size`, 1 MB by
+  default) may be lower; the chat then shows the too-large message too, after sending.
 - **Content:** the file's content has to match its extension (`finfo`); a renamed file is
   refused. A text over 100 000 characters is refused with its length, not cut.
 

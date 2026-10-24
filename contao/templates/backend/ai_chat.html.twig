@@ -207,7 +207,8 @@
                 let next = 0;
                 return String(text).replace(/%(?:(\d)\$)?s/g, (_, n) => String(args[n ? n - 1 : next++] ?? ''));
             };
-            const readableSize = (bytes) => (bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} kB`);
+            // decimal and without a trailing .0, as the server writes the limit
+            const readableSize = (bytes) => (bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1).replace(/\.0$/, '')} MB` : `${Math.max(1, Math.round(bytes / 1e3))} kB`);
 
             /*
              * The files waiting for the next message, as chips with name, size and ✕.

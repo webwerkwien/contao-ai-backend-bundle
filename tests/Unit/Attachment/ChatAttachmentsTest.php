@@ -15,6 +15,7 @@ class ChatAttachmentsTest extends TestCase
 
         self::assertSame('Foto.png', $store->get('foto.png')?->name, 'the model may not repeat the case');
         self::assertSame('Größe.txt', $store->get('GRÖßE.TXT')?->name, 'umlauts too, not only ASCII');
+        self::assertSame('Größe.txt', $store->get("Gro\u{0308}\u{00DF}e.txt")?->name, 'a decomposed umlaut finds the composed name');
         self::assertNull($store->get('anderes.png'));
         self::assertCount(2, $store->all());
 

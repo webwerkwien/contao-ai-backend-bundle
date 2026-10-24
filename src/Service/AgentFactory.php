@@ -83,9 +83,20 @@ class AgentFactory
             $model,
             $allowedToolNames,
             array_values(array_unique($registeredToolNames)),
-            self::readableContent($platform, $resolved->modelForRun()),
+            self::readableContent($platform, $resolved->modelForRun(), $resolved->descriptor->key),
         );
     }
+
+    /**
+     * The platforms whose symfony/ai contract carries a PDF to the provider.
+     *
+     * The catalog alone is not enough: OpenRouter lists PDF for hundreds of models
+     * and the generic platform grants everything, but neither has a normalizer for
+     * a document, so the request failed before it left, as agent_failed with an
+     * error report. DocumentTransportTest sends a real request through each
+     * installed bridge and fails when this list and symfony/ai part ways.
+     */
+    public const DOCUMENT_TRANSPORT = ['anthropic', 'openai'];
 
     /**
      * What the model reads besides text, from the catalog the run uses (v1.0.0).
@@ -94,7 +105,7 @@ class AgentFactory
      *
      * @return list<string> AttachmentContent kinds
      */
-    public static function readableContent(PlatformInterface $platform, string $model): array
+    public static function readableContent(PlatformInterface $platform, string $model, string $platformKey): array
     {
         try {
             $info = $platform->getModelCatalog()->getModel($model);
@@ -103,7 +114,7 @@ class AgentFactory
         }
 
         $kinds = [];
-        if ($info->supports(Capability::INPUT_PDF)) {
+        if ($info->supports(Capability::INPUT_PDF) && \in_array($platformKey, self::DOCUMENT_TRANSPORT, true)) {
             $kinds[] = AttachmentContent::DOCUMENT;
         }
         if ($info->supports(Capability::INPUT_IMAGE)) {

@@ -299,7 +299,6 @@ class AiStreamController extends AbstractController
         // purely conversational (-> persist the full assistant text).
         $this->toolCallLogger->startRequest();
         $this->toolCallLogger->attachmentsReceived($accepted->files);
-        $this->chatAttachments->set($accepted->files);
 
         // The user's own key, held so the masker can strike the literal value.
         // A pattern list cannot cover an opaque key; this can.
@@ -308,6 +307,9 @@ class AiStreamController extends AbstractController
         $emit('start', ['model' => $invocation->model]);
 
         try {
+            // Inside the try whose finally empties it: nothing between the two can
+            // leave the files in the service for the next request on this worker.
+            $this->chatAttachments->set($accepted->files);
             $assistantContent = self::runAgent($invocation, $messages, $this->label('tool_not_allowed'));
             $emit('message', ['content' => $assistantContent]);
             $emit('done', ['ok' => true]);

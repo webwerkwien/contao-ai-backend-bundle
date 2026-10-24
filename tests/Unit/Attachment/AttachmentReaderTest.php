@@ -83,6 +83,10 @@ class AttachmentReaderTest extends TestCase
         yield 'not a list'          => [['name' => 'a.pdf'], 'attachment_invalid'];
         yield 'no data'             => [[['name' => 'a.pdf']], 'attachment_invalid'];
         yield 'broken base64'       => [[['name' => 'a.pdf', 'data' => '***']], 'attachment_invalid'];
+        // lenient decoding would skip the foreign characters and read a valid PDF
+        yield 'base64 with a stray character' => [[['name' => 'a.pdf', 'data' => substr(base64_encode(self::PDF), 0, 8) . '*' . substr(base64_encode(self::PDF), 8)]], 'attachment_invalid'];
+        yield 'base64 as a data url' => [[['name' => 'a.pdf', 'data' => 'data:application/pdf;base64,' . base64_encode(self::PDF)]], 'attachment_invalid'];
+        yield 'same name composed and decomposed' => [[self::file("Gr\u{00F6}\u{00DF}e.pdf", self::PDF), self::file("Gro\u{0308}\u{00DF}e.pdf", self::PDF)], 'attachment_duplicate'];
         yield 'empty file'          => [[self::file('a.txt', '')], 'attachment_invalid'];
         yield 'twice the same name' => [[$pdf, self::file('A.PDF', self::PDF)], 'attachment_duplicate'];
         yield 'not in uploadTypes'  => [[self::file('a.exe', 'MZ')], 'attachment_type_not_allowed'];
@@ -101,6 +105,16 @@ class AttachmentReaderTest extends TestCase
         } catch (AttachmentRefusedException $e) {
             self::assertSame($label, $e->labelKey);
         }
+    }
+
+    /**
+     * Too large is judged on the base64 length, before anything is decoded: a long
+     * string that is not even base64 is refused as too large, not as broken.
+     */
+    public function testTheSizeIsKnownBeforeDecoding(): void
+    {
+        $this->expectExceptionObject(new AttachmentRefusedException('attachment_too_large'));
+        $this->reader(100)->read([['name' => 'a.pdf', 'data' => str_repeat('*', 200)]], self::BOTH, 'm');
     }
 
     public function testExactlyMaxFileSizeIsAcceptedOneByteMoreIsNot(): void
@@ -135,6 +149,8 @@ class AttachmentReaderTest extends TestCase
         yield 'windows path'      => ['C:\\Users\\x\\a.pdf', 'a.pdf'];
         yield 'control character' => ["a\x00b\n.pdf", 'ab.pdf'];
         yield 'umlaut'            => ['Größe.pdf', 'Größe.pdf'];
+        // macOS hands over decomposed umlauts; the model types composed ones
+        yield 'decomposed umlaut' => ["Gro\u{0308}\u{00DF}e.pdf", "Gr\u{00F6}\u{00DF}e.pdf"];
         yield 'nothing left'      => ['../', null];
         yield 'not utf-8'         => ["\xFF.pdf", null];
         yield 'not a string'      => [42, null];

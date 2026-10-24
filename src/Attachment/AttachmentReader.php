@@ -104,8 +104,19 @@ final class AttachmentReader
         $name = str_replace('\\', '/', $name);
         $name = substr((string) strrchr('/' . $name, '/'), 1);
         $name = trim((string) preg_replace('/[\x00-\x1F\x7F]/u', '', $name), ' .');
+        $name = self::composed($name);
 
         return '' === $name || mb_strlen($name) > 255 ? null : $name;
+    }
+
+    /**
+     * One spelling per name: macOS hands over "ö" as o + combining diaeresis, the
+     * model types the composed letter. Without this the duplicate check saw two
+     * names, and a tool asking ChatAttachments for the file found none.
+     */
+    public static function composed(string $name): string
+    {
+        return class_exists(\Normalizer::class) ? (\Normalizer::normalize($name, \Normalizer::FORM_C) ?: $name) : $name;
     }
 
     private static function megabytes(int $bytes): string

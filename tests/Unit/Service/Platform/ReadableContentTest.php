@@ -22,7 +22,7 @@ class ReadableContentTest extends TestCase
 
         self::assertSame(
             [AttachmentContent::DOCUMENT, AttachmentContent::IMAGE],
-            AgentFactory::readableContent($platform, 'claude-sonnet-5-5?max_tokens=8192'),
+            AgentFactory::readableContent($platform, 'claude-sonnet-5-5?max_tokens=8192', 'anthropic'),
         );
     }
 
@@ -30,15 +30,29 @@ class ReadableContentTest extends TestCase
     {
         $platform = Factory::createPlatform('test-key', ...(new AnthropicBridge())->factoryArguments());
 
-        self::assertSame([], AgentFactory::readableContent($platform, 'claude-gibt-es-nicht'));
+        self::assertSame([], AgentFactory::readableContent($platform, 'claude-gibt-es-nicht', 'anthropic'));
     }
 
-    public function testAProviderWithoutCatalogIsTakenAtItsWord(): void
+    /**
+     * The generic platform lists no models and its fallback grants all; images it
+     * carries, a PDF its contract cannot send (DocumentTransportTest measures both).
+     */
+    public function testAPlatformWithoutDocumentTransportReadsImagesOnly(): void
     {
-        // OpenRouter and the generic platform list no models: the fallback grants all.
         $platform = $this->createMock(PlatformInterface::class);
         $platform->method('getModelCatalog')->willReturn(new FallbackModelCatalog());
 
-        self::assertSame([AttachmentContent::DOCUMENT, AttachmentContent::IMAGE], AgentFactory::readableContent($platform, 'irgendwas'));
+        self::assertSame([AttachmentContent::IMAGE], AgentFactory::readableContent($platform, 'irgendwas', 'generic'));
+        self::assertSame([AttachmentContent::DOCUMENT, AttachmentContent::IMAGE], AgentFactory::readableContent($platform, 'irgendwas', 'openai'));
+    }
+
+    /**
+     * Rule 25: the key comes from the descriptor the run uses, not from the test.
+     */
+    public function testTheFactoryPassesTheKeyOfThePlatformItRuns(): void
+    {
+        $source = (string) file_get_contents(\dirname(__DIR__, 4) . '/src/Service/AgentFactory.php');
+
+        self::assertStringContainsString('self::readableContent($platform, $resolved->modelForRun(), $resolved->descriptor->key)', $source);
     }
 }

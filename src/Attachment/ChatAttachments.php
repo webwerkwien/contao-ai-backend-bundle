@@ -36,8 +36,9 @@ final class ChatAttachments implements ResetInterface
 
     public function get(string $name): ?ChatAttachment
     {
-        // As AttachmentReader tells duplicates apart: case-blind, umlauts included.
-        $name = mb_strtolower($name);
+        // As AttachmentReader tells duplicates apart: case-blind, umlauts included,
+        // composed or not (the stored names are composed already).
+        $name = mb_strtolower(AttachmentReader::composed($name));
         foreach ($this->files as $file) {
             if (mb_strtolower($file->name) === $name) {
                 return $file;
