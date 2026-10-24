@@ -39,7 +39,7 @@ class FieldPermissionContractTest extends TestCase
         foreach (['title', 'teaser', 'published', 'inColumn'] as $field) {
             yield "tl_article.{$field}" => ['core-bundle/contao/dca/tl_article.php', $field];
         }
-        foreach (['type', 'headline', 'text', 'html'] as $field) {
+        foreach (['type', 'headline', 'text', 'html', 'singleSRC', 'size'] as $field) {
             yield "tl_content.{$field}" => ['core-bundle/contao/dca/tl_content.php', $field];
         }
         foreach (['headline', 'date', 'time', 'published'] as $field) {

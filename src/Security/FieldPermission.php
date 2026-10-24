@@ -145,11 +145,35 @@ class FieldPermission
         return \is_array($definitions)
             ? array_map('strval', array_keys(array_filter(
                 $definitions,
-                static fn (mixed $definition): bool => \is_array($definition)
-                    && 'fileTree' !== ($definition['inputType'] ?? null)
-                    && ('imageSize' === ($definition['inputType'] ?? null) || (bool) ($definition['eval']['multiple'] ?? false)),
+                static fn (mixed $definition): bool => \is_array($definition) && self::storesList($definition),
             )))
             : [];
+    }
+
+    /**
+     * Whether a field stores a flat list of plain values, the one shape a list from the
+     * model is turned into. The core decodes JSON for exactly the fields its
+     * `StructuredFields::storesArray()` names, so this is a part of that rule, never
+     * more (ListFieldsMatchCoreTest): `eval.csv` stores a comma-separated string,
+     * `fileTree` takes UUIDs, and the wizards that store rows or pairs are left out.
+     *
+     * @param array<mixed> $definition
+     */
+    public static function storesList(array $definition): bool
+    {
+        $type = $definition['inputType'] ?? null;
+
+        if ('fileTree' === $type) {
+            return false;
+        }
+
+        if ('imageSize' === $type || 'listWizard' === $type) {
+            return true;
+        }
+
+        $eval = \is_array($definition['eval'] ?? null) ? $definition['eval'] : [];
+
+        return (bool) ($eval['multiple'] ?? false) && !isset($eval['csv']);
     }
 
     /**

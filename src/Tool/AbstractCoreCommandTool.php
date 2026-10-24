@@ -727,9 +727,11 @@ abstract class AbstractCoreCommandTool
             if (\is_array($value)) {
                 // Only a field with a unit takes a pair and only a list field a list; any
                 // other object would reach the command as the text "Array" (until v0.19.1).
-                $fields[$key] = array_is_list($value) && \in_array($key, $this->fieldPermission->listFields($table), true)
-                    ? self::listJson((string) $key, $value)
-                    : self::unitPairJson((string) $key, $value, \in_array($key, $this->unitFields($table), true));
+                $fields[$key] = match (true) {
+                    !array_is_list($value) => self::unitPairJson((string) $key, $value, \in_array($key, $this->unitFields($table), true)),
+                    \in_array($key, $this->fieldPermission->listFields($table), true) => self::listJson((string) $key, $value),
+                    default => throw new ToolRefusedException(\sprintf('Feld "%s" erwartet einen einfachen Wert, keine Liste. Es wurde nichts geschrieben.', $key)),
+                };
             }
         }
 

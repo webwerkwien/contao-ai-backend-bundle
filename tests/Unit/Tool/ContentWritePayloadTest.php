@@ -51,7 +51,9 @@ class ContentWritePayloadTest extends TestCase
                 'html'      => ['inputType' => 'textarea', 'sql' => 'text NULL'],
                 'invisible' => ['inputType' => 'checkbox', 'sql' => ['type' => 'boolean', 'default' => false]],
                 'type'      => ['inputType' => 'select', 'sql' => ['type' => 'string', 'length' => 64, 'default' => 'text']],
-                'size'      => ['inputType' => 'imageSize', 'sql' => 'varchar(128) COLLATE ascii_bin NOT NULL default \'\''],
+                // as in Contao 5.7 (pinned in FieldPermissionContractTest)
+                'size'      => ['inputType' => 'imageSize', 'eval' => ['rgxp' => 'natural', 'includeBlankOption' => true, 'nospace' => true], 'sql' => ['type' => 'string', 'length' => 255, 'default' => '']],
+                'singleSRC' => ['inputType' => 'fileTree', 'eval' => ['fieldType' => 'radio', 'filesOnly' => true, 'mandatory' => true], 'sql' => 'binary(16) NULL'],
             ],
         ]);
         $this->sent = null;
@@ -213,6 +215,29 @@ class ContentWritePayloadTest extends TestCase
         $this->expectExceptionMessage('Feld "text" erwartet einen einfachen Wert');
 
         $this->send($tool, ['text' => ['a', 'b']]);
+    }
+
+    /**
+     * A file field takes the UUID as text; a list for it is refused with that, not with
+     * the hint about a headline's level.
+     */
+    public function testAListForAFileFieldIsRefused(): void
+    {
+        $tool = $this->tool(['tl_content::singleSRC']);
+
+        $this->expectException(ToolRefusedException::class);
+        $this->expectExceptionMessage('Feld "singleSRC" erwartet einen einfachen Wert, keine Liste.');
+
+        $this->send($tool, ['singleSRC' => ['c67514df-d9c8-11e3-8217-000c29e44aea']]);
+    }
+
+    public function testAFileFieldTakesTheUuid(): void
+    {
+        $tool = $this->tool(['tl_content::singleSRC']);
+
+        $this->send($tool, ['singleSRC' => 'c67514df-d9c8-11e3-8217-000c29e44aea']);
+
+        $this->assertSame(['singleSRC=c67514df-d9c8-11e3-8217-000c29e44aea'], $this->sent);
     }
 
     public function testAnImageSizeWithNestedValuesIsRefused(): void
