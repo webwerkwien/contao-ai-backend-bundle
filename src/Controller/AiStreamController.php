@@ -8,6 +8,7 @@ use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Exception\ToolExecutionException as ToolboxExecutionException;
 use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
+use Symfony\AI\Platform\Message\Content\ContentInterface;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\Exception\MaxOutputTokensException;
@@ -373,8 +374,10 @@ class AiStreamController extends AbstractController
 
     /**
      * @param list<array{role: string, content: string}> $history
+     * @param list<ContentInterface>                     $attachments contents of this message's files (v1.0.0);
+     *                                                                never part of the history
      */
-    public static function buildMessageBag(string $systemPrompt, array $history, string $userInput): MessageBag
+    public static function buildMessageBag(string $systemPrompt, array $history, string $userInput, array $attachments = []): MessageBag
     {
         $bag = new MessageBag(Message::forSystem($systemPrompt));
 
@@ -396,7 +399,7 @@ class AiStreamController extends AbstractController
             }
         }
 
-        $bag->add(Message::ofUser($userInput));
+        $bag->add(Message::ofUser($userInput, ...$attachments));
         return $bag;
     }
 
