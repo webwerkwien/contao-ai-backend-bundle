@@ -2,13 +2,21 @@
 
 namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Service\Platform;
 
+use Contao\BackendUser;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\AI\Platform\Bridge\Anthropic\Factory;
 use Symfony\AI\Platform\ModelCatalog\FallbackModelCatalog;
 use Symfony\AI\Platform\PlatformInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentContent;
+use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\AnthropicBridge;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformDescriptor;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ResolvedPlatform;
+use Webwerkwien\ContaoAiBackendBundle\Service\SystemPromptProvider;
 
 /**
  * Read from symfony/ai's model catalog, the same one the run uses: a file the
@@ -47,12 +55,26 @@ class ReadableContentTest extends TestCase
     }
 
     /**
-     * Rule 25: the key comes from the descriptor the run uses, not from the test.
+     * The run's own invocation carries what its platform reads: the same platform and
+     * model, once under a key that carries documents and once under one that does not.
      */
-    public function testTheFactoryPassesTheKeyOfThePlatformItRuns(): void
+    public function testTheInvocationReadsWhatThePlatformItRunsCarries(): void
     {
-        $source = (string) file_get_contents(\dirname(__DIR__, 4) . '/src/Service/AgentFactory.php');
+        $platform = $this->createMock(PlatformInterface::class);
+        $platform->method('getModelCatalog')->willReturn(new FallbackModelCatalog());
 
-        self::assertStringContainsString('self::readableContent($platform, $resolved->modelForRun(), $resolved->descriptor->key)', $source);
+        $readable = function (string $key) use ($platform): array {
+            $resolver = $this->createMock(PlatformResolver::class);
+            $resolver->method('resolve')->willReturn(new ResolvedPlatform($platform, 'irgendwas', new PlatformDescriptor($key, $key, null, 'probe/probe')));
+            $access = $this->createMock(ToolAccessChecker::class);
+            $access->method('listAllowedTools')->willReturn([]);
+
+            $factory = new AgentFactory([], $resolver, $this->createMock(SystemPromptProvider::class), $access, $this->createMock(EventDispatcherInterface::class), new NullLogger());
+
+            return $factory->createForUser($this->createMock(BackendUser::class))->readableContent;
+        };
+
+        self::assertSame([AttachmentContent::DOCUMENT, AttachmentContent::IMAGE], $readable('openai'));
+        self::assertSame([AttachmentContent::IMAGE], $readable('openrouter'));
     }
 }
