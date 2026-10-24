@@ -13,9 +13,9 @@ constraint `>=0.1 <2.0` from the installation guide reaches it.
 - **Files in the chat.** The paperclip next to *Send* attaches up to five files to a
   message: PDF, JPEG/PNG/GIF/WebP and plain text (`txt`, `md`, `csv`). Offered are the
   types in Contao's upload settings that the chat reads, up to Contao's maximum upload
-  size; whether the chosen model reads a file is checked on sending. PDF needs Anthropic
-  or OpenAI, whose connections carry documents; with other providers a PDF is refused
-  before the request. The model reads a file together with its message; the history
+  size; whether the chosen model reads a file is checked on sending. PDF needs Anthropic,
+  OpenAI or OpenAI Responses, whose connections carry documents; with other providers a
+  PDF is refused before the request. The model reads a file together with its message; the history
   keeps only a line `Anhang: <name>`, never the file. A text over 100 000 characters is
   refused, not cut.
 - **New error kind `attachment_refused`**, without an error report: a file the chat

@@ -125,9 +125,10 @@ The limits come from where they are already set:
 - **Which types:** the file picker offers what Contao's *upload types* (System → Settings)
   allow and the chat reads. Whether the chosen model reads it is checked on sending — the
   model can be switched below the input, so a refusal names the model.
-- **PDF needs a provider that carries it:** Anthropic and OpenAI, the two connections in
-  `symfony/ai` that send a document. With any other provider (OpenRouter, OpenAI-compatible
-  services, Ollama, …) a PDF is refused before the request; images and text work there.
+- **PDF needs a connection that carries it:** Anthropic, OpenAI and OpenAI Responses
+  (compatible), the connections in `symfony/ai` that send a document. With any other
+  provider (OpenRouter, the generic OpenAI-compatible connection, Ollama, …) a PDF is
+  refused before the request; images and text work there.
 - **How large:** Contao's *maximum upload size* per file, and PHP's `post_max_size` for the
   whole request. The web server's own body limit (nginx: `client_max_body_size`, 1 MB by
   default) may be lower; the chat then shows the too-large message too, after sending.

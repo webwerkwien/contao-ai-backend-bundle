@@ -13,6 +13,7 @@ use Symfony\AI\Platform\PlatformInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentFactory;
+use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
  * Which installed bridge carries a PDF or an image to its provider, measured on the
@@ -38,6 +39,22 @@ class DocumentTransportTest extends TestCase
         yield 'openai' => ['openai', 'Symfony\AI\Platform\Bridge\OpenAi\Factory', ['sk-test'], 'gpt-4o'];
         yield 'openrouter' => ['openrouter', 'Symfony\AI\Platform\Bridge\OpenRouter\Factory', ['sk-or-test'], 'openai/gpt-4o'];
         yield 'generic' => ['generic', 'Symfony\AI\Platform\Bridge\Generic\Factory', ['https://example.test/v1', 'sk-test'], 'any-model'];
+        yield 'openresponses' => ['openresponses', 'Symfony\AI\Platform\Bridge\OpenResponses\Factory', ['https://example.test', 'sk-test'], 'any-model'];
+        yield 'ollama' => ['ollama', 'Symfony\AI\Platform\Bridge\Ollama\Factory', ['http://example.test:11434'], 'llava'];
+    }
+
+    /**
+     * The list above is written by hand; which bridges an installation offers is not.
+     * A bridge the registry finds and this test does not measure would get PDF or not
+     * by whatever DOCUMENT_TRANSPORT happens to say.
+     */
+    public function testEveryBridgeTheRegistryOffersIsMeasured(): void
+    {
+        $measured = array_keys(iterator_to_array(self::bridges()));
+        $offered  = array_keys((new PlatformRegistry())->all());
+
+        self::assertNotEmpty($offered);
+        self::assertSame([], array_values(array_diff($offered, $measured)), 'installed bridges without a transport measurement');
     }
 
     /**
@@ -84,7 +101,12 @@ class DocumentTransportTest extends TestCase
 
         $sent = null;
         $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sent): MockResponse {
-            $sent = (string) $options['body'];
+            $sent .= (string) ($options['body'] ?? '');
+
+            // Ollama asks what the model can do before it sends the message.
+            if (str_ends_with($url, '/api/show')) {
+                return new MockResponse('{"capabilities":["completion","vision"],"model_info":{}}');
+            }
 
             return new MockResponse('{}', ['http_code' => 500]);
         });

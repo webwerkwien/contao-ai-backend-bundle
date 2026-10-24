@@ -96,7 +96,7 @@ class AgentFactory
      * error report. DocumentTransportTest sends a real request through each
      * installed bridge and fails when this list and symfony/ai part ways.
      */
-    public const DOCUMENT_TRANSPORT = ['anthropic', 'openai'];
+    public const DOCUMENT_TRANSPORT = ['anthropic', 'openai', 'openresponses'];
 
     /**
      * What the model reads besides text, from the catalog the run uses (v1.0.0).
