@@ -37,6 +37,7 @@
     },
     "require": {
         "php": "^8.2",
+        "ext-fileinfo": "*",
         "contao/core-bundle": "^5.7 || ^6.0",
         "webwerkwien/contao-ai-core-bundle": ">=0.6.0 <2.0",
         "symfony/ai-bundle": "^0.14 || ^0.15",
