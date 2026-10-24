@@ -5,6 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Service;
 use Contao\BackendUser;
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentPolicy;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
@@ -25,12 +26,13 @@ class ChatViewContext
         private readonly UserAiConfig $userConfig,
         private readonly ToolAccessChecker $toolAccess,
         private readonly PlatformResolver $platformResolver,
+        private readonly AttachmentPolicy $attachmentPolicy,
         private readonly ?ModelChoice $modelChoice = null,
     ) {
     }
 
     /**
-     * @return array{hasKey: bool, blocker: ?string, platform: string, tools: list<string>, csrfToken: string, streamUrl: string}
+     * @return array{hasKey: bool, blocker: ?string, platform: string, models: list<string>, tools: list<string>, csrfToken: string, streamUrl: string, attachmentTypes: list<string>, maxFileSize: int, maxRequestBytes: int, maxAttachments: int}
      */
     public function forUser(BackendUser $user): array
     {
@@ -55,6 +57,11 @@ class ChatViewContext
             'tools'     => $this->toolAccess->listAllowedTools($user),
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),
+            // The file picker: what Contao allows and a converter reads (v1.0.0)
+            'attachmentTypes' => null === $blocker ? $this->attachmentPolicy->readableTypes() : [],
+            'maxFileSize'     => $this->attachmentPolicy->maxFileSize(),
+            'maxRequestBytes' => $this->attachmentPolicy->maxRequestBytes(),
+            'maxAttachments'  => AttachmentPolicy::MAX_ATTACHMENTS,
         ];
     }
 }

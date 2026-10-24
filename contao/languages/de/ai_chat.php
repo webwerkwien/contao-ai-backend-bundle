@@ -20,6 +20,9 @@ declare(strict_types=1);
 $GLOBALS['TL_LANG']['ai_chat']['input_placeholder'] = 'Frag den Agenten…';
 $GLOBALS['TL_LANG']['ai_chat']['input_label']       = 'Nachricht an den Agenten';
 $GLOBALS['TL_LANG']['ai_chat']['send']              = 'Senden';
+$GLOBALS['TL_LANG']['ai_chat']['attach']            = 'Datei anhängen';
+$GLOBALS['TL_LANG']['ai_chat']['attach_remove']     = '%s entfernen';
+$GLOBALS['TL_LANG']['ai_chat']['attachment_line']   = 'Anhang: %s';
 $GLOBALS['TL_LANG']['ai_chat']['tools_available']   = '%s Werkzeuge verfügbar';
 
 $GLOBALS['TL_LANG']['ai_chat']['report_summary'] = 'Fehlerbericht zum Weitergeben';

@@ -88,19 +88,29 @@
         .ai-chat__form-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
         .ai-chat__hint { color: var(--gray, #666); }
         .ai-chat__model { font-size: inherit; padding: 0 .25rem; max-width: 14rem; }
+        .ai-chat__actions { display: flex; align-items: center; gap: .5rem; }
+        .ai-chat__attach { min-width: 2.25rem; }
+        .ai-chat__files { display: flex; flex-wrap: wrap; gap: .4rem; }
+        .ai-chat__file { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .5rem; border: 1px solid var(--border, #ddd); border-radius: 999px; background: var(--panel-bg, #f3f3f3); font-size: .85rem; }
+        .ai-chat__file button { border: 0; padding: 0 .15rem; background: none; color: inherit; cursor: pointer; }
     </style>
 
     <div class="ai-chat" id="ai-chat-root"
          data-stream-url="{{ streamUrl|e('html_attr') }}"
          data-csrf-token="{{ csrfToken|e('html_attr') }}"
          data-platform="{{ platform|e('html_attr') }}"
-         data-tool-count="{{ tools|length }}">
+         data-tool-count="{{ tools|length }}"
+         data-attachment-types="{{ attachmentTypes|default([])|join(',')|e('html_attr') }}"
+         data-max-file-size="{{ maxFileSize|default(0) }}"
+         data-max-request-bytes="{{ maxRequestBytes|default(0) }}"
+         data-max-attachments="{{ maxAttachments|default(5) }}">
         <div class="ai-chat__transcript" id="ai-chat-transcript" role="log" aria-live="polite"></div>
 
         <form class="ai-chat__form" id="ai-chat-form">
             <textarea id="ai-chat-input" rows="3"
                       placeholder="{{ 'ai_chat.input_placeholder'|trans({}, 'contao_ai_chat') }}"
                       aria-label="{{ 'ai_chat.input_label'|trans({}, 'contao_ai_chat') }}"></textarea>
+            <div class="ai-chat__files" id="ai-chat-files" hidden></div>
             <div class="ai-chat__form-row">
                 <small class="ai-chat__hint">{{ 'ai_chat.tools_available'|trans([tools|length], 'contao_ai_chat') }} · {{ platform|slice(0, 40) }}
                     {%- if models|default([])|length > 1 %} ·
@@ -110,7 +120,16 @@
                         </select>
                     {%- elseif models|default([])|length == 1 %} · {{ models|first }}{% endif -%}
                 </small>
-                <button type="submit" class="tl_submit" id="ai-chat-submit">{{ 'ai_chat.send'|trans({}, 'contao_ai_chat') }}</button>
+                <div class="ai-chat__actions">
+                    {% if attachmentTypes|default([]) is not empty %}
+                        <input type="file" id="ai-chat-file" multiple hidden
+                               accept="{{ attachmentTypes|map(t => '.' ~ t)|join(',')|e('html_attr') }}">
+                        <button type="button" class="tl_submit ai-chat__attach" id="ai-chat-attach"
+                                title="{{ 'ai_chat.attach'|trans({}, 'contao_ai_chat') }}"
+                                aria-label="{{ 'ai_chat.attach'|trans({}, 'contao_ai_chat') }}">📎</button>
+                    {% endif %}
+                    <button type="submit" class="tl_submit" id="ai-chat-submit">{{ 'ai_chat.send'|trans({}, 'contao_ai_chat') }}</button>
+                </div>
             </div>
         </form>
     </div>
@@ -126,6 +145,16 @@
             const form = document.getElementById('ai-chat-form');
             const input = document.getElementById('ai-chat-input');
             const submitBtn = document.getElementById('ai-chat-submit');
+            const fileInput = document.getElementById('ai-chat-file');
+            const attachBtn = document.getElementById('ai-chat-attach');
+            const filesBox = document.getElementById('ai-chat-files');
+            const ATTACH = {
+                types: (root.dataset.attachmentTypes || '').split(',').filter(Boolean),
+                maxFileSize: Number(root.dataset.maxFileSize || 0),
+                maxRequestBytes: Number(root.dataset.maxRequestBytes || 0),
+                maxCount: Number(root.dataset.maxAttachments || 5),
+            };
+            let pendingFiles = [];
 
             /*
              * Sichtbare Texte des Skripts. Bewusst hier gebündelt und nicht
@@ -141,6 +170,13 @@
                 copy:          {{ 'ai_chat.copy'|trans({}, 'contao_ai_chat')|json_encode|raw }},
                 copied:        {{ 'ai_chat.copied'|trans({}, 'contao_ai_chat')|json_encode|raw }},
                 unknownError:  {{ 'ai_chat.unknown_error'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                // Without parameters Contao's translator leaves %s in place: fmt() below fills it.
+                attachRemove:     {{ 'ai_chat.attach_remove'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                attachLine:       {{ 'ai_chat.attachment_line'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                attachTooMany:    {{ 'ai_chat.attachments_too_many'|trans([maxAttachments|default(5)], 'contao_ai_chat')|json_encode|raw }},
+                attachUnreadable: {{ 'ai_chat.attachment_unreadable'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                attachTooLarge:   {{ 'ai_chat.attachment_too_large'|trans({}, 'contao_ai_chat')|json_encode|raw }},
+                requestTooLarge:  {{ 'ai_chat.attachments_too_large'|trans({}, 'contao_ai_chat')|json_encode|raw }},
             };
 
             const HISTORY_HARD_CAP = 60;
@@ -154,6 +190,7 @@
                 busy = value;
                 submitBtn.disabled = value;
                 input.disabled = value;
+                if (attachBtn) attachBtn.disabled = value;
             };
 
             const appendMessage = (role, text) => {
@@ -164,6 +201,58 @@
                 transcript.scrollTop = transcript.scrollHeight;
                 return el;
             };
+
+            // sprintf's %s and %1$s, as the language files write them
+            const fmt = (text, ...args) => {
+                let next = 0;
+                return String(text).replace(/%(?:(\d)\$)?s/g, (_, n) => String(args[n ? n - 1 : next++] ?? ''));
+            };
+            const readableSize = (bytes) => (bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} kB`);
+
+            /*
+             * The files waiting for the next message, as chips with name, size and ✕.
+             * The browser checks count, type and size for a quick answer; the server
+             * checks again, and its answer is the one that counts (v1.0.0).
+             */
+            const renderFiles = () => {
+                filesBox.replaceChildren();
+                filesBox.hidden = pendingFiles.length === 0;
+                pendingFiles.forEach((file, index) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'ai-chat__file';
+                    chip.textContent = `${file.name} · ${readableSize(file.size)}`;
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.append('✕'); // a symbol, not a word: what it says comes from the label
+                    remove.ariaLabel = fmt(LANG.attachRemove, file.name);
+                    remove.title = remove.ariaLabel;
+                    remove.addEventListener('click', () => { pendingFiles.splice(index, 1); renderFiles(); });
+                    chip.appendChild(remove);
+                    filesBox.appendChild(chip);
+                });
+            };
+
+            if (attachBtn && fileInput) {
+                attachBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', () => {
+                    for (const file of fileInput.files) {
+                        const extension = (file.name.split('.').pop() || '').toLowerCase();
+                        if (pendingFiles.length >= ATTACH.maxCount) { appendMessage('error', LANG.attachTooMany); break; }
+                        if (!ATTACH.types.includes(extension)) { appendMessage('error', fmt(LANG.attachUnreadable, file.name)); continue; }
+                        if (file.size > ATTACH.maxFileSize) { appendMessage('error', fmt(LANG.attachTooLarge, file.name, readableSize(ATTACH.maxFileSize))); continue; }
+                        pendingFiles.push(file);
+                    }
+                    fileInput.value = ''; // the same file can be picked again after removing it
+                    renderFiles();
+                });
+            }
+
+            const readAsBase64 = (file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+            });
 
             /**
              * Attaches a collapsed, copyable error report below a failed turn.
@@ -501,7 +590,11 @@
                     });
                     if (!response.ok) {
                         const errBody = await response.text().catch(() => '');
-                        onFatal(new Error(`HTTP ${response.status}: ${errBody.slice(0, 300)}`));
+                        // Our own refusals are JSON with a message; a proxy's 413 page is not.
+                        let message = '';
+                        try { message = JSON.parse(errBody).message || ''; } catch (_) { /* not ours */ }
+                        if (!message && response.status === 413) message = LANG.requestTooLarge;
+                        onFatal(new Error(message || `HTTP ${response.status}: ${errBody.slice(0, 300)}`));
                         return;
                     }
                     if (!response.body) {
@@ -533,20 +626,49 @@
                 }
             };
 
-            form.addEventListener('submit', (event) => {
+            // Enter sends, Shift+Enter breaks the line (v1.0.0) — as chat windows do.
+            // Not while an input method is composing: there Enter confirms the
+            // characters, and sending would cut the message mid-word.
+            input.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+                if (event.isComposing || event.keyCode === 229) return;
+                event.preventDefault();
+                form.requestSubmit ? form.requestSubmit() : submitBtn.click();
+            });
+
+            form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 if (busy) return;
                 const text = (input.value || '').trim();
-                if (!text) return;
+                const files = pendingFiles.slice();
+                if (!text && files.length === 0) return;
+                setBusy(true); // before reading the files: a second Enter must not send twice
+
+                let attachments = [];
+                try {
+                    attachments = await Promise.all(files.map(async (file) => ({ name: file.name, type: file.type, data: await readAsBase64(file) })));
+                } catch (err) {
+                    appendMessage('error', `[attachment] ${(err && err.message) || err}`);
+                    setBusy(false);
+                    return;
+                }
+                const bodySize = attachments.reduce((sum, a) => sum + a.data.length + a.name.length + 64, text.length + 1024);
+                if (ATTACH.maxRequestBytes && bodySize > ATTACH.maxRequestBytes) {
+                    appendMessage('error', LANG.requestTooLarge);
+                    setBusy(false);
+                    return;
+                }
 
                 if (activeAbort) activeAbort.abort();
                 activeAbort = new AbortController();
 
-                appendMessage('user', text);
-                history.push({ role: 'user', content: text });
+                const shown = [text, ...files.map((file) => fmt(LANG.attachLine, file.name))].filter(Boolean).join('\n');
+                appendMessage('user', shown);
+                history.push({ role: 'user', content: shown });
                 trimHistory();
                 input.value = '';
-                setBusy(true);
+                pendingFiles = [];
+                if (filesBox) renderFiles();
 
                 const assistantNode = appendMessage('assistant', '');
                 let assistantBuffer = '';
@@ -558,6 +680,7 @@
                         message: text,
                         // the model picked below the input; the server accepts only its own choices
                         model: modelSelect ? modelSelect.value : '',
+                        attachments,
                     },
                     signal: activeAbort.signal,
                     onEvent: (eventName, data) => {
