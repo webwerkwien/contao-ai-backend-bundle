@@ -63,7 +63,7 @@ class AgentFactory
         // longer wired as an input/output processor pair, the Agent drives the
         // loop itself and takes the toolbox directly. maxToolCalls defaults to
         // 50 since 0.10 — bounded by default, which it was not before.
-        $agent = new Agent($platform, $model, toolbox: $toolbox);
+        $agent = new Agent($platform, $resolved->modelForRun(), toolbox: $toolbox);
 
         // Every name in the toolbox, admin-only sub-tools included — what tells a
         // refused permission from an invented name (review W2).

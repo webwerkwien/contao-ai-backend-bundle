@@ -13,6 +13,7 @@ use Doctrine\DBAL\Connection;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallFailed;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallRequested;
 use Symfony\AI\Agent\Toolbox\Event\ToolCallSucceeded;
+use Symfony\AI\Platform\Exception\MaxOutputTokensException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -274,6 +275,9 @@ final class RunChatScenariosCommand extends Command
                 $error = ['kind' => 'tool_refused', 'message' => $e->getMessage()];
             } catch (ToolExecutionException $e) {
                 $error = ['kind' => 'tool_failed', 'message' => $e->getMessage()];
+            } catch (MaxOutputTokensException $e) {
+                // As the chat page names it: the model's limit, not a crash.
+                $error = ['kind' => 'output_cut', 'message' => $e->getMessage()];
             } catch (\Throwable $e) {
                 $error = ['kind' => 'agent_failed', 'message' => $e::class . ': ' . $e->getMessage()];
             } finally {

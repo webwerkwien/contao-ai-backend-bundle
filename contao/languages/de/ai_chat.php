@@ -34,6 +34,7 @@ $GLOBALS['TL_LANG']['ai_chat']['empty_message']    = 'Leere Nachricht.';
 $GLOBALS['TL_LANG']['ai_chat']['message_too_long'] = 'Nachricht zu lang.';
 $GLOBALS['TL_LANG']['ai_chat']['internal_error']   = 'Interner Fehler — siehe Logfile';
 $GLOBALS['TL_LANG']['ai_chat']['tool_not_allowed'] = 'Dieses Werkzeug ist für Ihr Konto nicht freigegeben.';
+$GLOBALS['TL_LANG']['ai_chat']['output_cut']       = 'Die Antwort des Modells wurde an seiner Längengrenze abgeschnitten; dieser Schritt wurde nicht ausgeführt. Bitte die Anfrage in kleinere Schritte teilen.';
 
 // Backend-Meldungen nach dem Erzeugen bzw. Löschen des CLI-Bridge-Tokens.
 $GLOBALS['TL_LANG']['ai_chat']['token_created'] = 'Neuer CLI-Bridge-Token generiert — der Klartext ist unten im Profil-Block einmalig sichtbar.';

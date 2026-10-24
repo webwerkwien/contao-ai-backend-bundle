@@ -7,10 +7,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
-use Symfony\AI\Platform\Message\ToolCallMessage;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Result\ToolCallResult;
-use Symfony\AI\Platform\Test\InMemoryPlatform;
+use Symfony\AI\Platform\Test\MockPlatformFactory;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
@@ -31,13 +30,14 @@ class AgentFactorySelfCorrectsTest extends TestCase
     {
         $calls    = 0;
         $told     = null;
-        $platform = new InMemoryPlatform(static function ($model, $input) use (&$calls, &$told) {
+        $platform = MockPlatformFactory::createPlatform(static function ($model, $payload) use (&$calls, &$told) {
             if (0 === $calls++) {
                 return new ToolCallResult([new ToolCall('c1', 'page_invented')]);
             }
-            foreach ($input->getMessages() as $message) {
-                if ($message instanceof ToolCallMessage) {
-                    $told = $message->asText();
+            // The payload is the request after the contract: tool results are role "tool".
+            foreach ($payload['messages'] ?? [] as $message) {
+                if ('tool' === ($message['role'] ?? null)) {
+                    $told = $message['content'];
                 }
             }
 

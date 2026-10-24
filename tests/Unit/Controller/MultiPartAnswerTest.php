@@ -10,7 +10,7 @@ use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\Result\MultiPartResult;
 use Symfony\AI\Platform\Result\TextResult;
 use Symfony\AI\Platform\Result\ThinkingResult;
-use Symfony\AI\Platform\Test\InMemoryPlatform;
+use Symfony\AI\Platform\Test\MockPlatformFactory;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 use Webwerkwien\ContaoAiBackendBundle\Service\AgentInvocation;
 
@@ -23,7 +23,7 @@ class MultiPartAnswerTest extends TestCase
 {
     public function testTheTextPartsAreTheAnswer(): void
     {
-        $platform = new InMemoryPlatform(static fn () => new MultiPartResult([
+        $platform = MockPlatformFactory::createPlatform(static fn () => new MultiPartResult([
             new ThinkingResult('The user wants a short answer.'),
             new TextResult('OK, '),
             new TextResult('erledigt.'),
@@ -35,7 +35,7 @@ class MultiPartAnswerTest extends TestCase
 
     public function testAPlainTextAnswerStaysAsItIs(): void
     {
-        $platform = new InMemoryPlatform(static fn () => 'fertig');
+        $platform = MockPlatformFactory::createPlatform(static fn () => 'fertig');
         $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: new Toolbox([])), 'system', 'probe-model', [], []);
 
         self::assertSame('fertig', AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben'));

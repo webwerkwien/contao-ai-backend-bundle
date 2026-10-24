@@ -178,7 +178,7 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         // `ai_base_url`. The dropdown offered six providers; this tool served two.
         $resolved = $this->platformResolver->resolve($user);
         $platform = $resolved->platform;
-        $model    = $resolved->model;
+        $model    = $resolved->modelForRun();
 
         $targets   = $this->resolveTargetIds($table, $id, $recursive, $user);
         $rewriter  = $this->resolveRewriter($targets['rewriter_table']);

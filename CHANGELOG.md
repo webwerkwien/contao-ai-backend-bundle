@@ -2,7 +2,28 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/) (within the pre-1.0 reservations).
 
-## v0.22.1 — 2026-10-22
+## v0.23.0 — 2026-10-24
+
+Works with every contao-ai-core-bundle v0.22.1 worked with. Core v1.12.1 refuses an empty
+`headline_unit` on its own instead of answering `ok` without writing.
+
+### Added
+
+- **symfony/ai 0.15 is supported.** The `symfony/ai-*` requirements are now
+  `^0.14 || ^0.15`; `composer update` can move to 0.15, 0.14 keeps working.
+
+### Fixed
+
+- **Claude answers were cut at 1000 output tokens.** symfony/ai gives Claude that limit
+  unless told otherwise, and the chat never told it: long answers stopped mid-sentence,
+  and a tool call carrying a long text (a content element's HTML) arrived with its
+  arguments cut short. The chat and `record_rewrite` now ask for up to 8192 output
+  tokens; only what the model writes is billed. Other providers are unchanged; a model
+  name that already carries options (`…?max_tokens=…`) is passed as it is.
+- **An answer cut at the model's output limit is named as such.** Since symfony/ai 0.15 a
+  tool call cut there ends the run instead of running with half its arguments. The chat
+  shows `[output_cut]` with a request to split the task, without the error report a
+  defect gets; before, it would have read as `agent_failed`.
 
 Works with every contao-ai-core-bundle v0.22.0 worked with.
 

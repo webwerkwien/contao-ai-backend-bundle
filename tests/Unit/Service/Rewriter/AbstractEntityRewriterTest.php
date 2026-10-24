@@ -5,7 +5,7 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tests\Unit\Service\Rewriter;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Platform\PlatformInterface;
-use Symfony\AI\Platform\Test\InMemoryPlatform;
+use Symfony\AI\Platform\Test\MockPlatformFactory;
 use Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\AbstractEntityRewriter;
 
 /**
@@ -97,7 +97,7 @@ class AbstractEntityRewriterTest extends TestCase
     public function testTheRewriteSendsNoTemperature(): void
     {
         $seen = null;
-        $platform = new InMemoryPlatform(static function ($model, $input, array $options) use (&$seen): string {
+        $platform = MockPlatformFactory::createPlatform(static function ($model, $input, array $options) use (&$seen): string {
             $seen = $options;
 
             return 'Wir sind ein kleines Team aus Wien, das Sie gerne berät.';

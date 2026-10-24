@@ -39,6 +39,7 @@ class ErrorReportOnlyForRealFailuresTest extends TestCase
         'access_denied' => false,
         'tool_refused'  => false,
         'tool_failed'   => true,
+        'output_cut'    => false, // the model's length limit, not our defect
         'agent_failed'  => true,
     ];
 

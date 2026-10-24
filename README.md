@@ -69,7 +69,7 @@ Installed with the bundle:
 **To add another,** install its package — that is the whole procedure:
 
 ```bash
-composer require "symfony/ai-mistral-platform:^0.14"
+composer require "symfony/ai-mistral-platform:^0.14 || ^0.15"
 ```
 
 The list in the Platform select is derived from the installed
@@ -94,8 +94,11 @@ Without it, Anthropic offers `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-op
 `gpt-5.5`, `gpt-5.4-mini`, and a model in the user's profile is offered and preselected too.
 With a list, the list is the limit, for the profile as well: a model in a profile that is not
 on it is neither offered nor run — every editor can fill in that field under personal data, so
-only a list keeps the installation from paying for a model it did not choose. symfony/ai v0.14
-does not list the Claude 5.5 models yet; the bundle adds them to the catalog until it does.
+only a list keeps the installation from paying for a model it did not choose. symfony/ai (up to
+v0.15) does not list the Claude 5.5 models yet; the bundle adds them to the catalog until it does.
+Since v0.23.0 the chat asks Claude for up to 8192 output tokens; symfony/ai's own default of
+1000 cut long answers and tool calls with long texts. A model name with its own options
+(`claude-sonnet-5-5?max_tokens=16000`) is passed as it is.
 
 Grant the **`AI Chat`** module under "Allowed modules" to enable the chat entry. The CLI bridge does not require the module mount but still respects the same per-record permission voters.
 

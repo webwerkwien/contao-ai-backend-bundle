@@ -8,12 +8,12 @@ use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\AI\Agent\Toolbox\Exception\ToolExecutionException as ToolboxExecutionException;
 use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Agent\Toolbox\Toolbox;
+use Symfony\AI\Platform\Exception\MaxOutputTokensException;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
-use Symfony\AI\Platform\Message\ToolCallMessage;
 use Symfony\AI\Platform\Result\ToolCall;
 use Symfony\AI\Platform\Result\ToolCallResult;
-use Symfony\AI\Platform\Test\InMemoryPlatform;
+use Symfony\AI\Platform\Test\MockPlatformFactory;
 use Webwerkwien\ContaoAiBackendBundle\Controller\AiStreamController;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolExecutionException;
@@ -25,7 +25,7 @@ use Webwerkwien\ContaoAiBackendBundle\Service\SelfCorrectingToolbox;
 /**
  * What a failing run hands the chat's catch blocks — measured with a real Agent,
  * Toolbox and Runner of the installed symfony/ai, the model replaced by a
- * scripted InMemoryPlatform.
+ * scripted mock platform.
  *
  * 🔴 Measured on 2026-10-09 (symfony/ai 0.14.1, and per the pre-release review
  * 0.13 the same): the toolbox wraps every exception a tool throws in its own
@@ -50,7 +50,7 @@ class AgentRunErrorsTest extends TestCase
     private function runProbe(string $toolName, array $allowed): string
     {
         $calls    = 0;
-        $platform = new InMemoryPlatform(static function () use (&$calls, $toolName) {
+        $platform = MockPlatformFactory::createPlatform(static function () use (&$calls, $toolName) {
             return 0 === $calls++ ? new ToolCallResult([new ToolCall('c1', $toolName)]) : 'fertig';
         });
         $toolbox    = new Toolbox([new ProbeRefusedTool(), new ProbeDeniedTool(), new ProbeFailedTool(), new ProbeOkTool(), new ProbeForeignTool()]);
@@ -140,13 +140,14 @@ class AgentRunErrorsTest extends TestCase
     {
         $told     = null;
         $calls    = 0;
-        $platform = new InMemoryPlatform(static function ($model, $input) use (&$calls, &$told, $call) {
+        $platform = MockPlatformFactory::createPlatform(static function ($model, $payload) use (&$calls, &$told, $call) {
             if (0 === $calls++) {
                 return new ToolCallResult([$call]);
             }
-            foreach ($input->getMessages() as $message) {
-                if ($message instanceof ToolCallMessage) {
-                    $told = $message->asText();
+            // The payload is the request after the contract: tool results are role "tool".
+            foreach ($payload['messages'] ?? [] as $message) {
+                if ('tool' === ($message['role'] ?? null)) {
+                    $told = $message['content'];
                 }
             }
 
@@ -286,6 +287,42 @@ class AgentRunErrorsTest extends TestCase
 
         self::assertSame(1, substr_count($source, '->agent->call('), 'the agent is called in one place');
         self::assertStringContainsString('self::runAgent($invocation, $messages, $this->label(\'tool_not_allowed\'))', $source);
+    }
+
+    /**
+     * Since symfony/ai 0.15 an answer cut at the output limit, mid tool call
+     * included, throws MaxOutputTokensException. runAgent() leaves it alone, and
+     * the controller names it before the catch-all would call it a crash.
+     */
+    public function testAnAnswerCutAtTheOutputLimitReachesTheControllerAsItself(): void
+    {
+        $platform = MockPlatformFactory::createPlatform(static function (): never {
+            throw new MaxOutputTokensException('The output token limit was reached.');
+        });
+        $invocation = new AgentInvocation(new Agent($platform, 'probe-model', toolbox: new Toolbox([new ProbeOkTool()])), 'system', 'probe-model', ['probe_ok'], ['probe_ok']);
+
+        $this->expectException(MaxOutputTokensException::class);
+
+        AiStreamController::runAgent($invocation, new MessageBag(Message::ofUser('x')), 'nicht freigegeben');
+    }
+
+    public function testTheControllerNamesACutAnswerBeforeTheCatchAll(): void
+    {
+        $source = (string) file_get_contents(__DIR__ . '/../../../src/Controller/AiStreamController.php');
+
+        $cut = strpos($source, 'catch (MaxOutputTokensException)');
+        self::assertNotFalse($cut);
+        // From the start of the file: searched from $cut, a branch behind the catch-all
+        // (dead, and PHP does not say so) would find nothing and pass.
+        $catchAll = strpos($source, 'catch (\Throwable $e)');
+        self::assertNotFalse($catchAll);
+        self::assertLessThan($catchAll, $cut);
+        self::assertStringContainsString("\$this->label('output_cut')", $source);
+
+        foreach (['de', 'en'] as $lang) {
+            $file = (string) file_get_contents(__DIR__ . "/../../../contao/languages/$lang/ai_chat.php");
+            self::assertStringContainsString("['ai_chat']['output_cut']", $file, $lang);
+        }
     }
 }
 

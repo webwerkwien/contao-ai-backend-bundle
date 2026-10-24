@@ -10,6 +10,7 @@ use Symfony\AI\Agent\Toolbox\Exception\ToolExecutionException as ToolboxExecutio
 use Symfony\AI\Agent\Toolbox\Exception\ToolNotFoundException;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\AI\Platform\Exception\MaxOutputTokensException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -317,6 +318,11 @@ class AiStreamController extends AbstractController
                 'message' => $this->safeMessage($e, $apiKey),
                 'report'  => $this->errorReport($e, $user, $apiKey),
             ]);
+        } catch (MaxOutputTokensException) {
+            // The model's answer hit the output limit, mid tool call included: since
+            // symfony/ai 0.15 the converters throw instead of handing back a call with
+            // half its arguments. Not a fault to report, a request to narrow.
+            $emit('error', ['kind' => 'output_cut', 'message' => $this->label('output_cut')]);
         } catch (\Throwable $e) {
             $emit('error', [
                 'kind'    => 'agent_failed',

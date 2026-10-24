@@ -13,6 +13,7 @@ use Symfony\Component\Security\Core\Authentication\Token\NullToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Security\DataContainerAccess;
 
@@ -62,9 +63,12 @@ class DataContainerAccessWiringTest extends TestCase
 final class DenyingTestVoter implements VoterInterface
 {
     /**
+     * The fourth parameter is part of the interface since Symfony 8 (commented out
+     * in 7.x, where an extra optional parameter is allowed).
+     *
      * @param array<mixed> $attributes
      */
-    public function vote(TokenInterface $token, mixed $subject, array $attributes): int
+    public function vote(TokenInterface $token, mixed $subject, array $attributes, ?Vote $vote = null): int
     {
         return $subject instanceof CreateAction && '0' === $subject->getNewPid() ? VoterInterface::ACCESS_DENIED : VoterInterface::ACCESS_ABSTAIN;
     }

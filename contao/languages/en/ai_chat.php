@@ -34,6 +34,7 @@ $GLOBALS['TL_LANG']['ai_chat']['empty_message']    = 'Empty message.';
 $GLOBALS['TL_LANG']['ai_chat']['message_too_long'] = 'Message too long.';
 $GLOBALS['TL_LANG']['ai_chat']['internal_error']   = 'Internal error — see the log file';
 $GLOBALS['TL_LANG']['ai_chat']['tool_not_allowed'] = 'This tool is not enabled for your account.';
+$GLOBALS['TL_LANG']['ai_chat']['output_cut']       = 'The model\'s answer was cut off at its length limit; that step was not run. Please split the request into smaller steps.';
 
 // Back-end messages after creating or clearing the CLI bridge token.
 $GLOBALS['TL_LANG']['ai_chat']['token_created'] = 'New CLI bridge token generated — the cleartext is shown once in the profile block below.';

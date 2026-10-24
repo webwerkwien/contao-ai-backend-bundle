@@ -265,7 +265,14 @@ guarded the branches read the controller's source and passed throughout.
 wrapped and is a defect. Since symfony/ai 0.14 a call of a registered tool the run's
 `tools` option left out ends the run with `ToolNotFoundException` (#2602) — the same
 exception the toolbox throws for a name no tool has; only the first is a refused
-permission (`isRestrictedToolCall()`).
+permission (`isRestrictedToolCall()`). Since symfony/ai 0.15 the converters throw
+`MaxOutputTokensException` when the model's answer, a tool call included, was cut at its
+output limit; the chat names it `output_cut`, without a report — a limit, not a defect.
+That limit is 1000 tokens for Claude unless set; `ResolvedPlatform::modelForRun()` sets
+8192 as a model option in the name (`claude-…?max_tokens=8192`, v0.23.0) — use it, not
+`->model`, wherever a run starts.
+Both 0.14 and 0.15 are allowed; tests build platforms with `MockPlatformFactory`
+(`InMemoryPlatform` is gone in 0.15).
 
 **The model's own mistakes go back to the model** (v0.12.0). `AgentFactory` wraps the
 toolbox in `SelfCorrectingToolbox`: arguments that do not fit a tool
