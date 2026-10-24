@@ -6,8 +6,11 @@ use Contao\BackendUser;
 use Psr\Log\LoggerInterface;
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\Toolbox;
+use Symfony\AI\Platform\Capability;
+use Symfony\AI\Platform\PlatformInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentContent;
 use Webwerkwien\ContaoAiBackendBundle\Security\ArgumentMaskingLogger;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformResolver;
@@ -80,7 +83,34 @@ class AgentFactory
             $model,
             $allowedToolNames,
             array_values(array_unique($registeredToolNames)),
+            self::readableContent($platform, $resolved->modelForRun()),
         );
+    }
+
+    /**
+     * What the model reads besides text, from the catalog the run uses (v1.0.0).
+     * A model the catalog does not know reads text only; the run would fail on it
+     * anyway, and a refusal that names the model says more than that failure.
+     *
+     * @return list<string> AttachmentContent kinds
+     */
+    public static function readableContent(PlatformInterface $platform, string $model): array
+    {
+        try {
+            $info = $platform->getModelCatalog()->getModel($model);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $kinds = [];
+        if ($info->supports(Capability::INPUT_PDF)) {
+            $kinds[] = AttachmentContent::DOCUMENT;
+        }
+        if ($info->supports(Capability::INPUT_IMAGE)) {
+            $kinds[] = AttachmentContent::IMAGE;
+        }
+
+        return $kinds;
     }
 
 }
