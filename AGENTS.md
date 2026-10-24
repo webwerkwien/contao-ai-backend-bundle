@@ -88,6 +88,9 @@ that existed before the fix, and that could not be rewritten, is the proof.
 - **No internals in the CHANGELOG** — nor in the GitHub release notes, which copy it: no names, no review or
   acceptance tags, no servers or hosts, no test data, no keys or key IDs. Only what changes for the people using
   the bundle.
+  Removing internals is not announced either: nothing like "no longer refers to" or "removed internal
+  references" — that says there were some, and the diff between the tags shows them. Done with a regular
+  release, it goes unmentioned; on its own, the entry reads "Overhaul of code comments and the agent guide."
 - **Public surface since 1.0** — see README *Stability*; a change there is a major.
   symfony/ai types never cross it (`AttachmentContent`, not `ContentInterface`): the
   provider library is pre-1.0 and moves under us, the extension points must not.
