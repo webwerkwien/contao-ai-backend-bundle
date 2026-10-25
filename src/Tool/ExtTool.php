@@ -185,7 +185,7 @@ class ExtTool extends AbstractCoreCommandTool
      *
      * A foreign command need not answer in JSON, and where it does, a log line can stand
      * before it in the same output (a refusal that Symfony also logs as console.CRITICAL,
-     * measured with consho:connect:products). The last line is the answer if it
+     * measured with an extension's own command). The last line is the answer if it
      * is a JSON object — only the last: a text answer that echoes data somewhere in
      * the middle must not have a line of it taken for the answer. Without
      * one, the text is, and on failure also the message.

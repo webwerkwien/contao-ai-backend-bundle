@@ -1,5 +1,5 @@
-# Geladen von ContaoAiBackendBundle::loadExtension() nur wenn
-# \Contao\CalendarEventsModel (contao/calendar-bundle) installiert ist.
+# Loaded by ContaoAiBackendBundle::loadExtension() only when
+# \Contao\CalendarEventsModel (contao/calendar-bundle) is installed.
 services:
     _defaults:
         autowire: true
@@ -10,8 +10,8 @@ services:
         Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
             tags: ['contao_ai_backend.entity_rewriter']
 
-    # _instanceof aus services.yaml greift hier nicht (per-File-Scope),
-    # daher die Tag-Bindung explizit setzen — wie bei NewsTool.
+    # _instanceof from services.yaml does not apply here (per-file scope),
+    # hence the explicit tag — as with NewsTool.
     Webwerkwien\ContaoAiBackendBundle\Tool\EventTool:
         tags: ['contao_ai_backend.tool']
 

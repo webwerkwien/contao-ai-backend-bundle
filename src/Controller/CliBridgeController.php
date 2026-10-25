@@ -23,16 +23,16 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool;
 
 /**
- * HTTP-Endpoint, den der Python-CLI-Agent aufruft, um Macro-Tools
- * (record_clone, record_rewrite) ohne Browser-Wechsel auszuführen.
+ * HTTP endpoint the Python CLI agent calls to run the macro tools
+ * (record_clone, record_rewrite) without switching to the browser.
  *
- * Auth ist Bearer-Token (tl_user.ai_cli_token, password_hash gespeichert).
- * Token-Format <userId>.<random> erspart das Iterieren über alle User.
+ * Auth is a bearer token (tl_user.ai_cli_token, stored as password_hash).
+ * The token format <userId>.<random> saves iterating over all users.
  *
- * Vor dem Tool-Aufruf wird ein Symfony-Security-PostAuthenticationToken in den
- * TokenStorage geschoben, damit BackendUser::getInstance() / TokenChecker und
- * die nachgeschalteten Voter exakt wie im Backend-Chat funktionieren.
- * Nach dem Aufruf wird der Token wieder entfernt — der Request bleibt stateless.
+ * Before the tool call a Symfony security PostAuthenticationToken is pushed into
+ * the TokenStorage, so BackendUser::getInstance() / TokenChecker and the voters
+ * downstream work exactly as in the back-end chat. After the call the token is
+ * removed again — the request stays stateless.
  */
 class CliBridgeController extends AbstractController
 {

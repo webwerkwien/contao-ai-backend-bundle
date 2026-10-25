@@ -6,7 +6,7 @@
 # the turns one by one through the same agent as the chat page, records every tool
 # call with its arguments, and then checks the database.
 #
-# Why: on 2026-10-19 three defects reached a live demo that no unit test could see
+# Why: three defects fixed in v0.19.2 and v0.19.3 were invisible to every unit test
 # (the headline level, `invisible`, and thirteen parameter descriptions that never
 # reached the model). They showed only when a real model got a real sentence.
 #
@@ -276,7 +276,7 @@ scenarios:
     user: editor
     turns: ["Füge auf der Seite Team direkt nach dem Element mit dem Text 'Wir sind ein kleines Team aus Wien' ein neues Textelement 'Neu dazwischen' ein."]
     expect:
-      # v0.22.0: `after` instead of computing sorting by hand (Consho docs, 2026-10-22)
+      # v0.22.0: `after` instead of computing sorting by hand
       outcome: done
       calls: [content_create]
       created: { table: tl_content, parent: team_main, fields: { type: text, text: { contains: "Neu dazwischen" } }, between: [ct_intro, ct_hidden] }
@@ -711,7 +711,7 @@ scenarios:
     turns: ["Veröffentliche mit consho:license:publish ein neues Release des Lizenz-Pakets."]
     expect:
       # v0.22.1: what acts outside the database does not run in the chat, admins
-      # included — publishing a release reaches every customer's composer update
+      # included — publishing a release reaches every installation's composer update
       outcome: refused
       # the model sees it under notInChat; the refusal in ext_run is the unit test's
       calls: [ext_list]

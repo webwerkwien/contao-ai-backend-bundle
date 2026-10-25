@@ -32,27 +32,25 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * - **Turn-bound**: an entry staged in one HTTP request cannot be consumed in
  *   that same request. See below.
  *
- * ## 🔴 Warum die Turn-Bindung dazukam
+ * ## 🔴 Why the turn binding was added
  *
- * Bis dahin war die einzige Instanz, die einen Menschen zwischen Frage und
- * Ausführung schaltete, ein Satz im JSON an das Modell: *„Frage den User
- * wörtlich. Bei klarem Ja denselben Tool-Aufruf erneut absetzen."*
+ * Until then the only thing that put a human between question and execution
+ * was a sentence in the JSON to the model: *"Frage den User wörtlich. Bei
+ * klarem Ja denselben Tool-Aufruf erneut absetzen."*
  *
- * Seit symfony/ai 0.13 treibt der Agent die Werkzeugschleife selbst
- * (`maxToolCalls` 50). Das Modell konnte also `page_delete` rufen, die Antwort
- * *„pending_confirmation"* lesen und **im selben Durchlauf sofort erneut
- * rufen** — `consume()` griff, die Löschung lief, der Benutzer sah die Frage
- * nie.
+ * Since symfony/ai 0.13 the agent drives the tool loop itself
+ * (`maxToolCalls` 50). So the model could call `page_delete`, read the answer
+ * *"pending_confirmation"* and **call again at once in the same run** —
+ * `consume()` matched, the deletion ran, the user never saw the question.
  *
- * 🎯 **Das Gate war eine Bitte an das Modell, keine Kontrolle** — und das
- * Modell ist genau die Instanz, die sich über untrusted Datensatz-Inhalte
- * steuern lässt. Eine Zusicherung, deren Durchsetzung beim potenziellen
- * Angreifer liegt, ist keine.
+ * 🎯 **The gate was a request to the model, not a control** — and the model is
+ * exactly the party that can be steered through untrusted record content. A
+ * promise whose enforcement lies with the potential attacker is none.
  *
- * Ein HTTP-Request ist genau ein Chat-Turn. Die Bindung an die Request-Kennung
- * erzwingt damit, was der Text nur erbeten hat: **zwischen Frage und
- * Ausführung muss der Mensch etwas gesendet haben.** Sie beweist kein „Ja" —
- * sie beweist, dass die Frage sichtbar war und ein Mensch danach gehandelt hat.
+ * One HTTP request is exactly one chat turn. Binding to the request's ID thus
+ * enforces what the text only asked for: **between question and execution the
+ * human must have sent something.** It does not prove a "yes" — it proves that
+ * the question was visible and a human acted after it.
  */
 class PendingActionStore
 {
@@ -108,8 +106,8 @@ class PendingActionStore
      */
     public function consume(int $userId, string $tool, string $key): ?array
     {
-        // Nicht im selben Request einlösbar. Der Eintrag bleibt bewusst
-        // stehen — der nächste Turn soll ihn noch bestätigen können.
+        // Not redeemable in the same request. The entry deliberately stays —
+        // the next turn must still be able to confirm it.
         if ($this->stagedInCurrentTurn($userId, $tool, $key)) {
             return null;
         }

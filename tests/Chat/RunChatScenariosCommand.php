@@ -47,8 +47,8 @@ use Webwerkwien\ContaoAiCoreBundle\Service\Writer\RecordWriterInterface;
 /**
  * Runs tests/Chat/scenarios.yaml against a real installation: every scenario on a fresh
  * fixture, as the named user, through the agent of the chat page. Development only —
- * this class is not part of the package (tests/ is export-ignored) and is wired on the
- * test server alone.
+ * this class is not part of the package (tests/ is export-ignored) and is wired only on
+ * an installation used for development.
  *
  * The user is signed in as the back end does it: a security token in the token storage
  * and in the session under `_security_contao_backend`, so ToolAccessChecker, Contao's
@@ -400,8 +400,8 @@ final class RunChatScenariosCommand extends Command
     }
 
     /**
-     * The calls with their arguments — what the page never shows, and what took a
-     * temporary log line on the server to see on 2026-10-19.
+     * The calls with their arguments — what the page never shows, and what otherwise
+     * takes a temporary log line on the server to see.
      */
     private function listen(): void
     {

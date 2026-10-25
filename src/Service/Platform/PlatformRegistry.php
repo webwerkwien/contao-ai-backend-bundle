@@ -120,8 +120,8 @@ class PlatformRegistry
      * Every rejection below used to be a bare `return null`. A rename
      * upstream — `PlatformFactory` became `Factory` in symfony/ai 0.13 — would
      * therefore empty the dropdown in production without a single log line. That
-     * exact rename already cost an hour this morning, and only a counter in a
-     * throwaway script revealed it. On a customer install there is no counter.
+     * exact rename once did, and only counting the bridges by hand showed why. A
+     * site in production has nobody counting.
      */
     private function skip(string $package, string $reason): null
     {

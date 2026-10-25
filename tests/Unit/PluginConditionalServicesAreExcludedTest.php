@@ -34,7 +34,7 @@ use Symfony\Component\Yaml\Yaml;
  *
  * ## Why a test and not a note
  *
- * Nothing fails locally: the test server has every optional bundle installed, so
+ * Nothing fails locally: a development setup has every optional bundle installed, so
  * the container builds and the suite passes. The defect is only visible on an
  * installation that lacks a plugin — which is to say, on someone else's site,
  * during their update. This test reproduces that condition from the

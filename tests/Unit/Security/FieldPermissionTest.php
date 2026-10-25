@@ -15,8 +15,8 @@ use Webwerkwien\ContaoAiBackendBundle\Security\FieldPermission;
 /**
  * The back end's field rights ("Erlaubte Felder") for the chat (v0.17.0).
  *
- * Until then an editor whose group grants no page field — the demo group "Editors" on
- * the test server grants none — could publish, rename and re-language pages through the
+ * Until then an editor whose group grants no page field could publish, rename and
+ * re-language pages through the
  * chat. The rule is Contao's: excluded (every field with an input, unless the DCA says
  * `'exclude' => false`) and not granted means not writable.
  */

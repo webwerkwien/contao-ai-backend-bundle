@@ -9,7 +9,7 @@
 
    The subfolder is part of the name only because contao/templates/ carries a
    `.twig-root` marker. Without it Contao reads just the top level and drops the
-   folder: on the test server this file was registered as
+   folder: on an installation this file was registered as
    `@Contao/ai_chat.html.twig`, and the controller's name did not resolve.
    Contao 6 marks its own contao/templates/ the same way; its 5.x bundles mark
    contao/templates/twig/, because their .html5 files share the directory.
@@ -157,13 +157,13 @@
             let pendingFiles = [];
 
             /*
-             * Sichtbare Texte des Skripts. Bewusst hier gebündelt und nicht
-             * einzeln unten eingesetzt: So steht an einer Stelle, was ein
-             * Benutzer zu lesen bekommt, und `BilingualLabelsTest` findet die
-             * Schlüssel, ohne den ganzen Code lesen zu müssen.
+             * The script's visible texts. Deliberately collected here and not
+             * inserted one by one below: this way one place shows what a user
+             * gets to read, and `BilingualLabelsTest` finds the keys without
+             * having to read the whole code.
              *
-             * `json_encode` statt Anführungszeichen von Hand — ein Apostroph in
-             * einer Übersetzung würde das Skript sonst zerlegen.
+             * `json_encode` instead of hand-written quotes — an apostrophe in a
+             * translation would otherwise break the script.
              */
             const LANG = {
                 reportSummary: {{ 'ai_chat.report_summary'|trans({}, 'contao_ai_chat')|json_encode|raw }},
@@ -358,7 +358,7 @@
                         return a;
                     } },
                     // A marker opens only before text and closes only after it, so
-                    // "5 * 3 * 2" and "tl_consho_product" stay as they are.
+                    // "5 * 3 * 2" and "tl_shop_product" stay as they are.
                     { re: /\*\*(?!\s)([^*\n]+?)(?<!\s)\*\*|(?<![\w_])__(?!\s)([^_\n]+?)(?<!\s)__(?![\w_])/, make: (m) => { const s = el('strong'); inline(s, m[1] ?? m[2]); return s; } },
                     { re: /(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])|(?<![\w_])_(?!\s)([^_\n]+?)(?<!\s)_(?![\w_])/, make: (m) => { const e = el('em'); inline(e, m[1] ?? m[2]); return e; } },
                 ];

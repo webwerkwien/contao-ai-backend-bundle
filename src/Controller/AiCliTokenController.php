@@ -18,13 +18,13 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfToken;
 
 /**
- * Backend-Profil-UI für tl_user.ai_cli_token. Generiert einen
- * neuen 64-char Hex-Token, hasht ihn (password_hash, PASSWORD_DEFAULT) und
- * speichert nur den Hash. Der Klartext-Token wird einmalig in der Flash-Bag
- * angezeigt — nach dem Refresh ist er weg, der User muss ihn kopieren.
+ * Back-end profile UI for tl_user.ai_cli_token. Generates a new 64-char hex
+ * token, hashes it (password_hash, PASSWORD_DEFAULT) and stores only the hash.
+ * The clear-text token is shown once via the flash bag — after a refresh it is
+ * gone, the user has to copy it.
  *
- * Auth: Backend-Session (Contao-Standard-Firewall). Aktion erlaubt für
- * (a) Admins auf jeden User, (b) jeden User auf seinen eigenen Datensatz.
+ * Auth: back-end session (Contao's standard firewall). The action is allowed
+ * for (a) admins on any user, (b) any user on their own record.
  */
 class AiCliTokenController extends AbstractController
 {

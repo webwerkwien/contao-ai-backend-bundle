@@ -20,8 +20,8 @@ use PHPUnit\Framework\TestCase;
  * translation workflow at all. The gap is not where the work is; it is where
  * the work does not look like translation.
  *
- * Two of the offending strings were added the day before by the same session
- * that later fixed them — the report block from the error-reporting feature.
+ * Two of the offending strings had been added only the day before — the report
+ * block from the error-reporting feature.
  * Writing the rule down did not prevent it; this test is the attempt that can.
  *
  * ## What this deliberately does NOT cover
@@ -182,7 +182,7 @@ class BilingualLabelsTest extends TestCase
     /**
      * Placeholders follow `sprintf`, not Symfony.
      *
-     * 🔴 Found on the test server on 2026-09-05, one command short of a release.
+     * 🔴 Found on an installation on 2026-09-05, one command short of a release.
      * The tool counter was written the Symfony way — `'%count% Werkzeuge'` with
      * `trans({'%count%': n})` — and every unit test passed. On a live install it
      * threw:

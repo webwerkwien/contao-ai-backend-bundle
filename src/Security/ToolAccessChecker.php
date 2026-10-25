@@ -24,15 +24,14 @@ class ToolAccessChecker
         'page_delete',
         'article_delete',
         'content_delete',
-        // record_clone und record_rewrite sind nicht
-        // mehr admin-only. Editoren mit Modul-Mount + Container-Anlage-Recht
-        // (in 5.3 die Felder newp/calendarp/faqp, in 5.7 das Feld `cud` mit
-        // `contao_user.cud.<tabelle>::create`, gemessen 2026-10-15; bzw.
-        // USER_CAN_EDIT_PAGE_HIERARCHY) dürfen
-        // Macro-Tools nutzen. Source-/Container-Voter kommen aus
-        // RecordPermissionChecker, der zur Laufzeit pro Aufruf prüft. Die
-        // Tools selbst entscheiden via isAccessibleBy(), ob sie überhaupt
-        // im System-Prompt + in der Anthropic-Tool-Liste auftauchen.
+        // record_clone and record_rewrite are no longer admin-only. Editors
+        // with a module mount + the right to create containers (in 5.3 the
+        // fields newp/calendarp/faqp, in 5.7 the field `cud` with
+        // `contao_user.cud.<table>::create`, measured 2026-10-15; or
+        // USER_CAN_EDIT_PAGE_HIERARCHY) may use the macro tools. Source and
+        // container voters come from RecordPermissionChecker, which checks per
+        // call at runtime. The tools themselves decide via isAccessibleBy()
+        // whether they appear in the system prompt and the model's tool list at all.
     ];
 
     /**
@@ -76,18 +75,18 @@ class ToolAccessChecker
         'content_read'   => ['module' => 'article', 'op' => 'read'],
         // v0.20.0: finding elements by their text; each hit is voted on as a read
         'content_find'   => ['module' => 'article', 'op' => 'read'],
-        // Macro-Tools haben keinen festen Modul-Gate — sie spannen
-        // mehrere Tabellen und müssen pro Aufruf gegen die Source-Tabelle
-        // voten (RecordPermissionChecker). Hier mit `op=any` markiert; die
-        // tatsächliche Modul-Membership wird im Tool selbst geprüft.
+        // Macro tools have no fixed module gate — they span several tables
+        // and must vote against the source table per call
+        // (RecordPermissionChecker). Marked with `op=any` here; the actual
+        // module membership is checked in the tool itself.
         'record_clone'   => ['module' => '*', 'op' => 'macro'],
         'record_rewrite' => ['module' => '*', 'op' => 'macro'],
-        // Gleiches Pattern für die Read-only-Tools, deren
-        // Modul-Gate per-Tabelle im Tool selbst läuft (RecordListTool::
-        // assertModuleAccess, MetaTool::dcaSchema-Allow-List). Ohne diesen
-        // Eintrag warf assertCanUseTool für Non-Admins „requires module
-        // unknown" und brach den Tool-Aufruf ab, obwohl isAccessibleBy()
-        // true zurückgab — der Tool-Layer kam gar nicht erst zum Zug.
+        // Same pattern for the read-only tools, whose per-table module gate
+        // runs in the tool itself (RecordListTool::assertModuleAccess,
+        // MetaTool::dcaSchema allow-list). Without this entry assertCanUseTool
+        // threw "requires module unknown" for non-admins and aborted the tool
+        // call although isAccessibleBy() returned true — the tool layer never
+        // got its turn.
         'record_list'    => ['module' => '*', 'op' => 'read'],
         'dca_schema'     => ['module' => '*', 'op' => 'read'],
         // Same scope as dca_schema (v0.16.0): bounded by the table allow-list and
@@ -152,9 +151,9 @@ class ToolAccessChecker
         }
 
         $requirement = self::TOOL_MAP[$toolName];
-        // Macro-Tools (module='*'): kein zentraler Gate — Source-Voter im Tool
-        // entscheidet. Sichtbarkeit für Editoren wird über das eigene
-        // isAccessibleBy() gesteuert (mind. ein bedienbares Modul vorhanden).
+        // Macro tools (module='*'): no central gate — the source voter in the
+        // tool decides. Visibility for editors is controlled by the tool's own
+        // isAccessibleBy() (at least one usable module present).
         if ('*' === $requirement['module']) {
             return true;
         }

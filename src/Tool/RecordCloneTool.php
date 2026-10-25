@@ -21,15 +21,15 @@ use Webwerkwien\ContaoAiCoreBundle\Command\RecordCloneCommand;
  * pattern (`news_archive_create` + N×`news_read` + N×`news_create`) that
  * blows the rate-limit and context window on a normal LLM-orchestrated run.
  *
- * First scope: tl_news_archive (cascades to tl_news). Further entities
+ * It began with tl_news_archive (cascades to tl_news). Further entities
  * (tl_calendar → tl_calendar_events, tl_faq_category → tl_faq, tl_page →
- * tl_article → tl_content) follow in 9.4 by registering additional
+ * tl_article → tl_content) came by registering additional
  * EntityClonerInterface implementations under the same tagged-iterator.
  *
- * Editor-Zugang: Source-Voter via
- * RecordPermissionChecker (gleiche Patterns wie NewsTool/PageTool/...,
- * nur zentral) + Container-Anlage-Voter (newp/calp/faqp 'create' bzw.
- * USER_CAN_EDIT_PAGE_HIERARCHY auf source.pid für tl_page).
+ * Editor access: source voter via RecordPermissionChecker (the same patterns
+ * as NewsTool/PageTool/..., only central) + container-creation voter
+ * (newp/calp/faqp 'create', or USER_CAN_EDIT_PAGE_HIERARCHY on source.pid for
+ * tl_page).
  */
 #[AsTool(
     'record_clone',
@@ -53,21 +53,20 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * the registry come back as a structured "no cloner registered" error
      * from RecordCloneCommand.
      *
-     * (Die allgemeine Tabellen-Modul-Zuordnung liegt seit 2026-09-02 in
-     * AbstractCoreCommandTool::TABLE_MODULE — siehe Hinweis unten, warum das
-     * hier bewusst eine eigene, engere Liste ist.)
+     * (The general table-to-module mapping has lived in
+     * AbstractCoreCommandTool::TABLE_MODULE since 2026-09-02 — see the note below
+     * on why this is deliberately a separate, narrower list.)
      *
      * @var array<string, string> table => required backend module
      */
     /**
-     * Container-Tabellen, die geklont werden können, und ihr Backend-Modul.
+     * Container tables that can be cloned, and their back-end module.
      *
-     * ⚠️ Absichtlich NICHT `AbstractCoreCommandTool::TABLE_MODULE`. Die hieß bis
-     * zum 2026-09-02 hier genauso, ist aber ein anderes Konzept: die Basisliste
-     * bildet ALLE überblickbaren Tabellen ab (10 Einträge, inkl. tl_news,
-     * tl_content, tl_files), diese hier nur die vier Container, für die ein Klon
-     * überhaupt definiert ist. Die Werte stimmen überein, der Zweck nicht —
-     * deshalb umbenannt statt zusammengelegt.
+     * ⚠️ Deliberately NOT `AbstractCoreCommandTool::TABLE_MODULE`. Until 2026-09-02
+     * this one had the same name, but it is a different concept: the base list maps
+     * ALL tables that can be surveyed (10 entries, incl. tl_news, tl_content,
+     * tl_files), this one only the four containers for which a clone is defined at
+     * all. The values match, the purpose does not — hence renamed rather than merged.
      */
     private const CONTAINER_MODULE = [
         'tl_news_archive'       => 'news',
@@ -82,12 +81,12 @@ class RecordCloneTool extends AbstractCoreCommandTool
     ];
 
     /**
-     * Auto-Grant nach Container-Anlage. Mapping Source-Table →
-     * tl_user-Allow-List-Feld. Nach erfolgreichem Klon wird der neue
-     * Container-ID an die Liste des aktuellen non-admin-Users angehängt,
-     * damit er sich nicht selbst aussperrt. tl_page bewusst nicht enthalten:
-     * pagemounts hat eine andere Semantik (Sichtbarkeit im Tree statt
-     * einfacher Allow-List), separate Behandlung wäre nötig.
+     * Auto-grant after creating a container. Maps the source table to the
+     * tl_user allow-list field. After a successful clone the new container ID is
+     * appended to the current non-admin user's list, so they do not lock
+     * themselves out. tl_page deliberately not included: pagemounts has different
+     * semantics (visibility in the tree rather than a simple allow-list), it would
+     * need separate handling.
      *
      * @var array<string, string>
      */
@@ -102,8 +101,8 @@ class RecordCloneTool extends AbstractCoreCommandTool
     ];
 
     /**
-     * Source-Table des laufenden cloneRecord-Calls. postProcessDecoded()
-     * braucht die Info, hat sie aber nicht aus dem decoded-Array.
+     * Source table of the running cloneRecord call. postProcessDecoded() needs
+     * it but does not get it from the decoded array.
      */
     private ?string $pendingSourceTable = null;
 
@@ -124,9 +123,9 @@ class RecordCloneTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Sichtbar, wenn der User mind. ein Source-Modul mounted hat.
-     * Per-Aufruf-Voter (assertSourceAccess + assertCanCreateContainer)
-     * entscheidet dann, ob die konkrete Tabelle/ID erlaubt ist.
+     * Visible when the user has at least one source module mounted. The per-call
+     * voter (assertSourceAccess + assertCanCreateContainer) then decides whether
+     * the specific table/ID is allowed.
      */
     public function isAccessibleBy(BackendUser $user): bool
     {
@@ -150,7 +149,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
      * @param bool                                $withRecipients tl_newsletter_channel only: also copy the channel's recipients. Default false — the clone then has none. The recipients consented to the source channel, not to the copy, so ask the user whether the clone should take them along; never decide this yourself. With true the server asks the user once more before it clones.
      */
     #[AiContract(
-        // Die Tabelle bestimmt der Aufrufer — nichts behaupten, was hier nicht feststeht.
+        // The caller picks the table — claim nothing that is not fixed here.
         writes: true, trace: ['tl_version', 'tl_log'], traceWhen: 'on-success',
         repeatable: true, answerShape: ['status', 'id', 'count'],
     )]
@@ -200,12 +199,12 @@ class RecordCloneTool extends AbstractCoreCommandTool
         }
         $this->permissionChecker->assertCanCreateContainer($user, $sourceTable, $sourceId);
 
-        // Bei tl_page recursive=true muss der Editor jede Subpage
-        // im Source-Tree edit-berechtigt sein, weil der Core-Cloner aktuell
-        // keine Skip-Liste akzeptiert (Pre-Flight statt Skip-mit-Note). Zeigen
-        // wir refused-IDs explizit, damit Claude/Operator den Scope anpassen
-        // können bevor sie noch mal probieren. Cap = depth 10 / 50 Seiten —
-        // identisch zum Core-Cloner.
+        // With tl_page recursive=true the editor needs the edit right on every
+        // subpage in the source tree, because the core cloner currently accepts
+        // no skip list (pre-flight instead of skip-with-note). We show the
+        // refused IDs explicitly, so the model or the operator can adjust the
+        // scope before trying again. Cap = depth 10 / 50 pages — identical to the
+        // core cloner.
         if ($recursive && 'tl_page' === $sourceTable) {
             $this->assertSubtreeAccess($user, $sourceId);
         }
@@ -300,14 +299,14 @@ class RecordCloneTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Nach erfolgreichem Klon dem aktuellen non-admin-User die
-     * neue Container-ID in seine Allow-List eintragen — sonst hat er gerade
-     * was angelegt, das er selbst nicht mehr sehen darf. Stock Contao macht
-     * das im `oncopy_callback` des UserRootListener, der hier nicht greift:
-     * er verlangt die ID in den `new_records` der Backend-Session.
+     * After a successful clone, add the new container ID to the current non-admin
+     * user's allow-list — otherwise they have just created something they may no
+     * longer see themselves. Stock Contao does this in the UserRootListener's
+     * `oncopy_callback`, which does not apply here: it requires the ID in the
+     * back-end session's `new_records`.
      *
-     * Eingriff im post-process Hook, damit der wrapping-Wrapper im
-     * runCommand uns nicht den Decoder-Zugriff aufs Result wegnimmt.
+     * Done in the post-process hook, so the wrapper in runCommand does not take
+     * away our decoded access to the result.
      */
     protected function postProcessDecoded(array &$decoded, string $toolName): void
     {
@@ -316,7 +315,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         }
         $field = self::AUTO_GRANT_FIELD[$this->pendingSourceTable] ?? null;
         if (null === $field) {
-            return; // tl_page → kein Auto-Grant
+            return; // tl_page → no auto-grant
         }
         $newId = (int) ($decoded['id'] ?? 0);
         if (0 === $newId) {
@@ -330,7 +329,7 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // As Contao's UserRootListener::adjustPermissions() does after a copy in the back
         // end (v0.19.0, AllowListGrant). Until then only the user's own list got the id —
         // useless for a user who inherits only from the group (`inherit = group`).
-        // Sichtbar im Tool-Result, damit Claude dem User Bescheid geben kann.
+        // Visible in the tool result, so the model can tell the user.
         $granted = AllowListGrant::grant($this->connection, $user, $field, $newId);
         if (null !== $granted) {
             $decoded['auto_granted'] = $granted;
@@ -338,11 +337,11 @@ class RecordCloneTool extends AbstractCoreCommandTool
     }
 
     /**
-     * BFS über Subseiten (gleicher Cap wie der Core-Cloner: Tiefe 10 / 50
-     * Knoten), pro Knoten die Kopierfrage an Contaos Voter (seit v0.18.0, auch für
-     * Admins; bis dahin USER_CAN_EDIT_PAGE). Bei einem einzigen Refused
-     * harter Abbruch mit Liste der ersten N refused-IDs — Editor sieht, was
-     * fehlt, statt nach dem Klon eine "Schweizer-Käse"-Struktur zu finden.
+     * BFS over subpages (same cap as the core cloner: depth 10 / 50 nodes), per
+     * node the copy question to Contao's voters (since v0.18.0, for admins too;
+     * until then USER_CAN_EDIT_PAGE). A single refusal aborts hard with a list of
+     * the first N refused IDs — the editor sees what is missing instead of finding
+     * a "Swiss cheese" structure after the clone.
      */
     private function assertSubtreeAccess(BackendUser $user, int $rootId): void
     {

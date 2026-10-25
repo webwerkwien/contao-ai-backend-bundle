@@ -10,8 +10,8 @@ use Doctrine\DBAL\Connection;
  * The user form never sends a stored API key back to the browser (v0.17.0).
  *
  * Until then `ai_api_key` was a plain text input: anyone allowed to edit users in the
- * back end received every other user's key in clear in the form — checked on the test
- * server on 2026-10-14, a 108-character `sk-…` value in the HTML. The key itself stays
+ * back end received every other user's key in clear in the form — checked on an
+ * installation on 2026-10-14, a 108-character `sk-…` value in the HTML. The key itself stays
  * in plain text in the database (Contao 5 has no field encryption, see README); this
  * keeps it out of the form. `hideInput`/`doNotShow` keep it out of the show view, the
  * version diff and the undo view, `doNotCopy` out of a duplicated user (tl_user DCA).

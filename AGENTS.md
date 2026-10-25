@@ -52,18 +52,18 @@ What must hold is the shape: `[OK] No errors`, then `OK`.
 A failure is a failure — fix the code, never the test.
 
 **Test against the current core-bundle.** There is no lock file in the repository, and a
-`vendor/` that is never updated keeps whatever core it got: until 2026-10-12 it was
-v0.6.0, and `ToolArgumentsMatchCommandTest` skipped every tool whose core command did not
-exist there — silently. After a core release: `composer update webwerkwien/contao-ai-core-bundle`.
+`vendor/` that is never updated keeps whatever core it got, and
+`ToolArgumentsMatchCommandTest` then skips every tool whose core command does not exist
+there — silently. After a core release: `composer update webwerkwien/contao-ai-core-bundle`.
 
 **What the chat does with a real model is a separate check: the chat runner**
-(`tests/Chat`, since 2026-10-19). `scenarios.yaml` holds what editors ask and what must
+(`tests/Chat`). `scenarios.yaml` holds what editors ask and what must
 follow — tools called or not, the records afterwards; `RunChatScenariosCommand` runs it on
 an installation through the agent of the chat page, as a signed-in user (a real security
 token: tool access, Contao's voters and field rights decide as on the page), on a fresh
 fixture per scenario, and records every tool call with its arguments, which the page
-never shows. It is not in the package; on the test server it is wired through the
-project's `composer.json` (autoload of `chat-runner/`) and `config/services.yaml`:
+never shows. It is not in the package; an installation that runs it wires it through
+its own `composer.json` (autoload of `chat-runner/`) and `config/services.yaml`:
 
 ```
 php vendor/bin/contao-console contao-ai:chat-scenarios chat-runner/scenarios.yaml --ai-from <admin with an AI key> [--only id,…] [--no-alt] [--out file.json]
@@ -85,6 +85,12 @@ that existed before the fix, and that could not be rewritten, is the proof.
   only imports it. Nothing here may depend on one coding agent: no agent-specific instructions,
   paths or file names in the guide, the tests or the code — the `CLAUDE.md` shim that
   only imports this file is the one exception.
+- **No internals in any file of this repository** — code, comments, tests, test data, configuration,
+  docs, commit messages. The repository is public: no names of people or customers, no servers, hosts,
+  SSH users or server paths, no review or acceptance tags, nothing about sessions, agents or who found
+  what, no references to notes, plans or other documents outside the repository, no data from real
+  sites (use neutral examples, `example.com`). Where a comment would point elsewhere for its reason,
+  it states the reason itself.
 - **No internals in the CHANGELOG** — nor in the GitHub release notes, which copy it: no names, no review or
   acceptance tags, no servers or hosts, no test data, no keys or key IDs. Only what changes for the people using
   the bundle.
@@ -114,8 +120,7 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `TableAccessVoter`); record rights are Contao's voters, field rights are `alexf` through
   `FieldPermission`. `ext_run`
   offers a foreign command only if every table of its `#[AiContract]` is reachable, none
-  named means admin-only. Don't add a configuration allow-list beside it (decided with
-  by design).
+  named means admin-only. Don't add a configuration allow-list beside it (by design).
 - **Every write the chat makes passes `FieldPermission`** (v0.17.0): `buildSetOptions($fields,
   $table)` for updates, `assertFieldsCreatable()` for the values a create sets (a field's
   default needs no right, as in the back end), `assertFieldsWritable()` for anything else
@@ -186,7 +191,10 @@ that existed before the fix, and that could not be rewritten, is the proof.
   by `FiltersLanguageVersions`: each entry a read of that record, the rest counted, an
   unknown shape dropped. The core trusts its operator; a title from outside the user's
   mounts must not reach the model.
-- Code and comments in English.
+- **Code, comments, docs and commit messages in English** — also in a file that still
+  has German comments next to the line you write. German stays only where it is German
+  by nature: the language files, the German strings users and the model read, test
+  input that simulates an editor, and the German messages a comment or test quotes.
 - **Everything a user sees is bilingual, German and English.** Every key under
   `contao/languages/de/` has its counterpart in `en/`, and the two are kept in
   sync — adding a label means adding it twice. No user-facing string belongs in
@@ -238,8 +246,7 @@ check has to work from the configuration, which is what the test above does.
 translation process.** The language files here were kept carefully; the gap sat
 in the places where the job at hand was something else — an HTML attribute, a
 `textContent =` assignment in JavaScript, a flash message next to a type error,
-a line of running text in a template. Eleven strings, found only because
-unrelated work happened to touch those lines.
+a line of running text in a template. Eleven such strings had slipped through.
 
 > When you write anything a user reads, the question is not "am I translating
 > right now" but "will someone see this". `BilingualLabelsTest` covers the
@@ -254,8 +261,7 @@ cannot fail, and is therefore useless as a control.
 **Contao 6 does not read `.html5` templates.** Up to v0.9.3 the chat was a legacy
 `BackendModule` with a `be_ai_chat.html5` wrapper. On Contao 6.0 it answered
 *Template "@Contao/be_ai_chat.html.twig" is not defined* (issue #26). Nothing
-here noticed: the 6.0 test installation is reachable from the console only, and
-no test renders a back-end page. Since v0.10.0 nothing legacy is left.
+here noticed: no test renders a back-end page. Since v0.10.0 nothing legacy is left.
 
 **A subfolder of `contao/templates/` is part of a template's name only below a
 `.twig-root` marker.** Without it Contao reads the top level only and drops the

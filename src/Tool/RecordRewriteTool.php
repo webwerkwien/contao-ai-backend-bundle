@@ -85,9 +85,9 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         private readonly ?NewsUpdateCommand $newsUpdate = null,
         private readonly ?EventUpdateCommand $eventUpdate = null,
         private readonly ?FaqUpdateCommand $faqUpdate = null,
-        // Page/Article/Content sind Teil von contao/core-bundle, immer da.
-        // Trotzdem nullable für Robustheit, falls jemand das Bundle ohne
-        // core-bundle (theoretisch) deployt.
+        // Page/article/content are part of contao/core-bundle, always there.
+        // Nullable anyway for robustness, in case someone (theoretically) deploys
+        // the bundle without the core bundle.
         private readonly ?PageUpdateCommand $pageUpdate = null,
         private readonly ?ArticleUpdateCommand $articleUpdate = null,
         private readonly ?ContentUpdateCommand $contentUpdate = null,
@@ -96,8 +96,8 @@ class RecordRewriteTool extends AbstractCoreCommandTool
     }
 
     /**
-     * Sichtbar, wenn der User ein Source-/Container-Modul mounted
-     * hat. Source-Modul-Map (tabellen-übergreifend, deckt single + recursive ab).
+     * Visible when the user has a source/container module mounted. Source module
+     * map (across tables, covers single + recursive).
      *
      * @var array<string, string>
      */
@@ -153,19 +153,18 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             throw new ToolRefusedException('record_rewrite benötigt nicht-leere Anweisungen.');
         }
 
-        // Source-Voter. Single-Record: edit-Recht auf die zu
-        // schreibende Zeile selbst. Recursive: edit-Recht auf den Container
-        // (Lese-Recht reicht nicht, weil wir die Children gleich beschreiben).
-        // Die Werkzeug-Berechtigung lief bisher erst in
-        // runCommand() — also NACH dem LLM-Aufruf. Ein Benutzer, der den Datensatz
-        // zwar bearbeiten darf, `record_rewrite` aber nicht benutzen darf, hatte
-        // dessen Inhalt damit bereits an den Anbieter geschickt, bevor er die
-        // Ablehnung sah.
+        // Source voter. Single record: the edit right on the row to be written
+        // itself. Recursive: the edit right on the container (the read right is
+        // not enough, because we are about to write the children).
+        // The tool permission used to run only in runCommand() — that is, AFTER
+        // the LLM call. A user allowed to edit the record but not to use
+        // `record_rewrite` had thus already sent its content to the provider
+        // before seeing the refusal.
         //
-        // 🎯 Berechtigung vor jeder Nebenwirkung — und ein Request an einen
-        // fremden Endpunkt ist eine. Bei allen anderen Werkzeugen fällt das nicht
-        // auf, weil dort `runCommand()` die erste Nebenwirkung IST; dieses hier
-        // ist das einzige mit einer davor.
+        // 🎯 Permission before any side effect — and a request to a third-party
+        // endpoint is one. With every other tool this goes unnoticed, because
+        // there `runCommand()` IS the first side effect; this one is the only one
+        // with one before it.
         $this->assertAccess('record_rewrite');
 
         $this->permissionChecker->assertRecordAccess($user, $table, $id, 'edit');
@@ -261,8 +260,8 @@ class RecordRewriteTool extends AbstractCoreCommandTool
     private function resolveTargetIds(string $table, int $id, bool $recursive, BackendUser $user): array
     {
         if (!$recursive) {
-            // Source-Voter ist im Aufrufer schon gelaufen — Single-Record-Pfad
-            // hat keine weiteren Children, refused bleibt leer.
+            // The source voter already ran in the caller — the single-record path
+            // has no further children, refused stays empty.
             return ['ids' => [$id], 'rewriter_table' => $table, 'capped' => false, 'refused' => []];
         }
 
@@ -286,12 +285,11 @@ class RecordRewriteTool extends AbstractCoreCommandTool
         $rows = $this->connection->fetchAllAssociative($sql, $params);
         $ids = array_map(static fn(array $r): int => (int) $r['id'], $rows);
 
-        // Spezialfall tl_article -> tl_content: nested content-elements
-        // (ptable=tl_content) sind die Kinder von Container-Elementen wie
-        // accordion/colset/grouped layouts. Wer "alle Inhalte des Articles
-        // umschreiben" sagt, meint typischerweise auch diese — sonst bleiben
-        // die Sub-Texte im Akkordeon original. BFS bis keine neuen Kinder
-        // mehr auftauchen.
+        // Special case tl_article -> tl_content: nested content elements
+        // (ptable=tl_content) are the children of container elements such as
+        // accordion/colset/grouped layouts. Whoever says "rewrite all content of
+        // the article" typically means these too — otherwise the sub-texts in the
+        // accordion stay original. BFS until no new children turn up.
         if ('tl_article' === $table && 'tl_content' === $childTable) {
             $queue = $ids;
             while ([] !== $queue) {
@@ -317,11 +315,11 @@ class RecordRewriteTool extends AbstractCoreCommandTool
             $capped = true;
         }
 
-        // Per-Child-Voter. Editor mit news-Modul + Zugriff auf
-        // Archiv 1 darf z.B. trotzdem nicht über recursive in Archiv 7
-        // schreiben, das nur transitiv per Container-Lookup auftaucht. Skip
-        // mit Note statt Hart-Abbruch — Caller bekommt `refused: [...]` und
-        // führt die erlaubten Children aus.
+        // Per-child voter. An editor with the news module + access to archive 1,
+        // for example, still may not write through recursive into archive 7,
+        // which only turns up transitively via the container lookup. Skip with a
+        // note instead of a hard abort — the caller gets `refused: [...]` and runs
+        // the allowed children.
         // Admins too since v0.18.0 — the voters judge them as in the back end.
         $refused = [];
         $kept = [];

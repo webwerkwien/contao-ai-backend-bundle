@@ -42,20 +42,20 @@ class UserAiConfig
         $baseUrl  = trim((string) ($user->ai_base_url ?? ''));
         $model    = trim((string) ($user->ai_model ?? ''));
 
-        // 🔴 Bis 2026-09-02 stand hier ein Rückfall auf `anthropic`, sobald die
-        // gespeicherte Plattform nicht installiert war — **unter Beibehaltung des
-        // Schlüssels**. Ein `composer remove symfony/ai-mistral-platform` hätte
-        // damit gereicht, um den Mistral-Schlüssel eines Benutzers beim nächsten
-        // Chat an api.anthropic.com zu schicken. Reproduziert, nicht vermutet.
+        // 🔴 Until 2026-09-02 this fell back to `anthropic` as soon as the stored
+        // platform was not installed — **keeping the key**. A
+        // `composer remove symfony/ai-mistral-platform` would thus have been
+        // enough to send a user's Mistral key to api.anthropic.com on the next
+        // chat. Reproduced, not assumed.
         //
-        // 🎯 Die Regel, die das nicht wieder zulässt:
-        //    **Ein gespeicherter Schlüssel gehört zu genau dem Anbieter, den der
-        //    Benutzer gewählt hat. Wechselt der Anbieter, ist der Schlüssel falsch.**
+        // 🎯 The rule that does not allow it again:
+        //    **A stored key belongs to exactly the provider the user chose. If the
+        //    provider changes, the key is wrong.**
         //
-        // Deshalb wird hier nichts mehr ersetzt. Ein unbekannter Wert wird
-        // unverändert weitergereicht; `PlatformRegistry::get()` wirft dann eine
-        // AiConfigException, die den Anbieter benennt und die verfügbaren
-        // aufzählt. Diese Klasse liest, sie entscheidet nicht.
+        // So nothing is replaced here any more. An unknown value is passed on
+        // unchanged; `PlatformRegistry::get()` then throws an AiConfigException
+        // that names the provider and lists the available ones. This class reads,
+        // it does not decide.
         if ('' !== $platform && !$this->registry->has($platform)) {
             $this->logger->warning('contao-ai-backend: stored AI platform is not installed', [
                 'username'  => (string) ($user->username ?? '(unknown)'),
@@ -64,10 +64,10 @@ class UserAiConfig
             ]);
         }
 
-        // Eine Vorgabe ist nur dort unbedenklich, wo nichts zu verwechseln ist:
-        // kein Anbieter gewählt UND kein Schlüssel hinterlegt. Liegt ein Schlüssel
-        // vor, ohne dass ein Anbieter gewählt wurde, bleibt das Feld leer — raten
-        // hieße, denselben Fehler an anderer Stelle zu machen.
+        // A default is harmless only where nothing can be mixed up: no provider
+        // chosen AND no key stored. If there is a key but no provider was chosen,
+        // the field stays empty — guessing would mean making the same mistake in
+        // another place.
         if ('' === $platform && '' === $apiKey && $this->registry->has(self::DEFAULT_PLATFORM)) {
             $platform = self::DEFAULT_PLATFORM;
         }

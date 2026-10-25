@@ -44,8 +44,7 @@ use Webwerkwien\ContaoAiBackendBundle\EventListener\LegacyChatUrlListener;
  * `be_ai_chat.html5` wrapper. Contao 6 renders legacy modules through Twig only
  * and never reads `.html5`. Contao converted its own wrappers in 6.0
  * (`be_maintenance.html5` became `be_maintenance.html.twig`); ours was not, and
- * the 6.0 test installation is reachable from the console only, so nobody ever
- * clicked the menu entry there.
+ * no test opened the page on 6.0.
  *
  * 0.10.0 drops the legacy path instead of patching the wrapper: a route
  * (AiChatController), a menu listener, and the template in contao/templates/ so
@@ -136,8 +135,8 @@ class ChatPageIsTwigTest extends TestCase
     }
 
     /**
-     * 🔴 The check above passed while the page could not open — on the test
-     * server, 2026-10-03. The file existed; Contao registered it as
+     * 🔴 The check above passed while the page could not open — on an
+     * installation, 2026-10-03. The file existed; Contao registered it as
      * `@Contao/ai_chat.html.twig`, not under the name the controller renders.
      *
      * Contao's TemplateLocator reads a bundle's template directory one level
@@ -150,7 +149,7 @@ class ChatPageIsTwigTest extends TestCase
      *
      * Not covered: that Contao picks up this bundle's contao/templates/ as a
      * source at all (its ResourceFinder does that by convention; here it gets an
-     * empty one). That half is checked on the test server with
+     * empty one). That half is checked on an installation with
      * `debug:contao-twig backend/ai_chat`.
      */
     public function testContaoRegistersEachTemplateUnderTheRenderedName(): void
@@ -360,7 +359,7 @@ class ChatPageIsTwigTest extends TestCase
      * and their attributes name the right event and priority.
      *
      * Whether Symfony turns the attribute into a registered listener needs the
-     * compiled container — checked on the test server after each deploy with
+     * compiled container — checked on an installation with
      * `debug:event-dispatcher contao.backend_menu_build` and `kernel.request`.
      */
     public function testTheListenersAreWiredByServicesYaml(): void

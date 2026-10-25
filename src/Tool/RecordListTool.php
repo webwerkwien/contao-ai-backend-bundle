@@ -102,8 +102,8 @@ class RecordListTool extends AbstractCoreCommandTool
         array|string $filter = [],
         array|string $fields = [],
     ): string {
-        // Das Modell sendet `array`-Parameter manchmal als JSON-String. Decode-First,
-        // dann Normalize-Pipeline.
+        // The model sometimes sends `array` parameters as a JSON string. Decode
+        // first, then the normalize pipeline.
         if (\is_string($filter)) {
             $decoded = json_decode($filter, true);
             $filter = \is_array($decoded) ? $decoded : [];
@@ -232,9 +232,9 @@ class RecordListTool extends AbstractCoreCommandTool
                     && null !== ($item = $this->dcAccess->fetchRecord($table, (int) $row['id']))
                     && $this->canRead('tl_image_size', ['id' => (int) $item['pid']]),
             ),
-            // Dateien hängen an einem Pfad, nicht an einer ID. Contao prüft dabei
-            // auch Unterordner eines Mounts (Präfix-Vergleich im Voter), deshalb
-            // wird der Pfad unverändert übergeben.
+            // Files hang on a path, not an ID. Contao also checks subfolders of a
+            // mount (prefix comparison in the voter), so the path is passed on
+            // unchanged.
             'tl_files' => array_filter(
                 $results,
                 fn ($row) => \is_array($row)
@@ -245,10 +245,10 @@ class RecordListTool extends AbstractCoreCommandTool
                     ),
             ),
 
-            // 🎯 Default-deny statt Durchreichen. Eine Tabelle, die jemand
-            // künftig in ALLOWED_TABLES aufnimmt, ohne hier einen Filter zu
-            // ergänzen, liefert dann nichts — statt alles. Genau dieser Zweig
-            // war der Fehler: er sah harmlos aus und war die Lücke.
+            // 🎯 Default-deny instead of passing through. A table someone adds to
+            // ALLOWED_TABLES later without adding a filter here then returns
+            // nothing — instead of everything. Exactly this branch was the defect:
+            // it looked harmless and was the gap.
             default => [],
         };
     }

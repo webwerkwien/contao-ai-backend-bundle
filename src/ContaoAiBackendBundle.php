@@ -45,10 +45,10 @@ class ContaoAiBackendBundle extends AbstractBundle
         $containerBuilder->setParameter('contao_ai_backend.models', (array) ($config['models'] ?? []));
         $containerConfigurator->import('../config/services.yaml');
 
-        // Plugin-bedingte Tools/Rewriter: Klassen referenzieren plugin-spezifische
-        // Models (NewsModel, CalendarEventsModel, FaqModel) und die jeweiligen
-        // *_update-Commands aus dem Core-Bundle. Ohne diese Guards bricht der
-        // Container-Build, sobald das jeweilige contao-bundle fehlt.
+        // Plugin-conditional tools/rewriters: the classes reference plugin-specific
+        // models (NewsModel, CalendarEventsModel, FaqModel) and the respective
+        // *_update commands from the core bundle. Without these guards the
+        // container build breaks as soon as the respective contao bundle is missing.
         if (class_exists(NewsModel::class)) {
             $containerConfigurator->import('../config/services_news.yaml');
         }

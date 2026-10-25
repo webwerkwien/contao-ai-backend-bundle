@@ -19,7 +19,7 @@ use Webwerkwien\ContaoAiCoreBundle\Command\EventUpdateCommand;
  *
  * The gap this closes was never a decision. CRUD tools shipped with v0.1.0 for
  * page, article, content and news; calendars and FAQs only ever arrived through
- * the cloner and the rewriter in phase 9. So the agent could *clone* a calendar
+ * the cloner and the rewriter. So the agent could *clone* a calendar
  * and *rewrite* an event, but not create or update one — a shape nobody chose.
  *
  * 🎯 Cheap to close because the expensive half already existed:

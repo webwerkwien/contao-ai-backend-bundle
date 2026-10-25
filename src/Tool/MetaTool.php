@@ -82,8 +82,8 @@ class MetaTool extends AbstractCoreCommandTool
             );
         }
 
-        // Die Werkzeug-Beschreibung sagt "a table the current user has
-        // module access to" — bis 2026-09-02 stand dem nichts im Code gegenüber.
+        // The tool description says "a table the current user has module access
+        // to" — until 2026-09-02 nothing in the code backed that.
         $this->assertModuleAccessForTable($table);
 
         return $this->runCommand($this->dcaCommand, ['table' => $table], 'dca_schema');

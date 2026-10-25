@@ -103,9 +103,9 @@ class ContentRewriter extends AbstractEntityRewriter
     }
 
     /**
-     * `tl_content.text` ist ein Rich-Text-Feld (DCA `allowHtml`). Ohne diesen
-     * Eintrag wuerde die Antwort des Modells wegen ihrer `<p>`-Tags als
-     * Klartext-Verstoss abgelehnt.
+     * `tl_content.text` is a rich-text field (DCA `allowHtml`). Without this
+     * entry the model's answer would be refused as a plain-text violation because
+     * of its `<p>` tags.
      *
      * @return list<string>
      */

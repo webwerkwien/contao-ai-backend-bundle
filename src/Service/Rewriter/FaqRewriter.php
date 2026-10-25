@@ -58,7 +58,7 @@ class FaqRewriter extends AbstractEntityRewriter
     }
 
     /**
-     * `tl_faq.answer` ist ein Rich-Text-Feld. `question` bleibt Klartext.
+     * `tl_faq.answer` is a rich-text field. `question` stays plain text.
      *
      * @return list<string>
      */

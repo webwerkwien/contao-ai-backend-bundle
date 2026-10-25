@@ -99,17 +99,16 @@ class ToolCallLogger implements EventSubscriberInterface
     }
 
     /**
-     * `getArguments()` ging vollständig und ungemaskt
-     * ins Log. Ein Redakteur, der über ein Update-Werkzeug einen Text mit
-     * `sk-proj-…` oder einem Bearer-Token schreibt, hatte den vollständigen Wert
-     * dauerhaft im Logfile — auf WARNING-Ebene. Die Maskierung schützte bis
-     * dahin nur Fehlermeldungen, nicht die Argumente auf dem Weg dorthin.
+     * `getArguments()` used to go into the log complete and unmasked. An editor
+     * who writes a text containing `sk-proj-…` or a bearer token through an update
+     * tool had the full value in the log file for good — at WARNING level. Until
+     * then the masking protected only error messages, not the arguments on their
+     * way there.
      *
-     * Ohne bekannten Geheimniswert greift hier nur das Muster-Netz: Der Logger
-     * sieht den Werkzeugaufruf, nicht das Benutzerprofil. Das ist eine
-     * schwächere Zusicherung als in den Controllern — und soll es sein, denn ein
-     * Argument ist Text, den ein Benutzer getippt hat, kein Schlüssel, den wir
-     * halten.
+     * Without a known secret value only the pattern net applies here: the logger
+     * sees the tool call, not the user profile. That is a weaker promise than in
+     * the controllers — and is meant to be, because an argument is text a user
+     * typed, not a key we hold.
      *
      * Since v0.14.1 also by name (ToolArgumentMasker): a password has no key format.
      *

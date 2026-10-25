@@ -129,22 +129,21 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
     }
 
     /**
-     * LLM-Ausgabe ging bis dahin ungeprüft in die
-     * Datenbank — validiert wurden nur Leerwert, Länge, Längenverhältnis und
-     * einige Verweigerungsphrasen. Für ein HTML-Feld wie `tl_content.text` oder
-     * `tl_faq.answer` heißt das: was der Anbieter zurückgibt, wird gespeichert.
+     * LLM output used to go into the database unchecked — only emptiness, length,
+     * length ratio and a few refusal phrases were validated. For an HTML field like
+     * `tl_content.text` or `tl_faq.answer` that means: whatever the provider returns
+     * is stored.
      *
-     * Zwei verschiedene Antworten, mit Absicht:
+     * Two different answers, on purpose:
      *
-     * - **Klartext-Feld mit Tags → abgelehnt**, nicht stillschweigend bereinigt.
-     *   Ein `<script>` in einer Überschrift ist kein Formatierungsfehler, den man
-     *   wegputzt — es ist ein Signal, und das gehört dem Operator gemeldet
-     *   (`skipped`) statt weggeräumt. Stilles Reparieren verbirgt genau die
-     *   Fälle, für die man hinsieht.
-     * - **HTML-Feld → über Contaos eigene Regeln gefiltert.** `Input::stripTags()`
-     *   mit `allowedTags`/`allowedAttributes` aus der Konfiguration ist exakt das,
-     *   was Contao auf Backend-Eingaben anwendet. Eine eigene Liste hier wäre
-     *   eine zweite Wahrheit, die von der Installation abweicht.
+     * - **Plain-text field with tags → refused**, not silently cleaned. A
+     *   `<script>` in a headline is not a formatting error to be wiped away — it is
+     *   a signal, and it belongs reported to the operator (`skipped`) rather than
+     *   tidied up. Silent repair hides exactly the cases one looks for.
+     * - **HTML field → filtered by Contao's own rules.** `Input::stripTags()` with
+     *   `allowedTags`/`allowedAttributes` from the configuration is exactly what
+     *   Contao applies to back-end input. A list of our own here would be a second
+     *   truth that differs from the installation.
      */
     private function sanitiseForField(string $field, string $value): ?string
     {
@@ -153,13 +152,12 @@ abstract class AbstractEntityRewriter implements EntityRewriterInterface
         }
 
         if (!\in_array($field, $this->htmlFields(), true)) {
-            // strip_tags() entfernt nur Tag-artige Konstrukte; ein "5 < 6" im
-            // Fließtext überlebt. Weicht das Ergebnis ab, war ein Tag drin.
+            // strip_tags() removes only tag-like constructs; a "5 < 6" in running
+            // text survives. If the result differs, there was a tag in it.
             //
-            // Bewusst VOR framework->initialize(): der Klartext-Pfad braucht
-            // Contao nicht. Aufgefallen, weil ein Prüfskript die Methode ohne
-            // gebootetes Framework rief und daran scheiterte — die Abhängigkeit
-            // war echt und unnötig.
+            // Deliberately BEFORE framework->initialize(): the plain-text path does
+            // not need Contao. A caller without a booted framework failed on it
+            // otherwise — the dependency was real and unnecessary.
             return strip_tags($value) === $value ? $value : null;
         }
 

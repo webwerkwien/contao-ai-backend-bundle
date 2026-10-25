@@ -6,25 +6,25 @@ services:
 
     Webwerkwien\ContaoAiBackendBundle\:
         resource: '../src/'
-        # Plugin-bedingte Tools werden in services_<plugin>.yaml registriert,
-        # sobald das jeweilige contao-bundle installiert ist (siehe
-        # ContaoAiBackendBundle::loadExtension). Sie MÜSSEN hier zusätzlich
-        # ausgeschlossen werden.
+        # Plugin-conditional tools are registered in services_<plugin>.yaml as
+        # soon as the respective contao bundle is installed (see
+        # ContaoAiBackendBundle::loadExtension). They MUST be excluded here as
+        # well.
         #
-        # 🔴 Genau das fehlte für EventTool und FaqTool (v0.6.0/v0.7.0) und hat
-        # auf einer Live-Installation den Container-Build zerlegt:
+        # 🔴 Exactly this was missing for EventTool and FaqTool (v0.6.0/v0.7.0)
+        # and broke the container build on a live installation:
         #
         #   Cannot autowire "…Tool\FaqTool": argument "$createCommand" needs
         #   "…Command\FaqCreateCommand" but this type has been excluded
         #
-        # 🎯 Der class_exists-Guard in loadExtension() verhindert nur die
-        # *zusätzliche* Registrierung — er nimmt die Klasse nicht aus dem
-        # Auto-Discover. Ohne Eintrag hier wird das Tool immer gebaut, auch wo
-        # sein Command fehlt. Der Guard sieht aus, als reiche er. Er reicht nur
-        # zur Hälfte.
+        # 🎯 The class_exists guard in loadExtension() only prevents the
+        # *additional* registration — it does not take the class out of
+        # auto-discovery. Without an entry here the tool is always built, even
+        # where its command is missing. The guard looks sufficient. It is only
+        # half of it.
         #
-        # Die Gegenprobe lieferte dieselbe Installation: dort fehlt auch das
-        # news-bundle, und NewsTool blieb still — weil es unten steht.
+        # The same installation provided the counter-check: the news bundle is
+        # missing there too, and NewsTool stayed quiet — because it is listed below.
         exclude:
             - '../src/{ContaoAiBackendBundle.php,ContaoManager,Exception,Service/AgentInvocation.php,Service/UserAiConfigDto.php,Resources}'
             # Built where used (v0.14.1): a second LoggerInterface service in the
@@ -33,9 +33,9 @@ services:
             - '../src/Tool/NewsTool.php'
             - '../src/Tool/EventTool.php'
             - '../src/Tool/FaqTool.php'
-            # Rewriter-Infrastruktur ist plugin-bedingt; pro Plugin in
-            # services_<plugin>.yaml registriert. Das Interface selbst wird
-            # nirgends als Service gebraucht (nur als Type-Hint im Tagged-Iterator).
+            # Rewriter infrastructure is plugin-conditional; registered per plugin
+            # in services_<plugin>.yaml. The interface itself is never needed as a
+            # service (only as a type hint in the tagged iterator).
             - '../src/Service/Rewriter/EntityRewriterInterface.php'
             - '../src/Service/Rewriter/News*.php'
             - '../src/Service/Rewriter/Event*.php'
@@ -54,9 +54,9 @@ services:
             $csrfTokenName: '%contao.csrf_token_name%'
             $projectDir: '%kernel.project_dir%'
 
-    # HTTP-Bridge für den Python-CLI-Agent. Bearer-Token-Auth,
-    # kein CSRF, stateless. Re-Use existierender Macro-Tools via direkten
-    # Service-Call mit programmatisch gesetztem Security-Token.
+    # HTTP bridge for the Python CLI agent. Bearer token auth, no CSRF,
+    # stateless. Reuses the existing macro tools via a direct service call with
+    # a programmatically set security token.
     Webwerkwien\ContaoAiBackendBundle\Controller\CliBridgeController:
         autowire: true
         public: true
@@ -64,8 +64,8 @@ services:
         arguments:
             $projectDir: '%kernel.project_dir%'
 
-    # Token-Generierung im Backend-Profil. Backend-Session-Auth
-    # (Contao-Standardfirewall), CSRF via REQUEST_TOKEN.
+    # Token generation in the back-end profile. Back-end session auth
+    # (Contao's standard firewall), CSRF via REQUEST_TOKEN.
     Webwerkwien\ContaoAiBackendBundle\Controller\AiCliTokenController:
         autowire: true
         public: true
@@ -73,8 +73,8 @@ services:
         arguments:
             $csrfTokenName: '%contao.csrf_token_name%'
 
-    # DCA input_field_callback. Public, weil Contaos Legacy-Callback
-    # Resolver den Service per ID instanziiert und nicht-public nicht erreicht.
+    # DCA input_field_callback. Public, because Contao's legacy callback
+    # resolver instantiates the service by ID and cannot reach a non-public one.
     Webwerkwien\ContaoAiBackendBundle\Dca\TlUserCallback:
         autowire: true
         public: true
@@ -83,11 +83,11 @@ services:
         arguments:
             $promptFile: '%kernel.project_dir%/vendor/webwerkwien/contao-ai-backend-bundle/src/Resources/prompts/system.md'
 
-    # RecordRewriteTool lädt immer (kein plugin-condition), die
-    # plugin-bedingten Update-Commands (news/event/faq) kommen optional rein über
-    # '@?' — null wenn das jeweilige contao-bundle nicht installiert ist. Tool
-    # refused zur Laufzeit graceful. Page/Article/Content-Update sind Teil von
-    # contao/core-bundle und immer da.
+    # RecordRewriteTool always loads (no plugin condition); the plugin-conditional
+    # update commands (news/event/faq) come in optionally via '@?' — null when
+    # the respective contao bundle is not installed. The tool then refuses
+    # gracefully at runtime. Page/article/content update are part of
+    # contao/core-bundle and always there.
     Webwerkwien\ContaoAiBackendBundle\Tool\RecordRewriteTool:
         autowire: true
         autoconfigure: true
@@ -102,8 +102,8 @@ services:
     _instanceof:
         Webwerkwien\ContaoAiBackendBundle\Tool\AbstractCoreCommandTool:
             tags: ['contao_ai_backend.tool']
-        # Page/Article/Content-Rewriter sind nicht plugin-bedingt — auto-tag
-        # zentral hier statt in Plugin-Files. Plugin-bedingte Rewriter haben
-        # ihr eigenes _instanceof in services_news/calendar/faq.yaml.
+        # Page/article/content rewriters are not plugin-conditional — auto-tagged
+        # centrally here instead of in plugin files. Plugin-conditional rewriters
+        # have their own _instanceof in services_news/calendar/faq.yaml.
         Webwerkwien\ContaoAiBackendBundle\Service\Rewriter\EntityRewriterInterface:
             tags: ['contao_ai_backend.entity_rewriter']

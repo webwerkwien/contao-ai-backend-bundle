@@ -220,10 +220,10 @@ abstract class AbstractCoreCommandTool
         if (0 === $userId) {
             return null;
         }
-        // 🔴 Ein zweiter Aufruf im SELBEN Turn löst nichts
-        // mehr aus. Vorher konnte das Modell hier zweimal hintereinander rufen —
-        // die Frage an den Benutzer war nur ein Satz in der `note`, und die
-        // Werkzeugschleife treibt seit symfony/ai 0.13 das Modell selbst.
+        // 🔴 A second call in the SAME turn no longer triggers anything.
+        // Before, the model could call here twice in a row — the question to the
+        // user was only a sentence in the `note`, and since symfony/ai 0.13 the
+        // tool loop drives the model itself.
         if ($this->pendingActionStore->stagedInCurrentTurn($userId, $tool, $key)) {
             $payload = [
                 'status'   => 'awaiting_user',
@@ -259,23 +259,23 @@ abstract class AbstractCoreCommandTool
     protected const FIELD_TRUNCATION_BYTES = 500;
 
     /**
-     * `JSON_HEX_TAG` kam dazu, und zwar aus einem
-     * Grund, der ohne Messung nicht sichtbar ist.
+     * `JSON_HEX_TAG` was added for a reason that is not visible without
+     * measuring.
      *
-     * Der Vorwurf lautete: Datensatz-Inhalt könne den Sentinel schließen
-     * (`</tool_output_data>`) und danach als Anweisung erscheinen. Gemessen war
-     * das **nicht** der Fall — `json_encode()` escaped den Schrägstrich zu
-     * `<\/tool_output_data>`, der Angriff trug nicht.
+     * The concern was: record content could close the sentinel
+     * (`</tool_output_data>`) and appear as an instruction after it. Measured, that
+     * was **not** the case — `json_encode()` escapes the slash to
+     * `<\/tool_output_data>`, the attack did not work.
      *
-     * 🎯 Aber das war **zufälliger Schutz**. Niemand hatte `json_encode` deswegen
-     * gewählt, ein später ergänztes `JSON_UNESCAPED_SLASHES` — eine plausible
-     * Lesbarkeits-Änderung — hätte ihn lautlos entfernt, und der ÖFFNENDE Tag
-     * ging ohnehin durch, weil er keinen Schrägstrich enthält.
+     * 🎯 But that was **accidental protection**. Nobody had chosen `json_encode` for
+     * it; a `JSON_UNESCAPED_SLASHES` added later — a plausible readability change —
+     * would have removed it silently, and the OPENING tag got through anyway,
+     * because it contains no slash.
      *
-     * `JSON_HEX_TAG` macht aus der Zufälligkeit eine Zusage: `<` und `>` werden
-     * zu `<`/`>`, im Datenbereich kann also überhaupt kein Tag mehr
-     * entstehen. Der Rückweg über `json_decode()` liefert den Originalwert —
-     * für das Modell ändert sich nichts, für einen Angreifer alles.
+     * `JSON_HEX_TAG` turns the accident into a promise: `<` and `>` become
+     * `<`/`>`, so no tag at all can form in the data. The way back through
+     * `json_decode()` yields the original value — nothing changes for the model,
+     * everything for an attacker.
      */
     protected const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG;
 
@@ -400,21 +400,20 @@ abstract class AbstractCoreCommandTool
                 throw new ToolExecutionException(\sprintf('Tool "%s" fehlgeschlagen: %s', $toolName, $message));
             }
 
-            // 🔴 Gefunden am 2026-09-02: hier stand `ToolExecutionException`, und
-            // damit wurde eine falsche ID zu HTTP 500. Ein nicht vorhandener
-            // Datensatz ist kein Serverfehler — und seit contao-ai-cli v0.15.0
-            // bedeutet 500 in `bridge configure --test` ausdrücklich „Token gut,
-            // Bridge kaputt". Ein Tippfehler hätte damit eine gesunde Bridge
-            // angeklagt.
+            // 🔴 Until 2026-09-02 this said `ToolExecutionException`, which turned
+            // a wrong ID into HTTP 500. A record that does not exist is no server
+            // error — and since contao-ai-cli v0.15.0, a 500 in
+            // `bridge configure --test` explicitly means "token fine, bridge
+            // broken". A typo would have accused a healthy bridge.
             //
-            // Wir sind an dieser Stelle, weil der Befehl ein wohlgeformtes
-            // Fehlerobjekt geliefert hat: er lief, verstand die Anfrage und hat
-            // sie abgelehnt. Das ist eine Aussage an den Aufrufer, kein Defekt.
-            // Siehe ToolRefusedException für die Grenze und ihren Preis.
+            // We are here because the command returned a well-formed error
+            // object: it ran, understood the request and refused it. That is a
+            // statement to the caller, not a defect. See ToolRefusedException for
+            // the boundary and its price.
             //
-            // Der Core stellt jeder Meldung die Klasse voran (JsonErrorBoundary);
-            // bei einer Ablehnung ist das immer `InvalidArgumentException:` und
-            // sagt einem Redakteur nichts.
+            // The core prefixes every message with the class (JsonErrorBoundary);
+            // for a refusal that is always `InvalidArgumentException:`, which
+            // tells an editor nothing.
             throw new ToolRefusedException(\sprintf('Tool "%s" abgelehnt: %s', $toolName, self::withoutRefusalClass($message)));
         }
 
@@ -968,15 +967,13 @@ abstract class AbstractCoreCommandTool
      * @throws ToolAccessDeniedException
      */
     /**
-     * Tabellen, die ein Redakteur überblicken darf, und das Backend-Modul, das
-     * dafür nötig ist.
+     * Tables an editor may survey, and the back-end module each one requires.
      *
-     * 🎯 Stand bis zum 2026-09-02 an ZWEI Stellen: `RecordListTool::ALLOWED_TABLES`
-     * plus `TABLE_MODULE`, und `MetaTool::ALLOWED_DCA_TABLES`. Der Kommentar dort
-     * lautete wörtlich *"same allow-list as MetaTool::ALLOWED_DCA_TABLES"* — eine
-     * Dublette, die sich selbst kannte und trotzdem eine blieb. Sie sind
-     * zusammengelegt, weil zwei Listen sich früher oder später unterscheiden und
-     * niemand merkt, welche die richtige ist.
+     * 🎯 Until 2026-09-02 this lived in TWO places: `RecordListTool::ALLOWED_TABLES`
+     * plus `TABLE_MODULE`, and `MetaTool::ALLOWED_DCA_TABLES`. The comment there read,
+     * word for word, *"same allow-list as MetaTool::ALLOWED_DCA_TABLES"* — a duplicate
+     * that knew it was one and stayed one anyway. They are merged, because two lists
+     * diverge sooner or later and nobody notices which one is right.
      *
      * @var array<string, string>
      */
@@ -996,13 +993,12 @@ abstract class AbstractCoreCommandTool
     ];
 
     /**
-     * Modul-Prüfung für eine Tabelle. Admins passieren.
+     * Module check for a table. Admins pass.
      *
-     * `dca_schema` versprach in seiner eigenen
-     * Werkzeug-Beschreibung *"a Contao table the current user has module access
-     * to"* und prüfte nur die Tabellen-Allow-Liste. Dritter Fall desselben
-     * Musters an einem Tag — eine Beschreibung, die einen Schutz zusagt, den der
-     * Code nicht leistet.
+     * `dca_schema` promised in its own tool description *"a Contao table the current
+     * user has module access to"* and checked only the table allow-list. The third
+     * case of the same pattern in one day — a description that promises a protection
+     * the code does not provide.
      */
     protected function assertModuleAccessForTable(string $table): void
     {

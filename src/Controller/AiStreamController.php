@@ -424,8 +424,8 @@ class AiStreamController extends AbstractController
             if (!\is_array($entry)) {
                 continue;
             }
-            // loadHistory() filtert auf isset(role, content) - beide sind da.
-            // Der Cast bleibt: isset prueft Existenz, nicht Typ.
+            // loadHistory() filters on isset(role, content) - both are there.
+            // The cast stays: isset checks existence, not type.
             $role    = (string) $entry['role'];
             $content = (string) $entry['content'];
             if ('' === trim($content)) {

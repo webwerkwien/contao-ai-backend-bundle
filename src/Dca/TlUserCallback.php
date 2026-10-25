@@ -12,27 +12,27 @@ use Webwerkwien\ContaoAiBackendBundle\Service\Platform\ModelChoice;
 use Webwerkwien\ContaoAiBackendBundle\Service\Platform\PlatformRegistry;
 
 /**
- * DCA input_field_callback für tl_user.ai_cli_token.
+ * DCA input_field_callback for tl_user.ai_cli_token.
  *
- * Ersetzt das normale Eingabefeld komplett: zeigt Status (vorhanden/leer)
- * und zwei POST-Buttons (Generate/Rotate, Clear). Der Klartext-Token erscheint
- * genau einmal direkt nach dem Rotate in diesem Widget — aus der Session, die
- * AiCliTokenController dafür füllt und die hier beim Rendern geleert wird —,
- * seit v0.16.3 mit dem nächsten Schritt im Terminal darunter.
+ * Replaces the normal input field entirely: shows the status (set/empty) and
+ * two POST buttons (Generate/Rotate, Clear). The clear-text token appears
+ * exactly once, right after the rotate, in this widget — from the session that
+ * AiCliTokenController fills for it and that is cleared here on rendering —,
+ * since v0.16.3 with the next step in the terminal below it.
  */
 class TlUserCallback
 {
     /**
-     * 🔴 `$csrf` und `$csrfTokenName` sind am 2026-09-05 entfallen — sie wurden
-     * injiziert und nie gelesen. Übrig geblieben aus der Zeit, als hier eigene
-     * `<form>`-Elemente mit eigenem Token gerendert wurden; seit dem Umbau auf
-     * `<button formaction="…">` trägt die äußere DCA-Form Contaos `REQUEST_TOKEN`
-     * (siehe {@see tokenWidget()}).
+     * 🔴 `$csrf` and `$csrfTokenName` were dropped on 2026-09-05 — they were
+     * injected and never read. Left over from the time when this rendered its own
+     * `<form>` elements with their own token; since the switch to
+     * `<button formaction="…">` the outer DCA form carries Contao's `REQUEST_TOKEN`
+     * (see {@see tokenWidget()}).
      *
-     * 🎯 Der Schutz war nie weg — er sitzt in {@see AiCliTokenController}, das
-     * `assertCsrf()` in beiden Routen erzwingt. Die tote Injektion war trotzdem
-     * mehr als Ballast: Wer die Klasse liest, nimmt an, dass CSRF *hier*
-     * gehandhabt wird, und sucht die Lücke an der falschen Stelle.
+     * 🎯 The protection was never gone — it sits in {@see AiCliTokenController},
+     * which enforces `assertCsrf()` in both routes. The dead injection was still
+     * more than ballast: whoever reads the class assumes CSRF is handled *here*,
+     * and looks for the gap in the wrong place.
      */
     public function __construct(
         private readonly UrlGeneratorInterface $urlGenerator,

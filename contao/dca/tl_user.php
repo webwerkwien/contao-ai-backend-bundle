@@ -5,30 +5,23 @@ use Contao\CoreBundle\DataContainer\PaletteManipulator;
 // Apply to ALL six tl_user palettes — Contao switches palettes based on the
 // `inherit` selector (group/extend/custom) and the `admin` flag, so missing any
 // palette would hide the AI fields for users with that specific configuration.
-// 🔴 `ai_base_url` steht bewusst NICHT in der `login`-Palette.
+// 🔴 `ai_base_url` is deliberately NOT in the `login` palette.
 //
-// Die `login`-Palette ist die Maske „Persönliche Daten", in der ein Benutzer
-// sein **eigenes** Profil bearbeitet — auch ohne Admin-Rechte. Ein dort
-// eintragbarer Endpunkt heißt: jeder Backend-Redakteur bestimmt, **wohin der
-// Server HTTP-Anfragen stellt** (`http://169.254.169.254/`, `http://localhost:6379`).
-// Klassisches SSRF.
+// The `login` palette is the "Personal data" form in which a user edits their
+// **own** profile — without admin rights too. An endpoint editable there means:
+// every back-end editor decides **where the server sends HTTP requests**
+// (`http://169.254.169.254/`, `http://localhost:6379`). Classic SSRF.
 //
-// ⚠️ Contaos Feldrechte (`exclude` + `alexf`, „Erlaubte Felder") lösen das NICHT.
-// Gemessen in `vendor/contao/core-bundle/contao/dca/tl_user.php`, Callback
-// `handleUserProfile()`: bei `do=login` setzt Contao für **jedes** Feld der
-// Palette `exclude = false` — und das zu Recht, sonst bräuchte man einen Admin,
-// um den eigenen Namen zu ändern. Die Rechteverwaltung greift also nur dort, wo
-// ein Admin fremde Benutzer bearbeitet.
+// ⚠️ Contao's field rights (`exclude` + `alexf`, "allowed fields") do NOT solve
+// this. Measured in `vendor/contao/core-bundle/contao/dca/tl_user.php`, callback
+// `handleUserProfile()`: with `do=login` Contao sets `exclude = false` for
+// **every** field of the palette — and rightly so, otherwise changing one's own
+// name would need an admin. Rights management only applies where an admin edits
+// other users.
 //
-// 🎯 Die Palette ist damit der einzige Hebel, und sachlich der richtige: eine
-// Endpunkt-Adresse ist eine Infrastruktur-Entscheidung (welcher Ollama-Server
-// steht im Haus), keine persönliche Vorliebe. Der API-Schlüssel dagegen ist
-// persönlich und bleibt.
-//
-// Zu allen sechs Paletten, weil Contao anhand des `inherit`-Selektors
-// (group/extend/custom) und des `admin`-Flags umschaltet — eine ausgelassene
-// Palette würde die Felder für Benutzer mit genau dieser Konfiguration
-// verschwinden lassen.
+// 🎯 The palette is therefore the only lever, and the right one: an endpoint
+// address is an infrastructure decision (which Ollama server runs in-house), not
+// a personal preference. The API key, on the other hand, is personal and stays.
 $aiFields = static function (PaletteManipulator $pm, bool $withBaseUrl): PaletteManipulator {
     $pm = $pm
         ->addLegend('ai_legend', 'account_legend', PaletteManipulator::POSITION_BEFORE, false)
@@ -44,12 +37,12 @@ $aiFields = static function (PaletteManipulator $pm, bool $withBaseUrl): Palette
         ->addField('ai_cli_token', 'ai_legend', PaletteManipulator::POSITION_APPEND);
 };
 
-// Admin bearbeitet einen Benutzer: alle Felder.
+// An admin edits a user: all fields.
 foreach (['default', 'admin', 'group', 'extend', 'custom'] as $palette) {
     $aiFields(PaletteManipulator::create(), true)->applyToPalette($palette, 'tl_user');
 }
 
-// Benutzer bearbeitet sich selbst: ohne Endpunkt-Adresse.
+// A user edits their own profile: without the endpoint address.
 $aiFields(PaletteManipulator::create(), false)->applyToPalette('login', 'tl_user');
 
 // Until 2026-09-02 this read `'options' => ['anthropic', 'openai']` — a literal
@@ -75,24 +68,23 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_api_key'] = [
         'tl_class'  => 'w50',
         'maxlength' => 255,
         'rgxp'      => 'extnd',
-        // 🔴 Hier stand `'encrypt' => true`. Das Flag tut in Contao 5 NICHTS:
-        // `Contao\Encryption` ist mit 5.0 entfallen, und in der Quelle des
-        // core-bundle steht keine einzige Fundstelle für `'encrypt'` mehr
-        // (Gegenprobe am 2026-09-02: `'mandatory'` 48 Dateien, `'maxlength'` 38,
-        // `'encrypt'` 0). Der Schlüssel lag also die ganze Zeit im Klartext in
-        // der Spalte — während README und Sicherheitsabschnitt das Gegenteil
-        // behaupteten.
+        // 🔴 This used to say `'encrypt' => true`. The flag does NOTHING in Contao 5:
+        // `Contao\Encryption` was dropped in 5.0, and the core-bundle's source has
+        // not a single occurrence of `'encrypt'` left (counter-check on 2026-09-02:
+        // `'mandatory'` 48 files, `'maxlength'` 38, `'encrypt'` 0). So the key sat
+        // in the column in clear text all along — while the README and its security
+        // section claimed the opposite.
         //
-        // 🎯 Entfernt statt belassen: ein totes Flag, das Sicherheit suggeriert,
-        // ist schlimmer als keines. Wer hier künftig verschlüsseln will, braucht
-        // save_callback/load_callback — das Flag kommt nicht zurück.
+        // 🎯 Removed rather than kept: a dead flag that suggests security is worse
+        // than none. Whoever wants to encrypt here later needs
+        // save_callback/load_callback — the flag does not come back.
         //
-        // v0.17.0, siehe ApiKeyField: hideInput macht ein Passwortfeld und lässt das
-        // Feld in Detailansicht und Versionsvergleich weg; doNotShow auch in der
-        // Undo-Ansicht (tl_undo prüft nur doNotShow); doNotCopy nimmt den Key beim
-        // Duplizieren eines Benutzers nicht mit, wie beim ai_cli_token. Den
-        // gespeicherten Wert hält ApiKeyField aus dem Formular — hideInput allein
-        // schickte ihn im value-Attribut weiterhin mit.
+        // v0.17.0, see ApiKeyField: hideInput makes a password field and leaves the
+        // field out of the detail view and the version comparison; doNotShow also
+        // out of the undo view (tl_undo checks doNotShow only); doNotCopy keeps the
+        // key out of a duplicated user, as with ai_cli_token. ApiKeyField keeps the
+        // stored value out of the form — hideInput alone still sent it in the value
+        // attribute.
         'hideInput' => true,
         'doNotShow' => true,
         'doNotCopy' => true,
@@ -100,10 +92,10 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_api_key'] = [
     'sql'       => "varchar(512) NOT NULL default ''",
 ];
 
-// Endpunkt-Adresse. Nur nötig, wenn der Anbieter keinen festen hat — bei
-// selbst gehosteten Modellen (Ollama, LM Studio) ist es genau umgekehrt: dort
-// gibt es einen Host und keinen Schlüssel. Leer lassen heißt „Vorgabe der
-// Bridge verwenden", die aus deren Factory-Signatur gelesen wird.
+// Endpoint address. Only needed when the provider has no fixed one — with
+// self-hosted models (Ollama, LM Studio) it is the other way round: there is a
+// host and no key. Left empty means "use the bridge's default", which is read
+// from its factory signature.
 $GLOBALS['TL_DCA']['tl_user']['fields']['ai_base_url'] = [
     'inputType' => 'text',
     'eval'      => [
@@ -115,9 +107,9 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_base_url'] = [
     'sql'       => "varchar(255) NOT NULL default ''",
 ];
 
-// Modell. Für Anbieter mit hinterlegter Vorgabe (anthropic, openai) optional;
-// für alle abgeleiteten Anbieter erforderlich, weil die Factory-Signatur den
-// Endpunkt kennt, aber nicht, welches Modell eine Seite bezahlen will.
+// Model. Optional for providers with a stored default (anthropic, openai);
+// required for all derived providers, because the factory signature knows the
+// endpoint but not which model a site wants to pay for.
 $GLOBALS['TL_DCA']['tl_user']['fields']['ai_model'] = [
     'inputType' => 'text',
     // v0.20.0: an empty field shows the model that runs then; the chat offers this one
@@ -130,10 +122,10 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_model'] = [
     'sql'       => "varchar(128) NOT NULL default ''",
 ];
 
-// ai_cli_token — readonly text input zeigt nur "vorhanden/leer"
-// (über input_field_callback gerendert); echte Aktion läuft über den Wizard,
-// der den AiCliTokenController via POST anspricht. Klartext-Token wird einmalig
-// nach erfolgreichem Rotate via Flash-Bag in BE.info angezeigt.
+// ai_cli_token — a read-only text input shows only "set/empty" (rendered via
+// input_field_callback); the real action runs through the wizard, which calls
+// AiCliTokenController via POST. The clear-text token is shown once, after a
+// successful rotate, via the flash bag in BE.info.
 $GLOBALS['TL_DCA']['tl_user']['fields']['ai_cli_token'] = [
     'input_field_callback' => ['Webwerkwien\\ContaoAiBackendBundle\\Dca\\TlUserCallback', 'tokenWidget'],
     'eval'                 => ['tl_class' => 'w50 clr', 'doNotShow' => false, 'doNotCopy' => true],
