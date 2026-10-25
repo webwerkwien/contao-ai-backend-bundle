@@ -39,7 +39,7 @@ class PlatformResolverTest extends TestCase
                 return $this->fields[$strKey] ?? null;
             }
 
-            /** `?? ` asks __isset first — see the vault note on this. */
+            /** `??` asks __isset() first; without it every field reads as null. */
             public function __isset($strKey)
             {
                 return isset($this->fields[$strKey]);
