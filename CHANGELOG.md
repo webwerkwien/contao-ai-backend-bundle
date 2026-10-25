@@ -1096,8 +1096,8 @@ in a language file.
 
 - **The audience is decided server-side.** An admin receives the full report
   including the masked exception message; anyone else receives the summary with
-  the message stripped. H-6 — the raw exception never reaches the client — keeps
-  holding unchanged for exactly the audience it was written for. An admin may
+  the message stripped. The rule that the raw exception never reaches the client
+  keeps holding unchanged for exactly the audience it was written for. An admin may
   read it because the same person can open `var/logs/prod-*.log`; withholding it
   there would be theatre.
 
@@ -1133,7 +1133,7 @@ in a language file.
 
   The gap was never a decision. CRUD tools shipped with v0.1.0 for page,
   article, content and news; calendars and FAQs only ever arrived through the
-  cloner and the rewriter in phase 9. So the agent could *clone* a calendar and
+  cloner and the rewriter. So the agent could *clone* a calendar and
   *rewrite* an event, but not create or update one.
 
   Cheap to close because the expensive half was already there: the console
@@ -1564,7 +1564,7 @@ a model but the bridge's own canonical key — the value already stored in
 
 ### Fixed
 
-- **Refusal detection was only half rolled out.** The Phase-10.4 extension covering Anthropic-style openings (`I'm ready to`, `Happy to`, `Sure,`) had been applied to `NewsRewriter`, `EventRewriter` and `FaqRewriter` but never to `ContentRewriter`, `PageRewriter` and `ArticleRewriter`. Those three kept the older pattern, so `record_rewrite` on `tl_content`, `tl_page` and `tl_article` could still persist a clarification reply as editorial content — the failure mode that put *"I'm ready to transform editorial text according to your instructions…"* into a news headline on 2026-05-08. The pattern now lives in `RefusalDetectionTrait`: one definition, six users, so it cannot drift again.
+- **Refusal detection was only half rolled out.** The extension covering Anthropic-style openings (`I'm ready to`, `Happy to`, `Sure,`) had been applied to `NewsRewriter`, `EventRewriter` and `FaqRewriter` but never to `ContentRewriter`, `PageRewriter` and `ArticleRewriter`. Those three kept the older pattern, so `record_rewrite` on `tl_content`, `tl_page` and `tl_article` could still persist a clarification reply as editorial content — the failure mode that put *"I'm ready to transform editorial text according to your instructions…"* into a news headline on 2026-05-08. The pattern now lives in `RefusalDetectionTrait`: one definition, six users, so it cannot drift again.
 - `NewsRewriter` comments no longer claim `tl_news.headline` is an inputUnit field — it is plain text (the news title). No behaviour change; see `contao:news:repair-headlines` in contao-ai-core-bundle v0.2.4 for repairing legacy rows.
 
 ### Added
@@ -1643,5 +1643,5 @@ These were considered and explicitly deferred:
 ### Notes
 
 - The bundle wraps `webwerkwien/contao-ai-core-bundle`. Both bundles have **different trust models**: the core bundle is also consumed by an SSH-operator CLI and intentionally stays unhardened; the backend bundle is the editor-facing hardened layer.
-- All security fixes apart from C-2 (`tl_undo` snapshot) and M-2 (`--operator` option) live in the backend bundle.
-- Phase-1-discovered platform pitfalls (route registration via `RoutingPluginInterface`, `BE_MOD['callback']` pattern, `X-Requested-With` header, `symfony/ai-agent` not pulled by `symfony/ai-bundle`, …) are documented in the project's vault notes (`Bundle-Entwicklung – Fallstricke`, `symfony-ai-bundle`).
+- All security fixes apart from the `tl_undo` snapshot and the `--operator` option live in the backend bundle.
+- Platform pitfalls met while building it: route registration via `RoutingPluginInterface`, the `BE_MOD['callback']` pattern, the `X-Requested-With` header, and `symfony/ai-agent` not being pulled in by `symfony/ai-bundle`.
