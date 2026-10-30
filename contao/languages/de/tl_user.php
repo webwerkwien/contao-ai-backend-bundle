@@ -5,7 +5,7 @@ declare(strict_types=1);
 $GLOBALS['TL_LANG']['tl_user']['ai_legend']  = 'KI-Agent';
 $GLOBALS['TL_LANG']['tl_user']['ai_platform'] = ['Plattform', 'Welcher KI-Anbieter angesprochen werden soll.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_api_key']  = ['API-Key', 'Persönlicher API-Key (oder Firmen-Key). Ein gespeicherter Key wird nicht angezeigt, nur ********: so lassen = Key behalten, neuen eintragen = ersetzen, Feld leeren = KI-Modul deaktiviert.'];
-$GLOBALS['TL_LANG']['tl_user']['ai_base_url'] = ['Endpunkt-Adresse', 'Nur nötig, wenn der Anbieter keinen festen Endpunkt hat — etwa bei selbst gehosteten Modellen (Ollama, LM Studio). Leer lassen heißt: Vorgabe des Anbieters verwenden.'];
+$GLOBALS['TL_LANG']['tl_user']['ai_base_url'] = ['Endpunkt-Adresse', 'Nur für selbst betriebene Modelle (Ollama, LM Studio, OpenAI-kompatible Dienste). Anbieter mit API-Schlüssel nutzen ihren eigenen Endpunkt; für sie das Feld leer lassen.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_model']    = ['Modell', 'Modell-Kennung, z. B. „mistral-large-latest". Bei Anthropic und OpenAI optional — dort ist eine Vorgabe hinterlegt.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token'] = [
     'CLI-Bridge-Token',

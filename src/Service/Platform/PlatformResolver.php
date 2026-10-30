@@ -110,6 +110,15 @@ class PlatformResolver
             return \sprintf('Für "%s" fehlt die Endpunkt-Adresse im Benutzerprofil.', $descriptor->label);
         }
 
+        // Said before the chat opens, not when the first message fails (v1.1.0, see
+        // PlatformRegistry::createPlatform()).
+        if ($config->hasBaseUrl() && !$descriptor->isSelfHosted()) {
+            return \sprintf(
+                '"%s" hat einen festen Endpunkt; eine eigene Endpunkt-Adresse gibt es nur für selbst betriebene Modelle. Leere das Feld im Benutzerprofil.',
+                $descriptor->label,
+            );
+        }
+
         return null;
     }
 

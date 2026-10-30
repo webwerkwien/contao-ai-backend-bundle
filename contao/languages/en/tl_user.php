@@ -5,7 +5,7 @@ declare(strict_types=1);
 $GLOBALS['TL_LANG']['tl_user']['ai_legend']  = 'AI agent';
 $GLOBALS['TL_LANG']['tl_user']['ai_platform'] = ['Platform', 'Which AI provider should be used.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_api_key']  = ['API key', 'Personal API key (or company key). A stored key is not shown, only ********: leave it = keep the key, enter a new one = replace it, clear the field = AI module disabled.'];
-$GLOBALS['TL_LANG']['tl_user']['ai_base_url'] = ['Endpoint URL', 'Only needed when the provider has no fixed endpoint - typically self-hosted models (Ollama, LM Studio). Leave empty to use the provider default.'];
+$GLOBALS['TL_LANG']['tl_user']['ai_base_url'] = ['Endpoint URL', 'Only for self-hosted models (Ollama, LM Studio, OpenAI-compatible services). Providers with an API key use their own endpoint; leave the field empty for them.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_model']    = ['Model', 'Model identifier, e.g. "mistral-large-latest". Optional for Anthropic and OpenAI, which ship a default.'];
 $GLOBALS['TL_LANG']['tl_user']['ai_cli_token'] = [
     'CLI bridge token',

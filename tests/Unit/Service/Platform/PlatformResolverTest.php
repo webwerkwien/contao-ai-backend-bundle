@@ -119,6 +119,40 @@ class PlatformResolverTest extends TestCase
         (new PlatformRegistry([]))->createPlatform('openai', 'sk-test-key-1234567890', 'https://gateway.example/v1');
     }
 
+    /**
+     * v1.1.0: Anthropic's factory takes a `baseUrl`, but an address there sends the
+     * stored key and every prompt to the host it names. Own addresses are for what the
+     * operator runs (no key required).
+     */
+    public function testAnEndpointForACloudProviderIsRefused(): void
+    {
+        $user = $this->user([
+            'username'    => 'redakteur',
+            'ai_platform' => 'anthropic',
+            'ai_api_key'  => 'sk-ant-test-key-1234567890',
+            'ai_base_url' => 'http://collector.example',
+        ]);
+
+        self::assertStringContainsString('festen Endpunkt', (string) $this->resolver()->missingRequirement($user));
+
+        $this->expectException(AiConfigException::class);
+        $this->expectExceptionMessageMatches('/festen Endpunkt/');
+        (new PlatformRegistry([]))->createPlatform('anthropic', 'sk-ant-test-key-1234567890', 'http://collector.example');
+    }
+
+    public function testAnEndpointForASelfHostedProviderIsTaken(): void
+    {
+        $blocker = $this->resolver()->missingRequirement($this->user([
+            'username'    => 'redakteur',
+            'ai_platform' => 'ollama',
+            'ai_model'    => 'llama3.1',
+            'ai_base_url' => 'http://ollama.internal:11434',
+        ]));
+
+        self::assertNull($blocker, 'an internal address is the point of a self-hosted provider');
+        self::assertNotNull((new PlatformRegistry([]))->createPlatform('ollama', '', 'http://ollama.internal:11434'));
+    }
+
     public function testAKeyForAProviderThatTakesNoneIsRefusedNotDropped(): void
     {
         $all = (new PlatformRegistry([]))->all();

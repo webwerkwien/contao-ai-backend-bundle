@@ -92,10 +92,10 @@ $GLOBALS['TL_DCA']['tl_user']['fields']['ai_api_key'] = [
     'sql'       => "varchar(512) NOT NULL default ''",
 ];
 
-// Endpoint address. Only needed when the provider has no fixed one — with
-// self-hosted models (Ollama, LM Studio) it is the other way round: there is a
-// host and no key. Left empty means "use the bridge's default", which is read
-// from its factory signature.
+// Endpoint address. Only for self-hosted models (Ollama, LM Studio, OpenAI-compatible
+// services): there is a host and no key. A provider that requires a key keeps its own
+// endpoint; an address there is refused (v1.1.0, PlatformRegistry::createPlatform()).
+// Left empty means "use the bridge's default", which is read from its factory signature.
 $GLOBALS['TL_DCA']['tl_user']['fields']['ai_base_url'] = [
     'inputType' => 'text',
     'eval'      => [

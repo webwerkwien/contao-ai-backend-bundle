@@ -245,9 +245,13 @@ class PlatformRegistry
             ));
         }
 
-        if (null !== $baseUrl && '' !== $baseUrl && !$descriptor->acceptsBaseUrl()) {
+        // v1.1.0: an own address only for what the operator runs themselves (Ollama,
+        // LM Studio, OpenAI-compatible services — no key required). A cloud provider's
+        // factory takes a `baseUrl` too, but an address there sends the stored key and
+        // every prompt to whichever host it names; its endpoint is the provider's.
+        if (null !== $baseUrl && '' !== $baseUrl && !$descriptor->isSelfHosted()) {
             throw new AiConfigException(\sprintf(
-                'Die Plattform "%s" hat einen festen Endpunkt und nimmt keine eigene Adresse. Leere das Feld, sonst bleibt es wirkungslos.',
+                'Die Plattform "%s" hat einen festen Endpunkt und nimmt keine eigene Adresse. Leere das Feld Endpunkt-Adresse.',
                 $descriptor->label,
             ));
         }
