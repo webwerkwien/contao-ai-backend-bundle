@@ -49,6 +49,7 @@ class AttachmentPolicyTest extends TestCase
     {
         self::assertSame(2048000, $this->attachmentPolicy([])->maxFileSize());
         self::assertSame(500, $this->attachmentPolicy(['maxFileSize' => '500'])->maxFileSize());
+        self::assertSame(AttachmentPolicy::MAX_FILE_SIZE, $this->attachmentPolicy(['maxFileSize' => '500000000'])->maxFileSize(), 'a high maxFileSize stops at the chat\'s own limit');
     }
 
     public function testIniSizes(): void

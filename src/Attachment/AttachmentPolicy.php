@@ -9,13 +9,18 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 /**
  * Which files the chat takes, from Contao's own settings (v1.0.0).
  *
- * No limits of its own: the upload types and the file size are the ones an
- * editor already knows from the file manager. What a converter cannot read is
- * left out even where Contao allows it.
+ * The upload types and the file size are the ones an editor already knows from the
+ * file manager. What a converter cannot read is left out even where Contao allows it.
+ * One limit of its own (v1.1.0): the size stops at MAX_FILE_SIZE however high
+ * maxFileSize is set — a file is held in memory and sent base64-encoded, five of them
+ * in one request.
  */
 final class AttachmentPolicy
 {
     public const MAX_ATTACHMENTS = 5;
+
+    /** 10 MB per file, above what the providers take as an image and below a worker's memory. */
+    public const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
     /** Contao's own default for maxFileSize (contao/config/default.php). */
     private const DEFAULT_MAX_FILE_SIZE = 2048000;
@@ -63,7 +68,7 @@ final class AttachmentPolicy
     {
         $size = (int) $this->config('maxFileSize');
 
-        return $size > 0 ? $size : self::DEFAULT_MAX_FILE_SIZE;
+        return min($size > 0 ? $size : self::DEFAULT_MAX_FILE_SIZE, self::MAX_FILE_SIZE);
     }
 
     /**
