@@ -45,6 +45,21 @@ final class TextConverter implements AttachmentConverterInterface
             throw new AttachmentRefusedException('attachment_too_long', [$file->name, $length, self::MAX_CHARS]);
         }
 
-        return [AttachmentContent::text(\sprintf("Anhang „%s“:\n\n%s", $file->name, $text))];
+        return [AttachmentContent::text(self::framed($file->name, $text))];
+    }
+
+    /**
+     * The text inside `<attachment_data>`, which the system prompt names as material,
+     * never instructions (v1.1.0) — as tool outputs are framed. A closing tag inside the
+     * file is broken up, so the text cannot end the frame and speak after it; the name
+     * is escaped like an attribute.
+     */
+    public static function framed(string $name, string $text): string
+    {
+        return \sprintf(
+            "<attachment_data name=\"%s\">\n%s\n</attachment_data>",
+            htmlspecialchars($name, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'),
+            (string) preg_replace('#<(\s*/\s*attachment_data)#i', '<\\\\$1', $text),
+        );
     }
 }

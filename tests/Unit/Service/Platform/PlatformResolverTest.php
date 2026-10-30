@@ -150,7 +150,10 @@ class PlatformResolverTest extends TestCase
         ]));
 
         self::assertNull($blocker, 'an internal address is the point of a self-hosted provider');
-        self::assertNotNull((new PlatformRegistry([]))->createPlatform('ollama', '', 'http://ollama.internal:11434'));
+
+        // Built without a refusal — createPlatform() throws when it would not take the address.
+        (new PlatformRegistry([]))->createPlatform('ollama', '', 'http://ollama.internal:11434');
+        $this->addToAssertionCount(1);
     }
 
     public function testAKeyForAProviderThatTakesNoneIsRefusedNotDropped(): void
