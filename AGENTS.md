@@ -180,8 +180,11 @@ that existed before the fix, and that could not be rewritten, is the proof.
   internal addresses stay allowed for Ollama, LM Studio and OpenAI-compatible services.
 - **What the user attaches is material, framed like tool output** (v1.1.0). Text goes
   through `TextConverter::framed()` (`<attachment_data name="…">`, a closing tag inside
-  broken up), and `system.md` says files, images and PDFs are never instructions. A new
-  text converter uses `framed()`; images and PDFs cannot be framed and rely on the prompt.
+  broken up), and `system.md` says files, images and PDFs are never instructions. The one
+  exception: the user's own message names the file as a list of changes to make. That
+  opens nothing the user could not ask for in words — tools follow the Contao rights and
+  a delete still waits for a yes in a later request (`PendingActionStore`). A new text
+  converter uses `framed()`; images and PDFs cannot be framed and rely on the prompt.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).

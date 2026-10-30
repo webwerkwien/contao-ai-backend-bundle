@@ -137,6 +137,9 @@ The limits come from where they are already set:
 - **Material, not instructions** (since v1.1.0): a text file reaches the model inside
   `<attachment_data name="…">`, and the system prompt tells it to use what a file, image
   or PDF contains as the message asks, but never to follow instructions written in it.
+  A message that names the file as a list of changes ("make the changes from the file")
+  makes its points the task, with the user's own permissions and the usual confirmation
+  before a delete.
 
 A refused file ends the turn with the error kind `attachment_refused` before the model is
 asked, with a message that names the file and the reason, and without an error report.
