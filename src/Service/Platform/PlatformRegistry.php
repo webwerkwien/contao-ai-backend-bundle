@@ -198,6 +198,18 @@ class PlatformRegistry
     ): PlatformInterface {
         $descriptor = $this->get($key);
 
+        // v1.1.0: an own address only for what the operator runs themselves (Ollama,
+        // LM Studio, OpenAI-compatible services — no key required). A cloud provider's
+        // factory takes a `baseUrl` too, but an address there sends the stored key and
+        // every prompt to whichever host it names; its endpoint is the provider's.
+        // Checked before the hand-written bridges, which take no address at all.
+        if (null !== $baseUrl && '' !== $baseUrl && !$descriptor->isSelfHosted()) {
+            throw new AiConfigException(\sprintf(
+                'Die Plattform "%s" hat einen festen Endpunkt und nimmt keine eigene Adresse. Ein Administrator muss das Feld Endpunkt-Adresse in diesem Benutzerkonto leeren.',
+                $descriptor->label,
+            ));
+        }
+
         // A hand-written bridge only builds the platform when no installed
         // package can — otherwise the package's factory wins.
         //
@@ -241,17 +253,6 @@ class PlatformRegistry
         if ('' !== $apiKey && !$descriptor->acceptsApiKey()) {
             throw new AiConfigException(\sprintf(
                 'Die Plattform "%s" nimmt keinen API-Schlüssel. Leere das Feld, sonst bleibt es wirkungslos.',
-                $descriptor->label,
-            ));
-        }
-
-        // v1.1.0: an own address only for what the operator runs themselves (Ollama,
-        // LM Studio, OpenAI-compatible services — no key required). A cloud provider's
-        // factory takes a `baseUrl` too, but an address there sends the stored key and
-        // every prompt to whichever host it names; its endpoint is the provider's.
-        if (null !== $baseUrl && '' !== $baseUrl && !$descriptor->isSelfHosted()) {
-            throw new AiConfigException(\sprintf(
-                'Die Plattform "%s" hat einen festen Endpunkt und nimmt keine eigene Adresse. Leere das Feld Endpunkt-Adresse.',
                 $descriptor->label,
             ));
         }

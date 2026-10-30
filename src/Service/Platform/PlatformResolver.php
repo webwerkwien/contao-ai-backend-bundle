@@ -114,7 +114,7 @@ class PlatformResolver
         // PlatformRegistry::createPlatform()).
         if ($config->hasBaseUrl() && !$descriptor->isSelfHosted()) {
             return \sprintf(
-                '"%s" hat einen festen Endpunkt; eine eigene Endpunkt-Adresse gibt es nur für selbst betriebene Modelle. Leere das Feld im Benutzerprofil.',
+                '"%s" hat einen festen Endpunkt; eine eigene Endpunkt-Adresse gibt es nur für selbst betriebene Modelle. Ein Administrator muss das Feld Endpunkt-Adresse in diesem Benutzerkonto leeren.',
                 $descriptor->label,
             );
         }
