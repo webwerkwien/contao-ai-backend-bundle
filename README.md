@@ -51,7 +51,7 @@ In **System → Users → (user)**, these fields appear in the *AI agent* legend
 |---|---|---|
 | Platform | yes | See *Providers* below. |
 | API key | depends | Stored in plain text — see *Security model*. Cloud providers need one; a self-hosted provider takes an endpoint instead. |
-| Endpoint URL | depends | **Administrators only** — not editable under *Personal data*, because it decides where the server sends requests. Only for providers without a fixed endpoint: Ollama, LM Studio, or any OpenAI-compatible service. Empty means "use the provider default". |
+| Endpoint URL | depends | **Administrators only** — not editable under *Personal data*, because it decides where the server sends requests. Only for self-hosted models: Ollama, LM Studio, or any OpenAI-compatible service. Providers that require an API key (Anthropic, OpenAI, Mistral, …) keep their own endpoint; since v1.1.0 an address there is refused. Empty means "use the provider default". |
 | Model | depends | Optional for Anthropic and OpenAI: empty means the installation's default, shown as the field's placeholder. Required elsewhere. A model entered here is that user's default in the chat. |
 | CLI bridge token | optional | Only for `bridge clone` / `bridge rewrite` of [contao-ai-cli](https://github.com/webwerkwien/contao-ai-cli) from the terminal — the chat does not need it. Click *Generate / Rotate* to mint a token. Cleartext is shown once with a *Copy token* button and, beneath it, the command that completes the setup with this site's address (`contao-ai-cli --session <name> bridge configure --url https://… --test`, which asks for the token with hidden input); only the `password_hash` is stored in the database. *Delete* revokes. |
 
@@ -129,11 +129,14 @@ The limits come from where they are already set:
   (compatible), the connections in `symfony/ai` that send a document. With any other
   provider (OpenRouter, the generic OpenAI-compatible connection, Ollama, …) a PDF is
   refused before the request; images and text work there.
-- **How large:** Contao's *maximum upload size* per file, and PHP's `post_max_size` for the
+- **How large:** Contao's *maximum upload size* per file, at most 10 MB (since v1.1.0), and PHP's `post_max_size` for the
   whole request. The web server's own body limit (nginx: `client_max_body_size`, 1 MB by
   default) may be lower; the chat then shows the too-large message too, after sending.
 - **Content:** the file's content has to match its extension (`finfo`); a renamed file is
   refused. A text over 100 000 characters is refused with its length, not cut.
+- **Material, not instructions** (since v1.1.0): a text file reaches the model inside
+  `<attachment_data name="…">`, and the system prompt tells it to use what a file, image
+  or PDF contains as the message asks, but never to follow instructions written in it.
 
 A refused file ends the turn with the error kind `attachment_refused` before the model is
 asked, with a message that names the file and the reason, and without an error report.
@@ -298,6 +301,7 @@ Another bundle can teach the chat more file types. Implement
 use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentContent;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\AttachmentConverterInterface;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachment;
+use Webwerkwien\ContaoAiBackendBundle\Attachment\Converter\TextConverter;
 
 final class OdtConverter implements AttachmentConverterInterface
 {
@@ -313,12 +317,14 @@ final class OdtConverter implements AttachmentConverterInterface
 
     public function convert(ChatAttachment $file): array
     {
-        return [AttachmentContent::text(\sprintf("Anhang „%s“:\n\n%s", $file->name, $this->plainText($file->bytes)))];
+        return [AttachmentContent::text(TextConverter::framed($file->name, $this->plainText($file->bytes)))];
     }
 }
 ```
 
-The chat offers the extension once Contao's upload types allow it. One converter per
+`TextConverter::framed()` (since v1.1.0) wraps the text in the `<attachment_data>` frame the
+system prompt names as material, never instructions; a text converter of your own should
+use it too. The chat offers the extension once Contao's upload types allow it. One converter per
 extension: the highest tag `priority` wins, the bundle's own converters have 0. With a
 priority above 0 a bundle replaces a free converter for the same extension. To refuse a file,
 throw `AttachmentRefusedException('my_key', [$file->name])`; the chat shows

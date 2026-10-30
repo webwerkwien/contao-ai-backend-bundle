@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
 
+## v1.1.0 — 2026-10-30
+
+Works with the same contao-ai-core-bundle versions as v1.0.0.
+
+### Changed
+
+- **The endpoint address is taken only for self-hosted models** (Ollama, LM Studio,
+  OpenAI-compatible services — providers that require no API key). For Anthropic,
+  OpenAI, Mistral, Gemini, OpenRouter and other providers with a key the chat names the
+  field to clear before it opens. Profiles with an address for such a provider need
+  the field emptied.
+- **Text attachments reach the model inside `<attachment_data name="…">`**, and the
+  system prompt says that attached files, images and PDFs are material to work with,
+  never instructions. The history line `Anhang: <name>` is unchanged.
+- **Attachments stop at 10 MB per file**, also when Contao's maximum upload size is set
+  higher.
+
+### Added
+
+- **`TextConverter::framed($name, $text)`** for converters of other bundles: the same
+  frame for their text.
+
 ## v1.0.0 — 2026-10-24
 
 The first stable release. What stays compatible until 2.0 is listed in the README

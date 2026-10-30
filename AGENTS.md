@@ -173,6 +173,15 @@ that existed before the fix, and that could not be rewritten, is the proof.
   way the chat does. The models a user may pick come from `ModelChoice` — the installation's
   `contao_ai_backend.models`, else the bridge's `getModels()` — and the stream controller
   refuses any other name from the browser.
+- **An own endpoint address only where no key is required** (v1.1.0,
+  `PlatformDescriptor::isSelfHosted()`). Cloud factories take a `baseUrl` too, but an
+  address there sends the stored key and every prompt to that host. `createPlatform()`
+  refuses it and `PlatformResolver::missingRequirement()` says so before the chat opens;
+  internal addresses stay allowed for Ollama, LM Studio and OpenAI-compatible services.
+- **What the user attaches is material, framed like tool output** (v1.1.0). Text goes
+  through `TextConverter::framed()` (`<attachment_data name="…">`, a closing tag inside
+  broken up), and `system.md` says files, images and PDFs are never instructions. A new
+  text converter uses `framed()`; images and PDFs cannot be framed and rely on the prompt.
 - **A tool for an optional extension is offered only when its command exists**
   (`ConsoleRunner::has()`), not merely its classes: `LanguageTool` needs both
   changelanguage's `PageFinder` and the core's `contao:language:link` (core ≥ 1.4.0).
