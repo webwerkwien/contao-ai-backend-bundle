@@ -170,6 +170,39 @@ class FieldPermissionFilesTest extends TestCase
         $this->permission()->assertFilesReachable($this->user(), 'tl_content', ['singleSRC' => StringUtil::uuidToBin(self::INSIDE)]);
     }
 
+    /**
+     * The core skips its check for a serialized value and then splits the text at its
+     * commas: a UUID hidden in a key, or behind the array, would be stored. Only a list
+     * exactly as Contao serializes it is read as one.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function serializedValuesTheCoreReadsDifferently(): iterable
+    {
+        yield 'UUID in a key' => [serialize([',' . self::OUTSIDE . ',' => ''])];
+        yield 'UUID after the array' => ['a:0:{},' . self::OUTSIDE];
+        yield 'not a list' => [serialize([3 => StringUtil::uuidToBin(self::INSIDE)])];
+    }
+
+    /**
+     * @dataProvider serializedValuesTheCoreReadsDifferently
+     */
+    public function testASerializedValueThatIsNoPlainListIsRefused(string $value): void
+    {
+        $this->assertStringContainsString('tl_content.multiSRC', $this->refusal(['multiSRC' => $value]));
+    }
+
+    /**
+     * Without the table's DCA no field can be told to be a file field: closed, not open.
+     */
+    public function testATableWithoutDcaIsRefused(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('keine DCA geladen');
+
+        $this->permission()->assertFilesReachable($this->user(), 'tl_unknown', ['image' => self::INSIDE]);
+    }
+
     public function testEveryRefusedFieldIsNamed(): void
     {
         $message = $this->refusal(['singleSRC' => self::OUTSIDE, 'multiSRC' => self::MISSING, 'headline' => 'Neu']);
