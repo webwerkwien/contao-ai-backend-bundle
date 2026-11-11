@@ -666,6 +666,14 @@ abstract class AbstractCoreCommandTool
             array_keys(array_filter($fields, static fn ($value): bool => null !== $value)),
         ))));
 
+        // A file field takes a file the user may reach; the back end's file picker is
+        // that boundary, and the chat has none (see FieldPermission::assertFilesReachable()).
+        $this->fieldPermission->assertFilesReachable(
+            $this->requireBackendUser(),
+            $table,
+            array_filter($fields, static fn ($value): bool => null !== $value),
+        );
+
         return $out;
     }
 

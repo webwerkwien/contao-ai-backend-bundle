@@ -243,6 +243,8 @@ class RecordCloneTool extends AbstractCoreCommandTool
         // here. Unlike buildSetOptions(), nothing drops them
         // on the way to the command.
         $this->assertFieldsWritable($sourceTable, array_map('strval', array_keys($modifications)));
+        // An override of a file field names a file, which must be one the user may reach.
+        $this->fieldPermission->assertFilesReachable($this->requireBackendUser(), $sourceTable, $modifications);
 
         // Last, once every check has passed: the question must not stage a clone that
         // would be refused anyway. The key holds the source, so a yes covers this

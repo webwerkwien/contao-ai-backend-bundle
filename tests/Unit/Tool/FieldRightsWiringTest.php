@@ -404,6 +404,56 @@ class FieldRightsWiringTest extends TestCase
         $tool->cloneRecord('tl_news_archive', 4, ['title' => 'Archiv EN']);
     }
 
+    private const FILE_INSIDE  = '11111111-1111-1111-1111-111111111111';
+    private const FILE_OUTSIDE = '22222222-2222-2222-2222-222222222222';
+    private const FILES        = [self::FILE_INSIDE => 'files/mine/a.jpg', self::FILE_OUTSIDE => 'files/other/b.jpg'];
+
+    /**
+     * A file field takes a file from the editor's mounts (#58), measured on Contao 5.7:
+     * content_update set an image outside the only mount before.
+     */
+    public function testAContentImageOutsideTheMountsRunsNothing(): void
+    {
+        $this->defineDca(['tl_content' => ['headline' => self::TEXT, 'singleSRC' => ['inputType' => 'fileTree'], 'type' => ['inputType' => 'select', 'sql' => ['type' => 'string', 'length' => 64, 'default' => 'text']]]]);
+
+        $tool = $this->tool(ContentTool::class);
+        $this->wire($tool, ['tl_content::singleSRC']);
+        $tool->setFieldPermission($this->fieldPermission(['tl_content::singleSRC'], self::FILES, ['files/mine']));
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_content.singleSRC');
+
+        $tool->update(5, ['singleSRC' => self::FILE_OUTSIDE]);
+    }
+
+    public function testAContentImageInTheMountsRuns(): void
+    {
+        $this->defineDca(['tl_content' => ['headline' => self::TEXT, 'singleSRC' => ['inputType' => 'fileTree'], 'type' => ['inputType' => 'select', 'sql' => ['type' => 'string', 'length' => 64, 'default' => 'text']]]]);
+
+        $tool = $this->tool(ContentTool::class, \Webwerkwien\ContaoAiCoreBundle\Command\ContentUpdateCommand::class);
+        $this->wire($tool, ['tl_content::singleSRC']);
+        $tool->setFieldPermission($this->fieldPermission(['tl_content::singleSRC'], self::FILES, ['files/mine']));
+
+        $this->assertStringContainsString('"status":"ok"', $tool->update(5, ['singleSRC' => self::FILE_INSIDE]));
+    }
+
+    /**
+     * A clone's override is a write too: a file field in it takes a file from the mounts.
+     */
+    public function testACloneOverrideWithAFileOutsideTheMountsRunsNothing(): void
+    {
+        $this->defineDca(['tl_module' => ['name' => self::TEXT, 'multiSRC' => ['inputType' => 'fileTree', 'eval' => ['multiple' => true]]]]);
+
+        $tool = $this->cloneTool(false);
+        $this->wire($tool, ['tl_module::name', 'tl_module::multiSRC']);
+        $tool->setFieldPermission($this->fieldPermission(['tl_module::name', 'tl_module::multiSRC'], self::FILES, ['files/mine']));
+
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->expectExceptionMessage('tl_module.multiSRC');
+
+        $tool->cloneRecord('tl_module', 4, ['name' => 'Kopie', 'multiSRC' => '["' . self::FILE_INSIDE . '","' . self::FILE_OUTSIDE . '"]']);
+    }
+
     public function testACloneWithoutOverridesNeedsNoFieldRight(): void
     {
         $tool = $this->cloneTool(true);

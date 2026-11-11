@@ -7,6 +7,8 @@ use Contao\Controller;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Security\ContaoCorePermissions;
 use Contao\DataContainer;
+use Contao\FilesModel;
+use Contao\StringUtil;
 use Contao\Widget;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
@@ -30,6 +32,12 @@ use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
  */
 class FieldPermission
 {
+    /**
+     * A file UUID as text, the pattern the core converts (any version, any case);
+     * `Validator::isStringUuid()` takes lower-case version 1 only.
+     */
+    private const UUID = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+
     public function __construct(
         private readonly ContaoFramework $framework,
         private readonly AuthorizationCheckerInterface $authorizationChecker,
@@ -106,6 +114,159 @@ class FieldPermission
     public function assertCreatable(BackendUser $user, string $table, array $values): void
     {
         $this->refuse($table, $this->deniedOnCreate($user, $table, $values));
+        $this->assertFilesReachable($user, $table, $values);
+    }
+
+    /**
+     * Every file a write points a `fileTree` field at must lie in the user's file mounts.
+     *
+     * Contao does not check this when it saves a record: `FileTree::validator()` knows
+     * `filesOnly`, `files`, `path` and `extensions`, not the mounts. In the back end the
+     * file picker is the boundary, it only offers files the user may reach. The chat has
+     * no picker, so a user who knows a UUID could attach any file: a protected download,
+     * an image from another site's folder. Measured on Contao 5.7 before this check:
+     * `content_update` set `singleSRC` to a file outside the editor's only mount.
+     *
+     * A part that is no UUID, a UUID without a file and a file outside the mounts get the
+     * same answer, so the refusal does not tell which files exist. Clearing a field needs
+     * no file. Admins pass, as Contao's voter lets them reach every path.
+     *
+     * @param array<array-key, mixed> $values field => value as the write sends it
+     *
+     * @throws ToolAccessDeniedException naming every field with a file the user may not use
+     */
+    public function assertFilesReachable(BackendUser $user, string $table, array $values): void
+    {
+        if ($user->isAdmin || [] === $values) {
+            return;
+        }
+
+        $this->loadDca($table);
+
+        $definitions = $GLOBALS['TL_DCA'][$table]['fields'] ?? null;
+
+        if (!\is_array($definitions)) {
+            throw new ToolAccessDeniedException(\sprintf('Die Dateifelder von %s lassen sich nicht prüfen (keine DCA geladen). Es wurde nichts geschrieben.', $table));
+        }
+
+        $refused = [];
+
+        foreach ($values as $field => $value) {
+            if ('fileTree' !== ($definitions[$field]['inputType'] ?? null)) {
+                continue;
+            }
+
+            foreach (self::fileParts($value) as $part) {
+                if (!$this->reachable($part)) {
+                    $refused[] = $table . '.' . $field;
+                    break;
+                }
+            }
+        }
+
+        if ([] !== $refused) {
+            throw new ToolAccessDeniedException(\sprintf(
+                'Keine Datei aus den Dateifreigaben dieses Benutzers für %s. Ein Dateifeld nimmt die UUID einer Datei, die der Benutzer in der Dateiverwaltung sieht (record_list auf tl_files). Es wurde nichts geschrieben.',
+                implode(', ', $refused),
+            ));
+        }
+    }
+
+    /**
+     * The file references in a `fileTree` value, in every form the core accepts: a UUID,
+     * a JSON list or comma list of them, a binary UUID or the serialized list Contao
+     * stores. Empty means the field is cleared. Anything else is kept as a part, so it
+     * fails the check instead of slipping past it.
+     *
+     * @return list<string>
+     */
+    private static function fileParts(mixed $value): array
+    {
+        if (null === $value || false === $value) {
+            return [];
+        }
+
+        if (\is_array($value)) {
+            $parts = $value;
+        } elseif (!\is_scalar($value)) {
+            return ['?'];
+        } else {
+            $text = (string) $value;
+
+            if ('' === trim($text)) {
+                return [];
+            }
+
+            if (self::isBinary($text)) {
+                return [$text];
+            }
+
+            $stored = @unserialize($text, ['allowed_classes' => false]);
+
+            if (\is_array($stored)) {
+                $parts = $stored;
+            } elseif (str_starts_with(trim($text), '[')) {
+                $decoded = json_decode(trim($text), true);
+                $parts   = \is_array($decoded) ? $decoded : [$text];
+            } else {
+                $parts = explode(',', $text);
+            }
+        }
+
+        $out = [];
+
+        foreach ($parts as $part) {
+            if (!\is_scalar($part)) {
+                $out[] = '?';
+                continue;
+            }
+
+            $part = (string) $part;
+
+            // A binary UUID is taken as it is: trimming could cut one of its bytes.
+            if (!self::isBinary($part)) {
+                $part = trim($part);
+            }
+
+            if ('' !== $part) {
+                $out[] = $part;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Whether one file reference names a file in the file manager the user may reach.
+     */
+    private function reachable(string $part): bool
+    {
+        if (preg_match(self::UUID, $part)) {
+            $part = StringUtil::uuidToBin(strtolower($part));
+        } elseif (!self::isBinary($part)) {
+            return false;
+        }
+
+        $file = $this->framework->getAdapter(FilesModel::class)->findByUuid($part);
+
+        if (null === $file || '' === (string) ($file->path ?? '')) {
+            return false;
+        }
+
+        // The path as stored; Contao's voter also grants subfolders of a mount.
+        return $this->authorizationChecker->isGranted(ContaoCorePermissions::USER_CAN_ACCESS_PATH, (string) $file->path);
+    }
+
+    /**
+     * Sixteen bytes that are no UUID text: a file reference in its binary form.
+     *
+     * Not `Validator::isBinaryUuid()`: that accepts version 1 only, while the core
+     * stores a serialized list without looking at its parts. Every 16-byte part is
+     * therefore looked up, and one that names no file fails.
+     */
+    private static function isBinary(string $value): bool
+    {
+        return 16 === \strlen($value) && !preg_match(self::UUID, $value);
     }
 
     /**

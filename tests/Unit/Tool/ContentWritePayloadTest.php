@@ -329,7 +329,8 @@ class ContentWritePayloadTest extends TestCase
             default    => null,
         });
 
-        $tool->setFieldPermission($this->fieldPermission($granted));
+        // The image these tests send lies in the editor's file mount (#58).
+        $tool->setFieldPermission($this->fieldPermission($granted, ['c67514df-d9c8-11e3-8217-000c29e44aea' => 'files/mine/image.jpg'], ['files/mine']));
         $tool->setAuthorizationChecker($this->grantingAuthorization($granted));
         $tool->setPendingActionStore($this->createMock(PendingActionStore::class));
         $tool->setDataContainerAccess($records);
