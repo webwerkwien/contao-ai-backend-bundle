@@ -131,6 +131,13 @@ that existed before the fix, and that could not be rewritten, is the proof.
   right. Until v0.16.4 this line above said "field rights are `alexf`" while only
   `language_link` checked them — an editor whose group grants no page field could
   publish pages through the chat. A new write path without this call is that bug again.
+- **File fields take files from the user's file mounts** (v1.1.1):
+  `FieldPermission::assertFilesReachable()` resolves every UUID of a `fileTree` value and
+  requires `USER_CAN_ACCESS_PATH`. It runs inside `buildSetOptions()`, `assertCreatable()`
+  and for the overrides of `record_clone`. A write path that passes field values another
+  way needs the call itself. Contao checks the mounts only in the file picker, not on
+  save, and the chat has no picker. The value forms it reads must stay those the core
+  converts: a serialized value counts only as a list that serializes back to the same text.
 - **Every record the chat touches passes `DataContainerAccess`** (v0.18.0): Contao's data
   container voters, `isGranted('contao_dc.<table>', <action>)`, asked with the action
   `DC_Table` builds — `assertCreate($table, $new)`, `assertRead`, `assertUpdate($table, $id,

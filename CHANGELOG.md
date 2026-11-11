@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
 
+## v1.1.1 — 2026-11-11
+
+Works with the same contao-ai-core-bundle versions as v1.1.0.
+
+### Fixed
+
+- **File fields take only files within the user's file mounts.** Since v1.0.0 the
+  content tools set an element's image (`singleSRC`) from a file UUID, and an editor who
+  knew the UUID of a file outside their file mounts could attach it: Contao checks the
+  mounts in the file picker, not when a record is saved, and the chat has no picker.
+  Every write that sets a file field (updates, creates, the field overrides of
+  `record_clone`) now resolves each file and requires the user's access to its path, the
+  rule of Contao's file mount voter. An unknown UUID gets the same answer as a file
+  outside the mounts. Clearing the field and admins are not affected.
+
+### Changed
+
+- Sending a file field's current value again is refused when that file lies outside the
+  user's mounts, for instance an image an admin set. The back end's form keeps such a
+  value; the chat tools send only the fields that change.
+
 ## v1.1.0 — 2026-10-30
 
 Works with the same contao-ai-core-bundle versions as v1.0.0.
