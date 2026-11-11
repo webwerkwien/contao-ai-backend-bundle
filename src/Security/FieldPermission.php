@@ -204,10 +204,10 @@ class FieldPermission
             $stored = @unserialize($text, ['allowed_classes' => false]);
 
             if (\is_array($stored)) {
-                // Only a stored list exactly as Contao writes it. The core skips its
-                // own check for a serialized value and then splits the same text at its
-                // commas, so a UUID in a key, or after a trailing `,`, reaches the column
-                // although unserialize() shows no file here.
+                // Only a stored list exactly as Contao writes it, the form the core
+                // accepts since v1.16.2. Core versions before split serialized text at
+                // its commas, so a UUID in a key, or after a trailing `,`, reached the
+                // column although unserialize() shows no file there.
                 if (!array_is_list($stored) || serialize($stored) !== $text) {
                     return ['?'];
                 }
