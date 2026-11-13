@@ -10,6 +10,7 @@ use Contao\CoreBundle\Security\DataContainer\DeleteAction;
 use Contao\CoreBundle\Security\DataContainer\UpdateAction;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Filesystem\Path;
 use Webwerkwien\ContaoAiBackendBundle\Attachment\ChatAttachments;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
@@ -119,6 +120,8 @@ class FileTool extends AbstractCoreCommandTool
         $this->assertAccess('file_rename');
         $user = $this->requireBackendUser();
         $this->assertGranted(ContaoCorePermissions::USER_CAN_RENAME_FILE, null, 'Keine Berechtigung, Dateien umzubenennen.');
+        // tl_files.name is an excluded field: the back end's form needs it too.
+        $this->assertGranted(ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE, 'tl_files::name', 'Keine Berechtigung für das Feld „Dateiname“.');
         $path = $this->mountedPath($path);
         $this->assertAction(new UpdateAction('tl_files', ['id' => $path]), $path);
 
@@ -175,8 +178,10 @@ class FileTool extends AbstractCoreCommandTool
         $path = $this->mountedPath($path);
         $absolute = $this->projectDir . '/' . $path;
 
-        // As tl_files.php: a file needs f3, a folder with content f4.
-        if (is_dir($absolute) && [] !== array_diff((array) scandir($absolute), ['.', '..'])) {
+        // As tl_files.php: a file needs f3, a folder with content f4. Like Contao's
+        // Finder, dot files (.public, .nosync) are not content.
+        $content = is_dir($absolute) ? array_filter((array) scandir($absolute), static fn ($e): bool => !str_starts_with((string) $e, '.')) : [];
+        if ([] !== $content) {
             $this->assertGranted(ContaoCorePermissions::USER_CAN_DELETE_RECURSIVELY, null, 'Keine Berechtigung, Ordner samt Inhalt zu löschen.');
         } else {
             $this->assertGranted(ContaoCorePermissions::USER_CAN_DELETE_FILE, null, 'Keine Berechtigung, Dateien zu löschen.');
@@ -265,9 +270,10 @@ class FileTool extends AbstractCoreCommandTool
         $file = $this->attachments->get($attachment);
         $fileName = '' !== $name ? $name : ($file->name ?? $attachment);
         $target = $this->mountedPath($folder . '/' . self::cleanName($fileName, $file?->extension));
-        $this->assertAction(new CreateAction('tl_files', ['type' => 'file']), $target);
+        $this->assertAction(new CreateAction('tl_files', ['pid' => $folder, 'type' => 'file']), $target);
 
-        $key = "store:$target";
+        // The model may spell the name differently when it answers.
+        $key = 'store:' . mb_strtolower($target);
         $userId = (int) ($user->id ?? 0);
 
         if (null === $file) {
@@ -281,18 +287,18 @@ class FileTool extends AbstractCoreCommandTool
             if (null === $temp) {
                 throw new ToolRefusedException('Die Rückfrage zum Ablegen ist abgelaufen. Bitte die Datei erneut anhängen.');
             }
+            $stagedTarget = $this->mountedPath((string) ($staged['target'] ?? $target));
 
-            return $this->write('rename' === $onConflict ? $this->freeName($target) : $target, $temp, $user);
+            return $this->write('rename' === $onConflict ? $this->freeName($stagedTarget) : $stagedTarget, $temp, $user);
         }
 
-        // Attached again with the answer: the staged question still decides.
-        if ('replace' === $onConflict) {
-            $staged = $this->pendingActionStore->consume($userId, 'file_store', $key);
-            $stagedTemp = \is_array($staged) ? $this->stagedTemp($staged) : null;
-            if (null !== $stagedTemp) {
-                return $this->write($target, $stagedTemp, $user);
-            }
+        if ($this->pendingActionStore->stagedInCurrentTurn($userId, 'file_store', $key)) {
+            return self::storeQuestion('awaiting_user', $target, 'Die Frage ist schon gestellt. Rufe das Werkzeug JETZT NICHT ERNEUT auf, sondern warte auf die Antwort des Users.');
         }
+
+        // Attached again with the answer: the question of an earlier message is answered
+        // by this call, and the file attached now is the one to store.
+        $answered = $this->discardStaged($userId, $key);
 
         $temp = $this->writeTemp($file->bytes, $file->extension);
         if (!$this->exists($target)) {
@@ -301,18 +307,44 @@ class FileTool extends AbstractCoreCommandTool
         if ('rename' === $onConflict) {
             return $this->write($this->freeName($target), $temp, $user);
         }
+        if ('replace' === $onConflict && $answered) {
+            return $this->write($target, $temp, $user);
+        }
 
         // One question for the user: replace, or a free name. The temp file waits for
         // the answer; its name stays on the server.
-        $free = $this->freeName($target);
-        $this->pendingActionStore->stage($userId, 'file_store', $key, ['temp' => basename($temp), 'sha1' => sha1_file($temp)]);
+        $this->pendingActionStore->stage($userId, 'file_store', $key, ['temp' => basename($temp), 'sha1' => sha1_file($temp), 'target' => $target]);
 
+        return self::storeQuestion('pending_confirmation', $target, 'Frage den User wörtlich und warte auf seine Antwort. In einer SPÄTEREN Nachricht file_store mit denselben Angaben und onConflict "replace" oder "rename" aufrufen; der Anhang muss dafür nicht erneut angehängt werden.', $this->freeName($target));
+    }
+
+    private static function storeQuestion(string $status, string $target, string $note, ?string $free = null): string
+    {
         return '<tool_output_data tool="file_store">' . "\n" . json_encode([
-            'status'   => 'pending_confirmation',
+            'status'   => $status,
             'tool'     => 'file_store',
-            'question' => \sprintf('„%s“ gibt es schon. Ersetzen (die Datei behält ihre Verwendungen) oder als „%s“ ablegen?', $target, basename($free)),
-            'note'     => 'Frage den User wörtlich und warte auf seine Antwort. In einer SPÄTEREN Nachricht file_store mit denselben Angaben und onConflict "replace" oder "rename" aufrufen; der Anhang muss dafür nicht erneut angehängt werden.',
+            'question' => null === $free
+                ? \sprintf('„%s“ gibt es schon. Ersetzen oder unter einem freien Namen ablegen?', $target)
+                : \sprintf('„%s“ gibt es schon. Ersetzen (die Datei behält ihre Verwendungen) oder als „%s“ ablegen?', $target, basename($free)),
+            'note'     => $note,
         ], self::JSON_FLAGS) . "\n</tool_output_data>";
+    }
+
+    /**
+     * Ends a question staged in an earlier message for this target, and removes its file.
+     */
+    private function discardStaged(int $userId, string $key): bool
+    {
+        $staged = $this->pendingActionStore->consume($userId, 'file_store', $key);
+        if (!\is_array($staged)) {
+            return false;
+        }
+        $name = (string) ($staged['temp'] ?? '');
+        if (preg_match('/^' . self::TEMP_PREFIX . '[0-9a-f]{24}\.[a-z0-9]+$/', $name)) {
+            @unlink($this->uploadDir() . '/' . $name);
+        }
+
+        return true;
     }
 
     private function write(string $target, string $temp, BackendUser $user): string
@@ -423,7 +455,24 @@ class FileTool extends AbstractCoreCommandTool
                 throw new ToolRefusedException(\sprintf('„%s“ liegt nicht unter files/.', $path));
             }
         }
-        $this->assertGranted(ContaoCorePermissions::USER_CAN_ACCESS_PATH, $canonical, \sprintf('„%s“ liegt außerhalb deiner freigegebenen Ordner.', $canonical));
+        $outside = \sprintf('„%s“ liegt außerhalb deiner freigegebenen Ordner.', $canonical);
+        $this->assertGranted(ContaoCorePermissions::USER_CAN_ACCESS_PATH, $canonical, $outside);
+
+        // The voter compares regardless of case; DC_Folder::isMounted() does not, and on a
+        // case-sensitive file system files/TEAM is not files/team.
+        $user = $this->requireBackendUser();
+        if (!$user->isAdmin) {
+            $mounted = false;
+            foreach ((array) $user->filemounts as $mount) {
+                if (\is_string($mount) && '' !== $mount && Path::isBasePath($mount, $canonical)) {
+                    $mounted = true;
+                    break;
+                }
+            }
+            if (!$mounted) {
+                throw new ToolAccessDeniedException($outside);
+            }
+        }
 
         return $canonical;
     }

@@ -34,6 +34,9 @@ class FileToolTest extends TestCase
     /** @var array<string, true> keys staged in the current turn */
     private array $stagedNow = [];
 
+    /** @var list<string> the bytes contao:file:write was given */
+    private array $written = [];
+
     protected function setUp(): void
     {
         $this->root = sys_get_temp_dir() . '/file-tool-test-' . bin2hex(random_bytes(4));
@@ -43,6 +46,7 @@ class FileToolTest extends TestCase
         $this->runs = [];
         $this->staged = [];
         $this->stagedNow = [];
+        $this->written = [];
     }
 
     protected function tearDown(): void
@@ -74,6 +78,7 @@ class FileToolTest extends TestCase
             if ('contao:file:write' === $input['command']) {
                 // The temp file is there while the core reads it.
                 self::assertFileExists($input['--source']);
+                $this->written[] = (string) file_get_contents($input['--source']);
             }
 
             return [0, '{"status":"ok","uuid":"abc"}'];
@@ -85,7 +90,8 @@ class FileToolTest extends TestCase
         $auth = $this->createMock(AuthorizationCheckerInterface::class);
         $auth->method('isGranted')->willReturnCallback(static function (string $attribute, mixed $subject = null) use ($denied): bool {
             if (ContaoCorePermissions::USER_CAN_ACCESS_PATH === $attribute) {
-                return !\in_array('mount:' . $subject, $denied, true) && (str_starts_with((string) $subject, 'files/team') || 'files' === $subject);
+                // As BackendAccessVoter: regardless of case.
+                return 0 === stripos((string) $subject, 'files/team');
             }
 
             return !\in_array($attribute, $denied, true);
@@ -108,8 +114,8 @@ class FileToolTest extends TestCase
         });
 
         $user = $this->createMock(BackendUser::class);
-        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) { 'id' => 5, 'isAdmin' => false, 'username' => 'redakteur', default => null });
-        $user->method('__isset')->willReturnCallback(static fn (string $key): bool => \in_array($key, ['id', 'isAdmin', 'username'], true));
+        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) { 'id' => 5, 'isAdmin' => false, 'username' => 'redakteur', 'filemounts' => ['files/team'], default => null });
+        $user->method('__isset')->willReturnCallback(static fn (string $key): bool => \in_array($key, ['id', 'isAdmin', 'username', 'filemounts'], true));
 
         $tool = new FileTool($access, $this->createStub(TokenChecker::class), $console, $chat, $this->root);
         $tool->setAuthorizationChecker($auth);
@@ -289,6 +295,111 @@ class FileToolTest extends TestCase
         $this->tool(attachments: [new ChatAttachment('neu.jpg', 'jpg', 'image/jpeg', 'bytes')])->store('neu.jpg', 'files/team');
 
         self::assertFileDoesNotExist($old);
+    }
+
+    public function testAFolderSpelledDifferentlyIsNotTheMount(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+
+        try {
+            $this->tool()->createFolder('files/TEAM/neu');
+        } finally {
+            self::assertSame([], $this->runs);
+        }
+    }
+
+    public function testAFolderIsCreatedInsideTheMount(): void
+    {
+        $this->tool()->createFolder('files/team/2026');
+
+        self::assertSame([['command' => 'contao:folder:create', '--path' => 'files/team/2026', '--operator' => 'redakteur']], $this->runs);
+    }
+
+    public function testAFolderNeedsTheUploadRight(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->tool(denied: [ContaoCorePermissions::USER_CAN_UPLOAD_FILES])->createFolder('files/team/2026');
+    }
+
+    public function testStoringOutsideTheMountIsRefused(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->tool(attachments: [new ChatAttachment('neu.jpg', 'jpg', 'image/jpeg', 'bytes')])->store('neu.jpg', 'files/other');
+    }
+
+    public function testDeletingOutsideTheMountIsRefused(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+
+        try {
+            $this->tool()->delete('files/other');
+        } finally {
+            self::assertSame([], $this->runs);
+        }
+    }
+
+    public function testAFolderWithOnlyDotFilesNeedsNoRecursiveRight(): void
+    {
+        mkdir($this->root . '/files/team/leer');
+        file_put_contents($this->root . '/files/team/leer/.public', '');
+
+        $answer = $this->tool(denied: [ContaoCorePermissions::USER_CAN_DELETE_RECURSIVELY])->delete('files/team/leer');
+
+        self::assertStringContainsString('pending_confirmation', $answer);
+    }
+
+    public function testARenameNeedsTheNameField(): void
+    {
+        $this->expectException(ToolAccessDeniedException::class);
+        $this->tool(denied: [ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE])->rename('files/team/foto.jpg', 'team.jpg');
+    }
+
+    public function testMetadataIsSetInTheGivenLanguage(): void
+    {
+        $this->tool()->meta('files/team/foto.jpg', ['alt' => 'Das Team', 'title' => 'Team'], 'de');
+
+        self::assertSame(
+            [['command' => 'contao:file:meta', '--path' => 'files/team/foto.jpg', '--lang' => 'de', '--set' => ['alt=Das Team', 'title=Team'], '--operator' => 'redakteur']],
+            $this->runs,
+        );
+    }
+
+    public function testMetadataTakesOnlyItsFourFields(): void
+    {
+        $this->expectException(ToolRefusedException::class);
+        $this->tool()->meta('files/team/foto.jpg', ['path' => 'files/x.jpg'], 'de');
+    }
+
+    public function testReplaceWithTheFileAttachedAgainStoresTheNewFile(): void
+    {
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'first')])->store('foto.jpg', 'files/team');
+        $this->nextTurn();
+
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'second')])->store('foto.jpg', 'files/team', '', 'replace');
+
+        self::assertSame(['second'], $this->written);
+        self::assertSame([], glob($this->root . '/var/bridge-uploads/chat-*'), 'no temp file is left');
+    }
+
+    public function testAfterRenameTheStagedReplaceIsGone(): void
+    {
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')])->store('foto.jpg', 'files/team');
+        $this->nextTurn();
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')])->store('foto.jpg', 'files/team', '', 'rename');
+        $this->nextTurn();
+
+        $this->expectException(ToolRefusedException::class);
+        $this->tool()->store('foto.jpg', 'files/team', '', 'replace');
+    }
+
+    public function testTheAnswerMaySpellTheNameDifferently(): void
+    {
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')])->store('foto.jpg', 'files/team');
+        $this->nextTurn();
+
+        $this->tool()->store('Foto.JPG', 'files/team', '', 'replace');
+
+        self::assertSame('files/team/foto.jpg', $this->runs[0]['--path']);
     }
 
     public function testANewNameKeepsTheExtension(): void

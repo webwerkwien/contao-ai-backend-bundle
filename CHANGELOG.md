@@ -11,13 +11,15 @@ All notable changes to this project are documented here. The project adheres to 
   back end needs for the same operation. Storing over an existing name asks once (replace or
   a free name); rename and move ask when a text field names the path; delete is refused while
   the file is used and always asks first.
-- Attachments of a type Contao allows for uploads but the chat cannot read are accepted; the
-  model learns only their name, and `file_store` can put them into the file manager. Where
-  the type is known, the content must fit it.
+- For a user who may store files, attachments of a type Contao allows for uploads but the
+  chat cannot read are accepted; the model learns only their name, and `file_store` can put
+  them into the file manager. Where the type is known, the content must fit it; a file that
+  begins like a script is refused.
 
 ### Changed
 - The attach button shows an SVG icon instead of an emoji, the same on every system.
-- `ChatAttachment` has a new property `readable` (default `true`).
+- `ChatAttachment` has a new property `readable` (default `true`); `AttachmentReader::read()`
+  takes a fourth argument `$storable` (default `false`).
 
 ## v1.2.0 — 2026-11-13
 

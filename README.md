@@ -126,9 +126,11 @@ The limits come from where they are already set:
 
 - **Which types:** the file picker offers what Contao's *upload types* (System → Settings)
   allow. Whether the chosen model reads it is checked on sending — the
-  model can be switched below the input, so a refusal names the model. A type no
-  converter reads (a zip, an Office file, an SVG, …) is accepted since v1.3.0 so that it
-  can be stored (below); the model learns only its name.
+  model can be switched below the input, so a refusal names the model. For a user who may
+  store files (`file_store`, below), a type no converter reads (a zip, an Office file, an
+  SVG, …) is accepted since v1.3.0 and offered in the picker; the model learns only its
+  name. Where finfo knows the type the content has to fit it, and a file that begins like
+  a script is refused under any name.
 - **PDF needs a connection that carries it:** Anthropic, OpenAI and OpenAI Responses
   (compatible), the connections in `symfony/ai` that send a document. With any other
   provider (OpenRouter, the generic OpenAI-compatible connection, Ollama, …) a PDF is

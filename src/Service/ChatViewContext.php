@@ -48,18 +48,22 @@ class ChatViewContext
         // one place that knows, and shows the reason instead of a generic hint.
         $blocker = $this->platformResolver->missingRequirement($user);
 
+        $tools = $this->toolAccess->listAllowedTools($user);
+
         return [
             'hasKey'    => null === $blocker,
             'blocker'   => $blocker,
             'platform'  => $config->platform,
             // what the user may pick in the chat, the preselected one first (v0.20.0)
             'models'    => null === $blocker && null !== $this->modelChoice ? $this->modelChoice->choicesFor($user) : [],
-            'tools'     => $this->toolAccess->listAllowedTools($user),
+            'tools'     => $tools,
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),
-            // The file picker: what Contao allows and a converter reads (v1.0.0)
-            // Every type Contao allows for uploads (v1.3.0): an unreadable file can still be stored.
-            'attachmentTypes' => null === $blocker ? $this->attachmentPolicy->uploadTypes() : [],
+            // The file picker: what Contao allows and a converter reads (v1.0.0); for a user
+            // who may store files, every type Contao allows for uploads (v1.3.0).
+            'attachmentTypes' => null === $blocker
+                ? (\in_array('file_store', $tools, true) ? $this->attachmentPolicy->uploadTypes() : $this->attachmentPolicy->readableTypes())
+                : [],
             'maxFileSize'     => $this->attachmentPolicy->maxFileSize(),
             'maxRequestBytes' => $this->attachmentPolicy->maxRequestBytes(),
             'maxAttachments'  => AttachmentPolicy::MAX_ATTACHMENTS,

@@ -86,13 +86,31 @@ class AttachmentReaderTest extends TestCase
         $bytes = (string) file_get_contents($zipPath);
         unlink($zipPath);
 
-        $accepted = $this->reader()->read([self::file('archiv.zip', $bytes)], self::BOTH, 'm');
+        $accepted = $this->reader()->read([self::file('archiv.zip', $bytes)], self::BOTH, 'm', true);
 
         self::assertCount(1, $accepted->files);
         self::assertFalse($accepted->files[0]->readable);
         self::assertSame($bytes, $accepted->files[0]->bytes);
         self::assertSame([], $accepted->platformContents());
         self::assertSame("Bitte ablegen\n\nAnhang: archiv.zip (nicht lesbar, kann abgelegt werden)", $accepted->turnText('Bitte ablegen'));
+    }
+
+    /**
+     * Without file_store the chat could do nothing with it: refused as before v1.3.0.
+     */
+    public function testAnUnreadableFileIsRefusedForAUserWhoCannotStoreIt(): void
+    {
+        $this->expectException(AttachmentRefusedException::class);
+        $this->expectExceptionMessage('attachment_unreadable');
+        $this->reader()->read([self::file('archiv.zip', 'PK')], self::BOTH, 'm');
+    }
+
+    public function testAnSvgBeginningWithACommentIsNoMismatch(): void
+    {
+        $reader = new AttachmentReader($this->attachmentPolicy(['uploadTypes' => 'svg', 'maxFileSize' => '2048000']));
+        $accepted = $reader->read([self::file('logo.svg', '<!-- logo --><svg xmlns="http://www.w3.org/2000/svg"/>')], self::BOTH, 'm', true);
+
+        self::assertCount(1, $accepted->files);
     }
 
     /**
@@ -116,6 +134,10 @@ class AttachmentReaderTest extends TestCase
         yield 'svg never'           => [[self::file('a.svg', '<svg/>')], 'attachment_type_not_allowed'];
         yield 'no reader, text named docx' => [[self::file('a.docx', 'nur Text')], 'attachment_mismatch'];
         yield 'no reader, unknown type, a script' => [[self::file('a.mov', "<?php system(\$_GET['c']);")], 'attachment_mismatch'];
+        yield 'no reader, script after a line break' => [[self::file('a.mov', "\n<?php system(\$_GET['c']);")], 'attachment_mismatch'];
+        yield 'no reader, short echo tag' => [[self::file('a.mov', "<?= \$_GET['c'] ?>")], 'attachment_mismatch'];
+        yield 'no reader, script in html' => [[self::file('a.mov', '<html><?PHP echo 1; ?></html>')], 'attachment_mismatch'];
+        yield 'no reader, shebang' => [[self::file('a.mov', "#!/usr/bin/env python\nprint(1)")], 'attachment_mismatch'];
         yield 'renamed text as pdf' => [[self::file('a.pdf', 'nur Text')], 'attachment_mismatch'];
         yield 'png named jpg'       => [[self::file('a.jpg', (string) base64_decode(self::PNG))], 'attachment_mismatch'];
     }
@@ -124,7 +146,8 @@ class AttachmentReaderTest extends TestCase
     public function testRefused(mixed $raw, string $label): void
     {
         try {
-            $this->reader()->read($raw, self::BOTH, 'm');
+            // As for a user who may store files: the unreadable ones are checked, not refused outright.
+            $this->reader()->read($raw, self::BOTH, 'm', true);
             self::fail('accepted: ' . $label);
         } catch (AttachmentRefusedException $e) {
             self::assertSame($label, $e->labelKey);

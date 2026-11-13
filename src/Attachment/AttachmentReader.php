@@ -20,10 +20,12 @@ final class AttachmentReader
     /**
      * @param mixed        $raw      the request's `attachments` value
      * @param list<string> $readable AttachmentContent kinds the model reads besides text
+     * @param bool         $storable whether the user may store files (file_store); only
+     *                               then is a file no converter reads accepted (v1.3.0)
      *
      * @throws AttachmentRefusedException
      */
-    public function read(mixed $raw, array $readable, string $model): AcceptedAttachments
+    public function read(mixed $raw, array $readable, string $model, bool $storable = false): AcceptedAttachments
     {
         if (null === $raw || [] === $raw) {
             return new AcceptedAttachments([], []);
@@ -57,6 +59,9 @@ final class AttachmentReader
                 throw new AttachmentRefusedException('attachment_type_not_allowed', [$name]);
             }
             $converter = $this->policy->converterFor($extension);
+            if (null === $converter && !$storable) {
+                throw new AttachmentRefusedException('attachment_unreadable', [$name]);
+            }
 
             // base64 is 4/3 of the file: too large is known before decoding.
             $maxSize = $this->policy->maxFileSize();
@@ -77,7 +82,7 @@ final class AttachmentReader
             // and file_store may put it into the file manager. Where the type is known,
             // the content must fit it, as for the readable ones.
             if (null === $converter) {
-                if (!self::fitsKnownType($extension, $mime)) {
+                if (!self::fitsKnownType($extension, $mime) || self::looksLikeAScript($bytes)) {
                     throw new AttachmentRefusedException('attachment_mismatch', [$name]);
                 }
                 $files[] = new ChatAttachment($name, $extension, $mime, $bytes, false);
@@ -115,7 +120,8 @@ final class AttachmentReader
         'doc'  => ['application/msword', 'application/x-ole-storage', 'application/CDFV2'],
         'xls'  => ['application/vnd.ms-excel', 'application/x-ole-storage', 'application/CDFV2'],
         'ppt'  => ['application/vnd.ms-powerpoint', 'application/x-ole-storage', 'application/CDFV2'],
-        'svg'  => ['image/svg+xml'],
+        // An SVG that begins with a comment is plain text or XML to finfo.
+        'svg'  => ['image/svg+xml', 'text/xml', 'application/xml', 'text/plain'],
         'svgz' => ['application/gzip', 'application/x-gzip'],
         'avif' => ['image/avif'],
         'heic' => ['image/heic'],
@@ -127,6 +133,19 @@ final class AttachmentReader
     ];
 
     private const SCRIPT_TYPES = ['text/x-php', 'application/x-httpd-php', 'application/x-executable', 'application/x-dosexec', 'application/x-sharedlib', 'text/x-shellscript'];
+
+    /**
+     * finfo names a PHP file only when it begins with the tag; a line break before it,
+     * the short echo tag or HTML around it make it plain text. A shebang marks any other
+     * script. The beginning is enough: nothing here becomes executable under its own
+     * extension, this only keeps scripts out of the file manager.
+     */
+    public static function looksLikeAScript(string $bytes): bool
+    {
+        $head = substr($bytes, 0, 4096);
+
+        return str_starts_with(ltrim($head), '#!') || 1 === preg_match('/<\?(?:php\b|=)/i', $head);
+    }
 
     public static function fitsKnownType(string $extension, string $mime): bool
     {

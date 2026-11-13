@@ -282,7 +282,12 @@ class AiStreamController extends AbstractController
 
         // After the invocation: whether the model reads PDF or images is its catalog's answer.
         try {
-            $accepted = $this->attachmentReader->read($rawAttachments, $invocation->readableContent, $invocation->model);
+            $accepted = $this->attachmentReader->read(
+                $rawAttachments,
+                $invocation->readableContent,
+                $invocation->model,
+                \in_array('file_store', $invocation->allowedToolNames, true),
+            );
         } catch (AttachmentRefusedException $e) {
             // An answer, not a defect: no report.
             $emit('error', ['kind' => 'attachment_refused', 'message' => $this->translator->trans('ai_chat.' . $e->labelKey, $e->parameters, 'contao_ai_chat')]);
