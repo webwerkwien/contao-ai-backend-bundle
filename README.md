@@ -26,7 +26,9 @@ contao-ai-backend-bundle is the **browser client** for AI-powered Contao content
 ## Requirements
 
 - PHP ^8.2 with `ext-fileinfo` (since v1.0.0, for the file check of attachments)
-- Contao 5.7 or 6.x (`^5.7 || ^6.0`)
+- Contao 5.7.12 or later, or 6.x (`^5.7.12 || ^6.0`)
+
+The tools ask Contao's data container voters, several tables in one chat request. Contao 5.7.0 to 5.7.11 cached the table voter's answer per user instead of per table, so within one request the first table decided for the others ([GHSA-5974-gfqc-wrcm](https://github.com/contao/contao/security/advisories/GHSA-5974-gfqc-wrcm), fixed in 5.7.12). Since v1.2.0 those versions are excluded.
 
 `symfony/ai` needs Symfony 7.3 or later, which rules out Contao 5.3 (Symfony 6.4). Up to v0.9.3 the requirements said `^5.3`, but the bundle could never actually be installed there. Contao 5.4 to 5.6 are not supported either; on those, Composer keeps v0.9.3.
 

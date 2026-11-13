@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The project adheres to 
 
 ## Unreleased
 
+### Changed
+
+- **Requires Contao 5.7.12 or later on the 5.7 branch** (`^5.7.12 || ^6.0`). The tools
+  ask Contao's data container voters for several tables in one chat request, and up to
+  5.7.11 the table voter answered every table of a request as it had answered the first
+  ([GHSA-5974-gfqc-wrcm](https://github.com/contao/contao/security/advisories/GHSA-5974-gfqc-wrcm)).
+  On an older 5.7, Composer keeps v1.1.x; update Contao to get this version.
+
 ### Added
 
 - **`content_copy` and `article_copy` duplicate a content element or an article** with its

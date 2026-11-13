@@ -225,9 +225,9 @@ class CopyToolTest extends TestCase
     public function testTheCoresRefusalReachesTheChatAsOne(): void
     {
         $this->expectException(ToolRefusedException::class);
-        $this->expectExceptionMessage('into itself');
+        $this->expectExceptionMessage('refused by');
 
-        $this->tool(answer: '{"status":"error","message":"A tl_content record cannot be copied into itself or one of its own elements"}')->copyContent(40, 40, 'tl_content');
+        $this->tool(answer: '{"status":"error","message":"tl_content.oncopy refused by Example::check. Nothing was written."}')->copyContent(40, 40, 'tl_content');
     }
 
     public function testTheToolsAreOfferedWhereTheCoreHasTheCommandsAndTheUserTheRights(): void

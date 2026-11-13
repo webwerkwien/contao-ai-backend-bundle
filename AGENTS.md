@@ -210,6 +210,11 @@ that existed before the fix, and that could not be rewritten, is the proof.
   by `FiltersLanguageVersions`: each entry a read of that record, the rest counted, an
   unknown shape dropped. The core trusts its operator; a title from outside the user's
   mounts must not reach the model.
+- **Contao 5.7.12 is the lower bound, not 5.7.0** (`^5.7.12 || ^6.0`, v1.2.0). The tools ask
+  Contao's data container voters, many tables in one chat request; up to 5.7.11
+  `TableAccessVoter` cached its answer per token, not per table, so the first table of a
+  request decided for the rest (GHSA-5974-gfqc-wrcm). A human clicking module by module
+  rarely meets that, a chat run does. Do not lower the bound.
 - **A copy asks what the back end asks, and no field rights** (`CopyTool`, v1.2.0).
   DC_Table's copy and paste checks whether the user may copy the source — the clipboard's
   `CreateAction` with the record, `RecordPermissionChecker::recordCopyDenialReason()` —
