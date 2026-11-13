@@ -443,6 +443,14 @@ class FileToolTest extends TestCase
         );
     }
 
+    public function testMetadataArrivesAsTheListTheModelSends(): void
+    {
+        $this->tool()->meta('files/team/foto.jpg', '["alt", "Das Team"]', 'de');
+        $this->tool()->meta('files/team/foto.jpg', '{"caption": "Bild"}', 'de');
+
+        self::assertSame([['alt=Das Team'], ['caption=Bild']], array_column($this->runs, '--set'));
+    }
+
     public function testMetadataTakesOnlyItsFourFields(): void
     {
         $this->expectException(ToolRefusedException::class);

@@ -213,18 +213,21 @@ class FileTool extends AbstractCoreCommandTool
 
     /**
      * @param string                $path   File below files/
-     * @param array<string,string> $fields Keys title, alt, link, caption
+     * @param array<string,scalar|null>|string $fields Metadata fields and their values, as a list of name and value (["alt", "Das Team", "title", "Team"]) or as an object ({"alt": "Das Team"}). Field names: title, alt, link, caption.
      * @param string                $lang   Language of the root page, e.g. de
      */
-    public function meta(string $path, array $fields, string $lang): string
+    public function meta(string $path, array|string $fields, string $lang): string
     {
         $this->assertAccess('file_meta');
         $user = $this->requireBackendUser();
         $path = $this->mountedPath($path);
         $this->assertAction(new UpdateAction('tl_files', ['id' => $path]), $path);
 
+        // symfony/ai describes the map as a list: the model sends name and value in turn.
+        $fields = self::normalizeFieldsPayload(self::payload($fields, 'fields'));
         $unknown = array_diff(array_keys($fields), self::META_KEYS);
-        if ([] === $fields || [] !== $unknown) {
+        $notText = array_filter($fields, static fn (mixed $v): bool => !\is_scalar($v) && null !== $v);
+        if ([] === $fields || [] !== $unknown || [] !== $notText) {
             throw new ToolRefusedException('Metadaten: nur title, alt, link und caption, mindestens eines davon.');
         }
         if (!preg_match('/^[a-z]{2}(?:[_-][A-Za-z]{2})?$/', $lang)) {
