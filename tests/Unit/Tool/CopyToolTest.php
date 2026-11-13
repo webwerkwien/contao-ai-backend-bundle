@@ -362,6 +362,19 @@ class CopyToolTest extends TestCase
         self::assertSame([], $this->runs);
     }
 
+    public function testAnElementToAMissingParentIsRefused(): void
+    {
+        try {
+            $this->tool()->copyContent(40, 99, 'tl_news');
+            self::fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            self::assertStringContainsString('Übergeordneter Datensatz 99 in "tl_news"', $e->getMessage());
+        }
+
+        self::assertSame([], $this->createVotes, 'refused before the voters are asked');
+        self::assertSame([], $this->runs);
+    }
+
     public function testWithoutTheRightToCopyTheArticleNothingRuns(): void
     {
         try {
