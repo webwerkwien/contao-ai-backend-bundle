@@ -210,6 +210,14 @@ that existed before the fix, and that could not be rewritten, is the proof.
   by `FiltersLanguageVersions`: each entry a read of that record, the rest counted, an
   unknown shape dropped. The core trusts its operator; a title from outside the user's
   mounts must not reach the model.
+- **A copy asks what the back end asks, and no field rights** (`CopyTool`, v1.2.0).
+  DC_Table's copy and paste checks whether the user may copy the source — the clipboard's
+  `CreateAction` with the record, `RecordPermissionChecker::recordCopyDenialReason()` —
+  and may create the copy at the target (`assertCreate()` with the source's fields at the
+  target), plus the editor's parent rule for content elements. It does not check field
+  rights: the copy keeps fields the user may not edit, such as `cssID`, and the field
+  rights apply in the edit form that follows, in the chat `content_update`. Do not add a
+  field check here; it would refuse what the back end allows.
 - **Code, comments, docs and commit messages in English** — also in a file that still
   has German comments next to the line you write. German stays only where it is German
   by nature: the language files, the German strings users and the model read, test

@@ -159,14 +159,16 @@ The log records name, type and size of every attachment, never its content.
 | FAQ     | `faq_create`, `faq_update`, `faq_delete`, `faq_read` — module `faq` |
 | Image sizes | `image_size_create`, `image_size_update`, `image_size_delete`, `image_size_read`, and the same four as `image_size_item_*` for the variants (v0.19.0) — module `themes` |
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
-| Article | `article_create`, `article_update`, `article_delete`, `article_read` |
-| Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0; with changelanguage and core-bundle ≥ 1.11.0 also the linked versions of each hit's page and article, v0.21.0; `offset` for the next page, core-bundle ≥ 1.12.0, v0.22.0) |
+| Article | `article_create`, `article_update`, `article_delete`, `article_read`, `article_copy` (core-bundle ≥ 1.17.0, v1.2.0) |
+| Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0; with changelanguage and core-bundle ≥ 1.11.0 also the linked versions of each hit's page and article, v0.21.0; `offset` for the next page, core-bundle ≥ 1.12.0, v0.22.0), `content_copy` (core-bundle ≥ 1.17.0, v1.2.0) |
 | Meta    | `dca_schema`, `dca_palette`, `dca_options` (v0.16.0), `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 | Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |
 | Translation links | `language_link`, `language_check` — only with terminal42/contao-changelanguage and core-bundle ≥ 1.4.0; `language_versions` (a record's linked versions in other languages; core-bundle ≥ 1.11.0, v0.21.0) |
 
 `page_create`, `article_create` and `content_create` take `after` (an existing record's ID) instead of `pid`: the new record goes directly behind it, below the same parent; an article also takes its column unless one is given (core-bundle ≥ 1.12.0, v0.22.0).
+
+`content_copy` and `article_copy` duplicate a content element or an article with its elements, as copy and paste in the back end: by default directly behind the source, with `after` behind another record, with `pid` at the end of another parent. As in the back end, the copy takes every field of its source, including fields the user may not edit; the user needs the right to copy the source and to create at the target, and the field rights apply when the copy is changed afterwards. A copied article is unpublished and has no alias yet. The tools appear only where the core has the copy commands (core-bundle ≥ 1.17.0, v1.2.0).
 
 **Extension commands** are offered per user: a command appears when the user's module rights reach every table its contract names; a command that names no tables is admin-only. One whose contract declares something `irreversible` — an effect the database cannot undo, such as a published package release, a renewed token or a sent mail — does not run in the chat at all, for admins neither (since v0.22.1): `ext_list` names it under `notInChat` with the reason, and it remains for the command line (`contao-ai-cli ext run`). What a command does without declaring it cannot be seen from the chat; the contract is the extension author's word. Package updates, cache, backups and migrations have no chat tool, and the core's own `contao:` commands are not reachable through `ext_run`.
 
