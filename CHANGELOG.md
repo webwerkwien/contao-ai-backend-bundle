@@ -2,7 +2,11 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
 
-## Unreleased
+## v1.2.0 — 2026-11-13
+
+Needs Contao 5.7.12 or later on the 5.7 branch. The copy tools need
+contao-ai-core-bundle v1.17.0; everything else works with the same core versions as
+v1.1.1.
 
 ### Changed
 
