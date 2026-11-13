@@ -125,8 +125,10 @@ message may consist of files alone. The model reads them together with that mess
 The limits come from where they are already set:
 
 - **Which types:** the file picker offers what Contao's *upload types* (System → Settings)
-  allow and the chat reads. Whether the chosen model reads it is checked on sending — the
-  model can be switched below the input, so a refusal names the model.
+  allow. Whether the chosen model reads it is checked on sending — the
+  model can be switched below the input, so a refusal names the model. A type no
+  converter reads (a zip, an Office file, an SVG, …) is accepted since v1.3.0 so that it
+  can be stored (below); the model learns only its name.
 - **PDF needs a connection that carries it:** Anthropic, OpenAI and OpenAI Responses
   (compatible), the connections in `symfony/ai` that send a document. With any other
   provider (OpenRouter, the generic OpenAI-compatible connection, Ollama, …) a PDF is
@@ -146,9 +148,31 @@ The limits come from where they are already set:
 A refused file ends the turn with the error kind `attachment_refused` before the model is
 asked, with a message that names the file and the reason, and without an error report.
 
-What it does not do: a file is not stored, neither in the file manager nor in the
-conversation. The history keeps a line `Anhang: <name>`, so the next message knows a
-file was there but not what it said; attach it again to ask more. SVG is not read.
+A file is not kept in the conversation. The history keeps a line `Anhang: <name>`, so the
+next message knows a file was there but not what it said; attach it again to ask more.
+
+### The file manager (v1.3.0, core-bundle ≥ 1.18.0)
+
+The chat stores an attached file in the file manager (`file_store`), creates folders,
+renames, moves and deletes files and folders, sets their metadata and tells where a file is
+used. Each tool needs what the back end needs for the same operation: the module *File
+manager*, the file operation right (upload for storing and new folders, rename for renaming
+and moving, delete for deleting; a folder with content needs *delete recursively*), the
+field *Metadata* for metadata, and the file mounts for every path involved. A tool the user
+may not use is not offered.
+
+Beyond the back end:
+
+- **Storing never overwrites silently.** If the name exists, the chat asks once: replace
+  (the file keeps its UUID, so every element showing it shows the new one) or store under a
+  free name (`foto-1.jpg`). The file waits on the server for the answer, at most ten minutes,
+  so it need not be attached again.
+- **Rename and move** keep Contao's references, which point at the UUID; only a path written
+  into a text field breaks. When one does, the chat asks first and names the places.
+- **Delete** is refused while the file is used anywhere (`file_usages` lists where), and
+  otherwise always asks first. Files have no undo.
+- `file_store` answers with the path and the UUID: "put the photo into the image element"
+  works in the same message.
 
 The log records name, type and size of every attachment, never its content.
 
@@ -163,6 +187,7 @@ The log records name, type and size of every attachment, never its content.
 | Page    | `page_create`, `page_update`, `page_delete`, `page_read`, `page_publish` |
 | Article | `article_create`, `article_update`, `article_delete`, `article_read`, `article_copy` (core-bundle ≥ 1.17.0, v1.2.0) |
 | Content | `content_create`, `content_update`, `content_delete`, `content_read`, `content_find` (by its text, with page and language; core-bundle ≥ 1.10.0, v0.20.0; with changelanguage and core-bundle ≥ 1.11.0 also the linked versions of each hit's page and article, v0.21.0; `offset` for the next page, core-bundle ≥ 1.12.0, v0.22.0), `content_copy` (core-bundle ≥ 1.17.0, v1.2.0) |
+| Files   | `file_store`, `folder_create`, `file_rename`, `file_move`, `file_delete`, `file_meta`, `file_usages` (core-bundle ≥ 1.18.0, v1.3.0) |
 | Meta    | `dca_schema`, `dca_palette`, `dca_options` (v0.16.0), `listing_config`, `search_query`, `record_list` |
 | Macros  | `record_clone` (cascade), `record_rewrite` (server-side LLM loop) |
 | Extensions | `ext_list`, `ext_run` — console commands other extensions declare with `#[AiContract]` |

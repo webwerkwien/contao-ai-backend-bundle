@@ -215,6 +215,17 @@ that existed before the fix, and that could not be rewritten, is the proof.
   `TableAccessVoter` cached its answer per token, not per table, so the first table of a
   request decided for the rest (GHSA-5974-gfqc-wrcm). A human clicking module by module
   rarely meets that, a chat run does. Do not lower the bound.
+- **A file operation asks what tl_files.php and DC_Folder ask** (`FileTool`, v1.3.0, read
+  in 5.7 and 6.0): the file operation right (`USER_CAN_UPLOAD_FILES` f1, `USER_CAN_RENAME_FILE`
+  f2 for rename and move, `USER_CAN_DELETE_FILE` f3, `USER_CAN_DELETE_RECURSIVELY` f4 for a
+  folder with content), `USER_CAN_ACCESS_PATH` for every path involved (Contao's
+  `isMounted()`), and the data container action on tl_files that DC_Folder votes on. The right
+  is also an entry in `ToolAccessChecker::TOOL_MAP` (`right`), so a tool the user may not use
+  is not offered. Beyond the back end: rename and move ask when `contao:file:usages
+  --paths-only` finds a text field naming the path; delete is refused while
+  `contao:file:usages` finds anything and always asks; `file_store` over an existing name
+  stages the file in `var/bridge-uploads/chat-*` with its sha1 in `PendingActionStore` and
+  asks once. The temp name never reaches the model; stale temp files go after ten minutes.
 - **A copy asks what the back end asks, and no field rights** (`CopyTool`, v1.2.0).
   DC_Table's copy and paste checks whether the user may copy the source — the clipboard's
   `CreateAction` with the record, `RecordPermissionChecker::recordCopyDenialReason()` —

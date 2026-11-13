@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
 
+## Unreleased
+
+### Added
+- The file manager in the chat, with core-bundle ≥ 1.18.0: `file_store` stores an attached
+  file, `folder_create`, `file_rename`, `file_move`, `file_delete`, `file_meta` and
+  `file_usages`. Each tool needs the module, the file operation right and the file mounts the
+  back end needs for the same operation. Storing over an existing name asks once (replace or
+  a free name); rename and move ask when a text field names the path; delete is refused while
+  the file is used and always asks first.
+- Attachments of a type Contao allows for uploads but the chat cannot read are accepted; the
+  model learns only their name, and `file_store` can put them into the file manager. Where
+  the type is known, the content must fit it.
+
+### Changed
+- The attach button shows an SVG icon instead of an emoji, the same on every system.
+- `ChatAttachment` has a new property `readable` (default `true`).
+
 ## v1.2.0 — 2026-11-13
 
 Needs Contao 5.7.12 or later on the 5.7 branch. The copy tools need
