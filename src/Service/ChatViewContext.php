@@ -58,7 +58,8 @@ class ChatViewContext
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),
             // The file picker: what Contao allows and a converter reads (v1.0.0)
-            'attachmentTypes' => null === $blocker ? $this->attachmentPolicy->readableTypes() : [],
+            // Every type Contao allows for uploads (v1.3.0): an unreadable file can still be stored.
+            'attachmentTypes' => null === $blocker ? $this->attachmentPolicy->uploadTypes() : [],
             'maxFileSize'     => $this->attachmentPolicy->maxFileSize(),
             'maxRequestBytes' => $this->attachmentPolicy->maxRequestBytes(),
             'maxAttachments'  => AttachmentPolicy::MAX_ATTACHMENTS,

@@ -57,9 +57,6 @@ final class AttachmentReader
                 throw new AttachmentRefusedException('attachment_type_not_allowed', [$name]);
             }
             $converter = $this->policy->converterFor($extension);
-            if (null === $converter) {
-                throw new AttachmentRefusedException('attachment_unreadable', [$name]);
-            }
 
             // base64 is 4/3 of the file: too large is known before decoding.
             $maxSize = $this->policy->maxFileSize();
@@ -75,6 +72,18 @@ final class AttachmentReader
             }
 
             $mime = (string) (new \finfo(\FILEINFO_MIME_TYPE))->buffer($bytes);
+
+            // Not readable, but allowed for uploads: only its name reaches the model,
+            // and file_store may put it into the file manager. Where the type is known,
+            // the content must fit it, as for the readable ones.
+            if (null === $converter) {
+                if (!self::fitsKnownType($extension, $mime)) {
+                    throw new AttachmentRefusedException('attachment_mismatch', [$name]);
+                }
+                $files[] = new ChatAttachment($name, $extension, $mime, $bytes, false);
+                continue;
+            }
+
             if (!$converter->acceptsMime($extension, $mime)) {
                 throw new AttachmentRefusedException('attachment_mismatch', [$name]);
             }
@@ -90,6 +99,42 @@ final class AttachmentReader
         }
 
         return new AcceptedAttachments($files, $contents);
+    }
+
+    /**
+     * What finfo reports for the types without a converter that it recognises. A type
+     * missing here is accepted as it comes, except a script under a harmless name.
+     */
+    private const KNOWN_TYPES = [
+        'zip'  => ['application/zip'],
+        'docx' => ['application/zip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        'xlsx' => ['application/zip', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        'pptx' => ['application/zip', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+        'odt'  => ['application/zip', 'application/vnd.oasis.opendocument.text'],
+        'ods'  => ['application/zip', 'application/vnd.oasis.opendocument.spreadsheet'],
+        'doc'  => ['application/msword', 'application/x-ole-storage', 'application/CDFV2'],
+        'xls'  => ['application/vnd.ms-excel', 'application/x-ole-storage', 'application/CDFV2'],
+        'ppt'  => ['application/vnd.ms-powerpoint', 'application/x-ole-storage', 'application/CDFV2'],
+        'svg'  => ['image/svg+xml'],
+        'svgz' => ['application/gzip', 'application/x-gzip'],
+        'avif' => ['image/avif'],
+        'heic' => ['image/heic'],
+        'ico'  => ['image/vnd.microsoft.icon', 'image/x-icon'],
+        'mp3'  => ['audio/mpeg'],
+        'mp4'  => ['video/mp4'],
+        'webm' => ['video/webm', 'audio/webm'],
+        'ogg'  => ['audio/ogg', 'video/ogg', 'application/ogg'],
+    ];
+
+    private const SCRIPT_TYPES = ['text/x-php', 'application/x-httpd-php', 'application/x-executable', 'application/x-dosexec', 'application/x-sharedlib', 'text/x-shellscript'];
+
+    public static function fitsKnownType(string $extension, string $mime): bool
+    {
+        if (\in_array($mime, self::SCRIPT_TYPES, true)) {
+            return false;
+        }
+
+        return !isset(self::KNOWN_TYPES[$extension]) || \in_array($mime, self::KNOWN_TYPES[$extension], true);
     }
 
     /**

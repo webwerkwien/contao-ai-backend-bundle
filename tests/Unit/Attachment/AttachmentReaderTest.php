@@ -28,7 +28,7 @@ class AttachmentReaderTest extends TestCase
     private function reader(int $maxFileSize = 2048000): AttachmentReader
     {
         return new AttachmentReader($this->attachmentPolicy([
-            'uploadTypes' => 'jpg,png,pdf,txt,csv,docx',
+            'uploadTypes' => 'jpg,png,pdf,txt,csv,docx,zip,mov',
             'maxFileSize' => (string) $maxFileSize,
         ]));
     }
@@ -73,6 +73,29 @@ class AttachmentReaderTest extends TestCase
     }
 
     /**
+     * A type Contao allows for uploads but no converter reads (v1.3.0): accepted, so that
+     * file_store can put it into the file manager; the model learns only its name.
+     */
+    public function testAnUnreadableAllowedFileArrivesWithItsNameOnly(): void
+    {
+        $zipPath = tempnam(sys_get_temp_dir(), 'zip');
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::OVERWRITE);
+        $zip->addFromString('a.txt', 'a');
+        $zip->close();
+        $bytes = (string) file_get_contents($zipPath);
+        unlink($zipPath);
+
+        $accepted = $this->reader()->read([self::file('archiv.zip', $bytes)], self::BOTH, 'm');
+
+        self::assertCount(1, $accepted->files);
+        self::assertFalse($accepted->files[0]->readable);
+        self::assertSame($bytes, $accepted->files[0]->bytes);
+        self::assertSame([], $accepted->platformContents());
+        self::assertSame("Bitte ablegen\n\nAnhang: archiv.zip (nicht lesbar, kann abgelegt werden)", $accepted->turnText('Bitte ablegen'));
+    }
+
+    /**
      * @return iterable<string, array{0: mixed, 1: string}>
      */
     public static function refusals(): iterable
@@ -91,7 +114,8 @@ class AttachmentReaderTest extends TestCase
         yield 'twice the same name' => [[$pdf, self::file('A.PDF', self::PDF)], 'attachment_duplicate'];
         yield 'not in uploadTypes'  => [[self::file('a.exe', 'MZ')], 'attachment_type_not_allowed'];
         yield 'svg never'           => [[self::file('a.svg', '<svg/>')], 'attachment_type_not_allowed'];
-        yield 'allowed, no reader'  => [[self::file('a.docx', 'PK')], 'attachment_unreadable'];
+        yield 'no reader, text named docx' => [[self::file('a.docx', 'nur Text')], 'attachment_mismatch'];
+        yield 'no reader, unknown type, a script' => [[self::file('a.mov', "<?php system(\$_GET['c']);")], 'attachment_mismatch'];
         yield 'renamed text as pdf' => [[self::file('a.pdf', 'nur Text')], 'attachment_mismatch'];
         yield 'png named jpg'       => [[self::file('a.jpg', (string) base64_decode(self::PNG))], 'attachment_mismatch'];
     }

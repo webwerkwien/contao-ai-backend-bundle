@@ -34,7 +34,10 @@ final class AcceptedAttachments
             return $userInput;
         }
 
-        $lines = array_map(static fn (ChatAttachment $file): string => 'Anhang: ' . $file->name, $this->files);
+        $lines = array_map(
+            static fn (ChatAttachment $file): string => 'Anhang: ' . $file->name . ($file->readable ? '' : ' (nicht lesbar, kann abgelegt werden)'),
+            $this->files,
+        );
 
         return trim(trim($userInput) . "\n\n" . implode("\n", $lines));
     }
