@@ -172,4 +172,36 @@ class ToolMapCoversEveryToolTest extends TestCase
         self::assertTrue($checker->canUseTool($this->editor([$module]), $tool), 'with the module');
         self::assertFalse($checker->canUseTool($this->editor(['news']), $tool), 'without it');
     }
+
+    /**
+     * The file tools need the module and the right the back end asks for the same
+     * operation (tl_files.php); file_usages only reads.
+     */
+    public function testAFileToolNeedsItsFileOperationRight(): void
+    {
+        $checker = new ToolAccessChecker();
+        $editor = function (array $rights): BackendUser {
+            $user = $this->createMock(BackendUser::class);
+            $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) {
+                'isAdmin' => false,
+                'modules' => ['files'],
+                default   => null,
+            });
+            $user->method('__isset')->willReturn(true);
+            $user->method('hasAccess')->willReturnCallback(static fn (string $value, string $field): bool => \in_array("$field.$value", $rights, true));
+
+            return $user;
+        };
+
+        self::assertTrue($checker->canUseTool($editor([]), 'file_usages'));
+        self::assertFalse($checker->canUseTool($editor([]), 'file_store'));
+        self::assertTrue($checker->canUseTool($editor(['fop.f1']), 'file_store'));
+        self::assertTrue($checker->canUseTool($editor(['fop.f1']), 'folder_create'));
+        self::assertFalse($checker->canUseTool($editor(['fop.f1']), 'file_rename'));
+        self::assertTrue($checker->canUseTool($editor(['fop.f2']), 'file_move'));
+        self::assertFalse($checker->canUseTool($editor(['fop.f2']), 'file_delete'));
+        self::assertTrue($checker->canUseTool($editor(['fop.f3']), 'file_delete'));
+        self::assertTrue($checker->canUseTool($editor(['alexf.tl_files::meta']), 'file_meta'));
+        self::assertFalse($checker->canUseTool($this->editor(['article']), 'file_usages'), 'not without the module');
+    }
 }

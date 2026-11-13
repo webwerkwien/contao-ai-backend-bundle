@@ -40,7 +40,7 @@ class ToolAccessChecker
      * intent for human-readable denial messages; the underlying Contao DCA still
      * enforces row-level checks when the wrapped command runs.
      *
-     * @var array<string, array{module: string, op: string}>
+     * @var array<string, array{module: string, op: string, right?: array{0: string, 1: string}}>
      */
     private const TOOL_MAP = [
         // News
@@ -79,6 +79,17 @@ class ToolAccessChecker
         // and the create at the target are voted on in CopyTool
         'content_copy'   => ['module' => 'article', 'op' => 'create'],
         'article_copy'   => ['module' => 'article', 'op' => 'create'],
+        // v1.3.0: the file manager. Besides the module, each tool needs the right the
+        // back end asks for the same operation (tl_files.php): the file operations
+        // f1 upload, f2 rename/move, f3 delete, and the meta field for metadata.
+        // Folder and path are voted on in FileTool.
+        'file_usages'   => ['module' => 'files', 'op' => 'read'],
+        'file_store'    => ['module' => 'files', 'op' => 'create', 'right' => ['fop', 'f1']],
+        'folder_create' => ['module' => 'files', 'op' => 'create', 'right' => ['fop', 'f1']],
+        'file_rename'   => ['module' => 'files', 'op' => 'edit',   'right' => ['fop', 'f2']],
+        'file_move'     => ['module' => 'files', 'op' => 'edit',   'right' => ['fop', 'f2']],
+        'file_delete'   => ['module' => 'files', 'op' => 'delete', 'right' => ['fop', 'f3']],
+        'file_meta'     => ['module' => 'files', 'op' => 'edit',   'right' => ['alexf', 'tl_files::meta']],
         // Macro tools have no fixed module gate — they span several tables
         // and must vote against the source table per call
         // (RecordPermissionChecker). Marked with `op=any` here; the actual
@@ -162,8 +173,18 @@ class ToolAccessChecker
             return true;
         }
         $userModules = (array) ($user->modules ?? []);
+        if (!\in_array($requirement['module'], $userModules, true)) {
+            return false;
+        }
 
-        return \in_array($requirement['module'], $userModules, true);
+        // What BackendUserAccessVoter asks for contao_user.fop.f1 and the like.
+        if (isset($requirement['right'])) {
+            [$field, $value] = $requirement['right'];
+
+            return $user->hasAccess($value, $field);
+        }
+
+        return true;
     }
 
     /**
@@ -178,6 +199,11 @@ class ToolAccessChecker
                 );
             }
             $required = self::TOOL_MAP[$toolName]['module'] ?? 'unknown';
+            if (isset(self::TOOL_MAP[$toolName]['right']) && \in_array($required, (array) ($user->modules ?? []), true)) {
+                throw new ToolAccessDeniedException(
+                    \sprintf('Tool "%s" requires the user right "%s" (%s).', $toolName, self::TOOL_MAP[$toolName]['right'][1], self::TOOL_MAP[$toolName]['right'][0])
+                );
+            }
             throw new ToolAccessDeniedException(
                 \sprintf('Tool "%s" requires backend module "%s".', $toolName, $required)
             );

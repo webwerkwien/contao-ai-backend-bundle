@@ -31,6 +31,7 @@ class SystemPromptProvider
         'image_size_item_create', 'image_size_item_update', 'image_size_item_delete', 'image_size_item_read',
         'page_create', 'page_update', 'page_delete', 'page_publish', 'page_read',
         'article_create', 'article_update', 'article_delete', 'article_read', 'article_copy',
+        'file_usages', 'file_store', 'folder_create', 'file_rename', 'file_move', 'file_delete', 'file_meta',
         'content_create', 'content_update', 'content_delete', 'content_read', 'content_find', 'content_copy',
         'record_list',
         'record_clone',
