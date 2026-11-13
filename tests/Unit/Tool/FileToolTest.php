@@ -335,7 +335,8 @@ class FileToolTest extends TestCase
 
     public function testAFolderThatOnlyBeginsLikeTheMountIsOutside(): void
     {
-        // The voter matches a prefix; the mount is a folder.
+        // This test's voter stub grants any path with the mount's prefix; the tool's own
+        // check still treats the mount as a folder.
         mkdir($this->root . '/files/teamwork');
         $this->expectException(ToolAccessDeniedException::class);
 
