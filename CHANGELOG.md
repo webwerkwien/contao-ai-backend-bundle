@@ -2,15 +2,18 @@
 
 All notable changes to this project are documented here. The project adheres to [Semantic Versioning](https://semver.org/); what counts as its public surface since 1.0.0 is listed in the README under *Stability*.
 
-## Unreleased
+## v1.3.0 — 2026-11-13
+
+The file tools need contao-ai-core-bundle v1.18.0 and appear only where it is installed;
+everything else works with the same core versions as v1.2.0.
 
 ### Added
 - The file manager in the chat, with core-bundle ≥ 1.18.0: `file_store` stores an attached
   file, `folder_create`, `file_rename`, `file_move`, `file_delete`, `file_meta` and
   `file_usages`. Each tool needs the module, the file operation right and the file mounts the
   back end needs for the same operation. Storing over an existing name asks once (replace or
-  a free name), and only a later message answers; rename and move ask when a text field names the path; delete is refused while
-  the file is used and always asks first.
+  a free name), and only a later message answers; rename and move ask when a text field
+  names the path; delete is refused while the file is used and always asks first.
 - For a user who may store files, attachments of a type Contao allows for uploads but the
   chat cannot read are accepted; the model learns only their name, and `file_store` can put
   them into the file manager. Where the type is known, the content must fit it; a file that
