@@ -75,6 +75,10 @@ class ToolAccessChecker
         'content_read'   => ['module' => 'article', 'op' => 'read'],
         // v0.20.0: finding elements by their text; each hit is voted on as a read
         'content_find'   => ['module' => 'article', 'op' => 'read'],
+        // v1.2.0: the back end's copy and paste; the clipboard question on the source
+        // and the create at the target are voted on in CopyTool
+        'content_copy'   => ['module' => 'article', 'op' => 'create'],
+        'article_copy'   => ['module' => 'article', 'op' => 'create'],
         // Macro tools have no fixed module gate — they span several tables
         // and must vote against the source table per call
         // (RecordPermissionChecker). Marked with `op=any` here; the actual

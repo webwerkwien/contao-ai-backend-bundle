@@ -306,6 +306,25 @@ abstract class AbstractCoreCommandTool
     }
 
     /**
+     * Editors only below an article, news or event — the parents Contao's content voters
+     * judge (see DataContainerAccess::contentParentDenial()). Admins keep every one.
+     * Shared by the content tools (ContentTool, CopyTool).
+     *
+     * @param array<string, mixed> $record at least `ptable` and `pid`
+     */
+    protected function assertVotedParent(array $record): void
+    {
+        if ($this->requireBackendUser()->isAdmin) {
+            return;
+        }
+
+        $denial = $this->dcAccess->contentParentDenial($record);
+        if (null !== $denial) {
+            throw new ToolAccessDeniedException($denial);
+        }
+    }
+
+    /**
      * Tool outputs are returned as a JSON-encoded string wrapped in a sentinel
      * tag pair. The system prompt instructs the model to treat anything inside the
      * wrapper as untrusted data, mitigating prompt injection via DB content.

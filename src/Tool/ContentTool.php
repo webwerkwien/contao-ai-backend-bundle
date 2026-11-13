@@ -5,7 +5,6 @@ namespace Webwerkwien\ContaoAiBackendBundle\Tool;
 use Contao\CoreBundle\Security\Authentication\Token\TokenChecker;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Webwerkwien\ContaoAiCoreBundle\Attribute\AiContract;
-use Webwerkwien\ContaoAiBackendBundle\Exception\ToolAccessDeniedException;
 use Webwerkwien\ContaoAiBackendBundle\Exception\ToolRefusedException;
 use Webwerkwien\ContaoAiBackendBundle\Security\ToolAccessChecker;
 use Webwerkwien\ContaoAiCoreBundle\Command\ContentCreateCommand;
@@ -156,23 +155,5 @@ class ContentTool extends AbstractCoreCommandTool
     {
         $this->assertVotedParent($this->dcAccess->assertRead('tl_content', $id));
         return $this->runCommand($this->readCommand, ['id' => (string) $id], 'content_read');
-    }
-
-    /**
-     * Editors only below an article, news or event — the parents Contao's content voters
-     * judge (see DataContainerAccess::contentParentDenial()). Admins keep every one.
-     *
-     * @param array<string, mixed> $record at least `ptable` and `pid`
-     */
-    private function assertVotedParent(array $record): void
-    {
-        if ($this->requireBackendUser()->isAdmin) {
-            return;
-        }
-
-        $denial = $this->dcAccess->contentParentDenial($record);
-        if (null !== $denial) {
-            throw new ToolAccessDeniedException($denial);
-        }
     }
 }
