@@ -89,7 +89,8 @@
         .ai-chat__hint { color: var(--gray, #666); }
         .ai-chat__model { font-size: inherit; padding: 0 .25rem; max-width: 14rem; }
         .ai-chat__actions { display: flex; align-items: center; gap: .5rem; }
-        .ai-chat__attach { min-width: 2.25rem; }
+        .ai-chat__attach { min-width: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
+        .ai-chat__attach svg { display: block; }
         .ai-chat__files { display: flex; flex-wrap: wrap; gap: .4rem; }
         .ai-chat__file { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .5rem; border: 1px solid var(--border, #ddd); border-radius: 999px; background: var(--panel-bg, #f3f3f3); font-size: .85rem; }
         .ai-chat__file button { border: 0; padding: 0 .15rem; background: none; color: inherit; cursor: pointer; }
@@ -126,7 +127,13 @@
                                accept="{{ attachmentTypes|map(t => '.' ~ t)|join(',')|e('html_attr') }}">
                         <button type="button" class="tl_submit ai-chat__attach" id="ai-chat-attach"
                                 title="{{ 'ai_chat.attach'|trans({}, 'contao_ai_chat') }}"
-                                aria-label="{{ 'ai_chat.attach'|trans({}, 'contao_ai_chat') }}">📎</button>
+                                aria-label="{{ 'ai_chat.attach'|trans({}, 'contao_ai_chat') }}">
+                            {#- An icon of its own: the emoji looked different on every system. #}
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8"/>
+                            </svg>
+                        </button>
                     {% endif %}
                     <button type="submit" class="tl_submit" id="ai-chat-submit">{{ 'ai_chat.send'|trans({}, 'contao_ai_chat') }}</button>
                 </div>
