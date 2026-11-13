@@ -71,7 +71,7 @@ class CopyTool extends AbstractCoreCommandTool
     /**
      * @param int    $id     ID of the content element to copy
      * @param int    $pid    ID of another parent (usually an article) — the copy goes to its end; 0 to copy directly behind the source or behind after
-     * @param string $ptable Parent table of pid (tl_article, tl_news, tl_content, …); empty: the source's. Only with pid
+     * @param string $ptable Parent table of pid (tl_article, tl_news, tl_content, …); empty: the source's, required when the source lies inside another element. Only with pid
      * @param int    $after  ID of an element — the copy goes directly behind it, below the same parent; 0 to copy directly behind the source or into pid. Not together with pid
      */
     #[AiContract(
@@ -96,6 +96,12 @@ class CopyTool extends AbstractCoreCommandTool
         }
         $this->assertVotedParent($source);
         $this->assertCopyable($user, 'tl_content', $id);
+
+        // A nested source would otherwise take "tl_content" for pid, and an article ID
+        // meant as the target would name a content element.
+        if ($pid > 0 && '' === $ptable && 'tl_content' === ($source['ptable'] ?? null)) {
+            throw new ToolRefusedException(\sprintf('Inhaltselement %d liegt in einem anderen Element. Zu pid bitte ptable angeben: tl_article für einen Artikel, tl_content für ein Element.', $id));
+        }
 
         // Where the copy goes: behind another element, at the end of a parent, or by
         // default directly behind the source. An empty ptable is Contao 4 data, an article.
@@ -165,10 +171,14 @@ class CopyTool extends AbstractCoreCommandTool
             throw new ToolRefusedException(\sprintf('Seite %d nicht gefunden.', $page));
         }
 
-        // The copy as Contao writes it: tl_article resets `published` and `alias`
-        // (doNotCopy), so the voters do not judge a published article the user would
-        // never create.
-        $this->dcAccess->assertCreate('tl_article', array_replace(self::asCopy($source, ['pid' => $page]), ['published' => '', 'alias' => '']));
+        // The copy as DC_Table hands it to the voters: tl_article resets `published`,
+        // `alias` and `author` (doNotCopy), the author to its default, the acting user.
+        // So the voters do not judge a published article of someone else that the user
+        // would never create.
+        $this->dcAccess->assertCreate('tl_article', array_replace(
+            self::asCopy($source, ['pid' => $page]),
+            ['published' => 0, 'alias' => '', 'author' => (int) ($user->id ?? 0)],
+        ));
 
         [$code, $output] = $this->console->run(self::given([
             'command'    => 'contao:article:copy',

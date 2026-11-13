@@ -8,8 +8,8 @@ All notable changes to this project are documented here. The project adheres to 
 
 - **`content_copy` and `article_copy` duplicate a content element or an article** with its
   elements, as copy and paste in Contao's back end: by default directly behind the source,
-  with `after` behind another record, with `pid` (for content also `ptable`) at the end of
-  another parent. The copy takes every field of its source, including fields the user may
+  with `after` behind another record, with `pid` (for content also `ptable`, required for an
+  element that lies inside another one) at the end of another parent. The copy takes every field of its source, including fields the user may
   not edit, as in the back end. The user needs the right to copy the source and to create
   at the target; the field rights apply when the copy is changed. A copied article is
   unpublished and has no alias yet, and the copy is marked "(copy)" in the user's

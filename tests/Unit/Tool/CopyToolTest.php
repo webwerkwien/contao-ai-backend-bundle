@@ -32,9 +32,13 @@ class CopyToolTest extends TestCase
     /** @var list<array{0: string, 1: array<string, mixed>}> */
     private array $createVotes = [];
 
+    /** @var list<string> the tools whose module rights were asked */
+    private array $asked = [];
+
     private const ROWS = [
         'tl_content:40' => ['id' => 40, 'pid' => 7, 'ptable' => 'tl_article', 'sorting' => 128, 'type' => 'text', 'cssID' => 'a:2:{i:0;s:3:"faq";i:1;s:0:"";}', 'tstamp' => 5],
         'tl_content:44' => ['id' => 44, 'pid' => 12, 'ptable' => 'tl_news', 'sorting' => 64, 'type' => 'text'],
+        'tl_content:46' => ['id' => 46, 'pid' => 40, 'ptable' => 'tl_content', 'sorting' => 128, 'type' => 'text'],
         'tl_article:7'  => ['id' => 7, 'pid' => 3, 'sorting' => 128, 'title' => 'Team', 'alias' => 'team', 'published' => '1', 'inColumn' => 'main', 'tstamp' => 5],
         'tl_article:8'  => ['id' => 8, 'pid' => 5, 'sorting' => 128, 'title' => 'Kontakt'],
         'tl_article:9'  => ['id' => 9, 'pid' => 4, 'sorting' => 128, 'title' => 'Ziel'],
@@ -48,6 +52,7 @@ class CopyToolTest extends TestCase
     {
         $this->runs = [];
         $this->createVotes = [];
+        $this->asked = [];
     }
 
     protected function tearDown(): void
@@ -58,9 +63,20 @@ class CopyToolTest extends TestCase
     /**
      * @param string|null  $copyDenial    the clipboard's answer for the source
      * @param list<string> $deniedTargets "table:pid" where the voters refuse the create
+     * @param list<string> $unreadable    "table:id" the user may not read
+     * @param bool         $toolAllowed   the user's module rights for the tool
      */
-    private function tool(?string $copyDenial = null, array $deniedTargets = [], bool $coreHasCopy = true, bool $deniedNews = false, string $answer = '{"status":"ok","id":100,"children":0,"notCopied":[]}'): CopyTool
+    private function tool(?string $copyDenial = null, array $deniedTargets = [], bool $coreHasCopy = true, bool $deniedNews = false, string $answer = '{"status":"ok","id":100,"children":0,"notCopied":[]}', array $unreadable = [], bool $toolAllowed = true): CopyTool
     {
+        $access = $this->createMock(ToolAccessChecker::class);
+        $access->method('canUseTool')->willReturn($toolAllowed);
+        $access->method('assertCanUseTool')->willReturnCallback(function (BackendUser $user, string $name) use ($toolAllowed): void {
+            $this->asked[] = $name;
+            if (!$toolAllowed) {
+                throw new ToolAccessDeniedException("Keine Rechte für $name.");
+            }
+        });
+
         $console = $this->createMock(ConsoleRunner::class);
         $console->method('has')->willReturnCallback(static fn (string $name): bool => $coreHasCopy && \in_array($name, ['contao:content:copy', 'contao:article:copy'], true));
         $console->method('run')->willReturnCallback(function (array $input) use ($answer): array {
@@ -74,7 +90,7 @@ class CopyToolTest extends TestCase
 
         $dc = $this->createMock(DataContainerAccess::class);
         $dc->method('fetchRecord')->willReturnCallback(static fn (string $table, int $id): ?array => self::ROWS["$table:$id"] ?? null);
-        $dc->method('isGranted')->willReturnCallback(static fn (ReadAction $a): bool => true);
+        $dc->method('isGranted')->willReturnCallback(static fn (ReadAction $a): bool => !\in_array($a->getDataSource() . ':' . $a->getCurrentId(), $unreadable, true));
         $dc->method('assertCreate')->willReturnCallback(function (string $table, array $new) use ($deniedTargets): void {
             if (\in_array($table . ':' . ($new['pid'] ?? ''), $deniedTargets, true)) {
                 throw new ToolAccessDeniedException('Keine Rechte am Ziel.');
@@ -84,10 +100,10 @@ class CopyToolTest extends TestCase
         $dc->method('contentParentDenial')->willReturnCallback(static fn (array $record): ?string => $deniedNews && 'tl_news' === ($record['ptable'] ?? null) ? 'Keine Rechte auf News.' : null);
 
         $user = $this->createMock(BackendUser::class);
-        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) { 'isAdmin' => false, 'username' => 'redakteur', default => null });
-        $user->method('__isset')->willReturnCallback(static fn (string $key): bool => \in_array($key, ['isAdmin', 'username'], true));
+        $user->method('__get')->willReturnCallback(static fn (string $key) => match ($key) { 'id' => 5, 'isAdmin' => false, 'username' => 'redakteur', default => null });
+        $user->method('__isset')->willReturnCallback(static fn (string $key): bool => \in_array($key, ['id', 'isAdmin', 'username'], true));
 
-        $tool = new CopyTool($this->createMock(ToolAccessChecker::class), $this->createStub(TokenChecker::class), $console, $records);
+        $tool = new CopyTool($access, $this->createStub(TokenChecker::class), $console, $records);
 
         // No field right at all: a copy does not ask for one.
         $this->defineDca(['tl_content' => ['cssID' => ['inputType' => 'text', 'sql' => 'varchar(255) NOT NULL default \'\'']]]);
@@ -214,9 +230,73 @@ class CopyToolTest extends TestCase
         $this->tool(answer: '{"status":"error","message":"A tl_content record cannot be copied into itself or one of its own elements"}')->copyContent(40, 40, 'tl_content');
     }
 
-    public function testAnOlderCoreDoesNotOfferTheTools(): void
+    public function testTheToolsAreOfferedWhereTheCoreHasTheCommandsAndTheUserTheRights(): void
     {
-        self::assertFalse($this->tool(coreHasCopy: false)->isAccessibleBy($this->createMock(BackendUser::class)));
+        $user = $this->createMock(BackendUser::class);
+
+        self::assertTrue($this->tool()->isAccessibleBy($user));
+        self::assertFalse($this->tool(coreHasCopy: false)->isAccessibleBy($user), 'an older core');
+        self::assertFalse($this->tool(toolAllowed: false)->isAccessibleBy($user), 'no module rights');
+    }
+
+    public function testEachToolAsksForItsModuleRightsFirst(): void
+    {
+        foreach (['content_copy' => fn (CopyTool $tool) => $tool->copyContent(40), 'article_copy' => fn (CopyTool $tool) => $tool->copyArticle(7)] as $name => $call) {
+            try {
+                $call($this->tool(toolAllowed: false));
+                self::fail("$name ran without module rights");
+            } catch (ToolAccessDeniedException $e) {
+                self::assertStringContainsString($name, $e->getMessage());
+            }
+        }
+
+        self::assertSame(['content_copy', 'article_copy'], $this->asked);
+        self::assertSame([], $this->runs);
+        self::assertSame([], $this->createVotes);
+    }
+
+    public function testTheEditorsParentRuleJudgesTheSource(): void
+    {
+        // 44 lies in a news entry the user may not edit; the target is an article.
+        try {
+            $this->tool(deniedNews: true)->copyContent(44, 9, 'tl_article');
+            self::fail('expected a denial');
+        } catch (ToolAccessDeniedException $e) {
+            self::assertStringContainsString('News', $e->getMessage());
+        }
+
+        self::assertSame([], $this->runs);
+    }
+
+    public function testAnElementBehindOneTheUserCannotReadRunsNothing(): void
+    {
+        try {
+            $this->tool(unreadable: ['tl_content:44'])->copyContent(40, 0, '', 44);
+            self::fail('expected a denial');
+        } catch (ToolAccessDeniedException $e) {
+            self::assertStringContainsString('tl_content:44', $e->getMessage());
+        }
+
+        self::assertSame([], $this->runs);
+    }
+
+    public function testANestedSourceNeedsTheParentTableOfPid(): void
+    {
+        try {
+            $this->tool()->copyContent(46, 9);
+            self::fail('expected a refusal');
+        } catch (ToolRefusedException $e) {
+            self::assertStringContainsString('ptable', $e->getMessage());
+        }
+
+        self::assertSame([], $this->runs);
+    }
+
+    public function testANestedSourceGoesWhereTheParentTableSays(): void
+    {
+        $this->tool()->copyContent(46, 9, 'tl_article');
+
+        self::assertSame(['command' => 'contao:content:copy', 'id' => '46', '--to' => '9', '--ptable' => 'tl_article', '--operator' => 'redakteur'], $this->runs[0]);
     }
 
     public function testAnArticleGoesDirectlyBehindItsSourceUnpublished(): void
@@ -225,10 +305,33 @@ class CopyToolTest extends TestCase
 
         self::assertSame([['command' => 'contao:article:copy', 'id' => '7', '--operator' => 'redakteur']], $this->runs);
 
-        // The copy the voters see is the one Contao writes: offline, without an alias.
+        // The copy the voters see is the one Contao hands them: offline, without an
+        // alias, the acting user's.
         [$table, $new] = $this->createVotes[0];
         self::assertSame('tl_article', $table);
-        self::assertSame([3, 0, 'Team', '', ''], [$new['pid'], $new['sorting'], $new['title'], $new['published'], $new['alias']]);
+        self::assertSame([3, 0, 'Team', 0, '', 5], [$new['pid'], $new['sorting'], $new['title'], $new['published'], $new['alias'], $new['author']]);
+    }
+
+    public function testAnArticleWhereTheVotersRefuseRunsNothing(): void
+    {
+        try {
+            $this->tool(deniedTargets: ['tl_article:4'])->copyArticle(7, 4);
+            self::fail('expected a denial');
+        } catch (ToolAccessDeniedException) {
+        }
+
+        self::assertSame([], $this->runs);
+    }
+
+    public function testAnArticleBehindOneTheUserCannotReadRunsNothing(): void
+    {
+        try {
+            $this->tool(unreadable: ['tl_article:8'])->copyArticle(7, 0, 8);
+            self::fail('expected a denial');
+        } catch (ToolAccessDeniedException) {
+        }
+
+        self::assertSame([], $this->runs);
     }
 
     public function testAnArticleToAnotherPage(): void

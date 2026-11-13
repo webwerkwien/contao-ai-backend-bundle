@@ -214,7 +214,9 @@ that existed before the fix, and that could not be rewritten, is the proof.
   DC_Table's copy and paste checks whether the user may copy the source — the clipboard's
   `CreateAction` with the record, `RecordPermissionChecker::recordCopyDenialReason()` —
   and may create the copy at the target (`assertCreate()` with the source's fields at the
-  target), plus the editor's parent rule for content elements. It does not check field
+  target), plus the editor's parent rule for content elements. The record the voters judge
+  is the one DC_Table hands them: for an article `published` 0, no alias and the acting
+  user as `author`, the `doNotCopy` resets of tl_article. It does not check field
   rights: the copy keeps fields the user may not edit, such as `cssID`, and the field
   rights apply in the edit form that follows, in the chat `content_update`. Do not add a
   field check here; it would refuse what the back end allows.
