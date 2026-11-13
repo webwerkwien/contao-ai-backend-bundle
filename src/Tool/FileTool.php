@@ -282,6 +282,11 @@ class FileTool extends AbstractCoreCommandTool
             if ('' === $onConflict) {
                 throw new ToolRefusedException(\sprintf('Der Anhang „%s“ ist nicht in dieser Nachricht. Bitte erneut anhängen.', $attachment));
             }
+            $staged = $this->pendingActionStore->peek($userId, 'file_store', $key);
+            // The question was about one attachment; another name does not answer it.
+            if (\is_array($staged) && mb_strtolower((string) ($staged['source'] ?? '')) !== mb_strtolower($attachment)) {
+                throw new ToolRefusedException(\sprintf('Die Rückfrage zu „%s“ galt dem Anhang „%s“. Bitte „%s“ erneut anhängen.', $staged['target'] ?? $target, $staged['source'] ?? '?', $attachment));
+            }
             $staged = $this->pendingActionStore->consume($userId, 'file_store', $key);
             $temp = \is_array($staged) ? $this->stagedTemp($staged) : null;
             if (null === $temp) {
@@ -293,12 +298,20 @@ class FileTool extends AbstractCoreCommandTool
         }
 
         if ($this->pendingActionStore->stagedInCurrentTurn($userId, 'file_store', $key)) {
+            $pending = $this->pendingActionStore->peek($userId, 'file_store', $key);
+            if (mb_strtolower((string) ($pending['source'] ?? '')) !== mb_strtolower($file->name)) {
+                throw new ToolRefusedException(\sprintf('Für „%s“ wartet schon eine Frage zum Anhang „%s“. Erst deren Antwort abwarten.', $target, $pending['source'] ?? '?'));
+            }
+
             return self::storeQuestion('awaiting_user', $target, 'Die Frage ist schon gestellt. Rufe das Werkzeug JETZT NICHT ERNEUT auf, sondern warte auf die Antwort des Users.');
         }
 
         // Attached again with the answer: the question of an earlier message is answered
-        // by this call, and the file attached now is the one to store.
-        $answered = $this->discardStaged($userId, $key);
+        // by this call, and the file attached now is the one to store. It answers only a
+        // question about this very file name: on a case-sensitive file system foto.jpg
+        // and Foto.jpg share the key but are two files.
+        $staged = $this->discardStaged($userId, $key);
+        $answered = null !== $staged && ($staged['target'] ?? null) === $target;
 
         $temp = $this->writeTemp($file->bytes, $file->extension);
         if (!$this->exists($target)) {
@@ -313,7 +326,7 @@ class FileTool extends AbstractCoreCommandTool
 
         // One question for the user: replace, or a free name. The temp file waits for
         // the answer; its name stays on the server.
-        $this->pendingActionStore->stage($userId, 'file_store', $key, ['temp' => basename($temp), 'sha1' => sha1_file($temp), 'target' => $target]);
+        $this->pendingActionStore->stage($userId, 'file_store', $key, ['temp' => basename($temp), 'sha1' => sha1_file($temp), 'target' => $target, 'source' => $file->name]);
 
         return self::storeQuestion('pending_confirmation', $target, 'Frage den User wörtlich und warte auf seine Antwort. In einer SPÄTEREN Nachricht file_store mit denselben Angaben und onConflict "replace" oder "rename" aufrufen; der Anhang muss dafür nicht erneut angehängt werden.', $this->freeName($target));
     }
@@ -332,19 +345,21 @@ class FileTool extends AbstractCoreCommandTool
 
     /**
      * Ends a question staged in an earlier message for this target, and removes its file.
+     *
+     * @return array<string, mixed>|null the staged payload, if there was one
      */
-    private function discardStaged(int $userId, string $key): bool
+    private function discardStaged(int $userId, string $key): ?array
     {
         $staged = $this->pendingActionStore->consume($userId, 'file_store', $key);
         if (!\is_array($staged)) {
-            return false;
+            return null;
         }
         $name = (string) ($staged['temp'] ?? '');
         if (preg_match('/^' . self::TEMP_PREFIX . '[0-9a-f]{24}\.[a-z0-9]+$/', $name)) {
             @unlink($this->uploadDir() . '/' . $name);
         }
 
-        return true;
+        return $staged;
     }
 
     private function write(string $target, string $temp, BackendUser $user): string

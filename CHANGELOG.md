@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The project adheres to 
   file, `folder_create`, `file_rename`, `file_move`, `file_delete`, `file_meta` and
   `file_usages`. Each tool needs the module, the file operation right and the file mounts the
   back end needs for the same operation. Storing over an existing name asks once (replace or
-  a free name); rename and move ask when a text field names the path; delete is refused while
+  a free name), and only a later message answers; rename and move ask when a text field names the path; delete is refused while
   the file is used and always asks first.
 - For a user who may store files, attachments of a type Contao allows for uploads but the
   chat cannot read are accepted; the model learns only their name, and `file_store` can put

@@ -113,6 +113,16 @@ class AttachmentReaderTest extends TestCase
         self::assertCount(1, $accepted->files);
     }
 
+    public function testShortTagBytesInBinaryDataAreNoScript(): void
+    {
+        // A zip or a video holds "<?=" or "#!" by chance; a script has no NUL byte.
+        self::assertFalse(AttachmentReader::looksLikeAScript("PK\x03\x04\0\0<?= x"));
+        self::assertFalse(AttachmentReader::looksLikeAScript("\0#!/bin/sh"));
+        self::assertTrue(AttachmentReader::looksLikeAScript("PK\x03\x04\0\0<?php echo 1;"));
+        self::assertTrue(AttachmentReader::looksLikeAScript("\u{FEFF}\n#!/bin/sh"));
+        self::assertTrue(AttachmentReader::looksLikeAScript('<p><?= $x ?></p>'));
+    }
+
     /**
      * @return iterable<string, array{0: mixed, 1: string}>
      */

@@ -281,7 +281,7 @@ final class RunChatScenariosCommand extends Command
             try {
                 $invocation = $this->agentFactory->createForUser($user);
                 $raw = array_map(fn (string $path): array => ['name' => basename($path), 'data' => base64_encode((string) file_get_contents($this->scenarioDir . '/' . $path))], $files);
-                $accepted = $this->attachmentReader->read($raw, $invocation->readableContent, $invocation->model);
+                $accepted = $this->attachmentReader->read($raw, $invocation->readableContent, $invocation->model, $invocation->mayStoreFiles());
                 $messages = AiStreamController::buildMessageBag($invocation->systemPrompt, $history, $accepted->turnText($text), $accepted->platformContents());
                 $this->toolCallLogger->startRequest();
                 $this->chatAttachments->set($accepted->files);

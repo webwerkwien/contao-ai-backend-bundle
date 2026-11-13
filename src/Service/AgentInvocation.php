@@ -31,4 +31,13 @@ final readonly class AgentInvocation
         public array $readableContent = [],
     ) {
     }
+
+    /**
+     * Whether this run may store files (v1.3.0): only then is an attachment no converter
+     * reads accepted.
+     */
+    public function mayStoreFiles(): bool
+    {
+        return \in_array('file_store', $this->allowedToolNames, true);
+    }
 }

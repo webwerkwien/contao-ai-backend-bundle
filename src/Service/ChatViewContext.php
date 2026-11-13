@@ -59,14 +59,23 @@ class ChatViewContext
             'tools'     => $tools,
             'csrfToken' => $this->csrf->getDefaultTokenValue(),
             'streamUrl' => $this->router->generate('contao_ai_backend_stream'),
-            // The file picker: what Contao allows and a converter reads (v1.0.0); for a user
-            // who may store files, every type Contao allows for uploads (v1.3.0).
-            'attachmentTypes' => null === $blocker
-                ? (\in_array('file_store', $tools, true) ? $this->attachmentPolicy->uploadTypes() : $this->attachmentPolicy->readableTypes())
-                : [],
+            'attachmentTypes' => null === $blocker ? self::pickerTypes($tools, $this->attachmentPolicy) : [],
             'maxFileSize'     => $this->attachmentPolicy->maxFileSize(),
             'maxRequestBytes' => $this->attachmentPolicy->maxRequestBytes(),
             'maxAttachments'  => AttachmentPolicy::MAX_ATTACHMENTS,
         ];
+    }
+
+    /**
+     * The file picker: what Contao allows and a converter reads (v1.0.0); for a user who
+     * may store files, every type Contao allows for uploads (v1.3.0).
+     *
+     * @param list<string> $tools the tools the user may call
+     *
+     * @return list<string>
+     */
+    public static function pickerTypes(array $tools, AttachmentPolicy $policy): array
+    {
+        return \in_array('file_store', $tools, true) ? $policy->uploadTypes() : $policy->readableTypes();
     }
 }

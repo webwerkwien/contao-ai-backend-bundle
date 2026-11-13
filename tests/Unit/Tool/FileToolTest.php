@@ -37,6 +37,9 @@ class FileToolTest extends TestCase
     /** @var list<string> the bytes contao:file:write was given */
     private array $written = [];
 
+    /** @var list<array{string, mixed}> what the tool asked the authorization checker */
+    private array $asked = [];
+
     protected function setUp(): void
     {
         $this->root = sys_get_temp_dir() . '/file-tool-test-' . bin2hex(random_bytes(4));
@@ -47,6 +50,7 @@ class FileToolTest extends TestCase
         $this->staged = [];
         $this->stagedNow = [];
         $this->written = [];
+        $this->asked = [];
     }
 
     protected function tearDown(): void
@@ -88,7 +92,8 @@ class FileToolTest extends TestCase
         $chat->set($attachments);
 
         $auth = $this->createMock(AuthorizationCheckerInterface::class);
-        $auth->method('isGranted')->willReturnCallback(static function (string $attribute, mixed $subject = null) use ($denied): bool {
+        $auth->method('isGranted')->willReturnCallback(function (string $attribute, mixed $subject = null) use ($denied): bool {
+            $this->asked[] = [$attribute, $subject];
             if (ContaoCorePermissions::USER_CAN_ACCESS_PATH === $attribute) {
                 // As BackendAccessVoter: regardless of case.
                 return 0 === stripos((string) $subject, 'files/team');
@@ -98,6 +103,7 @@ class FileToolTest extends TestCase
         });
 
         $store = $this->createMock(PendingActionStore::class);
+        $store->method('peek')->willReturnCallback(fn (int $u, string $t, string $k): ?array => $this->staged[$k] ?? null);
         $store->method('stagedInCurrentTurn')->willReturnCallback(fn (int $u, string $t, string $k): bool => isset($this->stagedNow[$k]));
         $store->method('stage')->willReturnCallback(function (int $u, string $t, string $k, array $p): void {
             $this->staged[$k] = $p;
@@ -269,9 +275,82 @@ class FileToolTest extends TestCase
         $tool = $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')]);
         $tool->store('foto.jpg', 'files/team');
 
-        $tool->store('foto.jpg', 'files/team', '', 'replace');
+        $answer = $tool->store('foto.jpg', 'files/team', '', 'replace');
 
+        self::assertStringContainsString('awaiting_user', $answer);
         self::assertSame([], $this->runs);
+    }
+
+    public function testReplaceWithoutAQuestionAsksFirst(): void
+    {
+        $answer = $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')])->store('foto.jpg', 'files/team', '', 'replace');
+
+        self::assertStringContainsString('pending_confirmation', $answer);
+        self::assertSame([], $this->runs);
+        self::assertSame('old', file_get_contents($this->root . '/files/team/foto.jpg'));
+    }
+
+    public function testAnotherSpellingOfTheNameDoesNotAnswerTheQuestion(): void
+    {
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'first')])->store('foto.jpg', 'files/team');
+        $this->nextTurn();
+
+        // On a case-sensitive file system Foto.jpg is another file than foto.jpg.
+        $answer = $this->tool(attachments: [new ChatAttachment('Foto.jpg', 'jpg', 'image/jpeg', 'second')])->store('Foto.jpg', 'files/team', '', 'replace');
+
+        if (file_exists($this->root . '/files/team/Foto.jpg')) {
+            // Here both names are one file: it is replaced only after its own question.
+            self::assertStringContainsString('pending_confirmation', $answer);
+            self::assertSame([], $this->runs);
+        } else {
+            self::assertSame(['files/team/Foto.jpg'], array_column($this->runs, '--path'));
+        }
+    }
+
+    public function testTwoAttachmentsForOneTargetInOneTurnAreRefused(): void
+    {
+        $tool = $this->tool(attachments: [
+            new ChatAttachment('a.jpg', 'jpg', 'image/jpeg', 'a'),
+            new ChatAttachment('b.jpg', 'jpg', 'image/jpeg', 'b'),
+        ]);
+        $tool->store('a.jpg', 'files/team', 'foto.jpg');
+
+        $this->expectException(ToolRefusedException::class);
+        $tool->store('b.jpg', 'files/team', 'foto.jpg');
+    }
+
+    public function testAnAnswerNamingAnotherAttachmentIsRefusedAndTheQuestionStays(): void
+    {
+        $this->tool(attachments: [new ChatAttachment('foto.jpg', 'jpg', 'image/jpeg', 'new')])->store('foto.jpg', 'files/team');
+        $this->nextTurn();
+
+        try {
+            $this->tool()->store('anders.jpg', 'files/team', 'foto.jpg', 'replace');
+            self::fail('expected a refusal');
+        } catch (ToolRefusedException) {
+        }
+        self::assertSame([], $this->runs);
+        self::assertArrayHasKey('store:files/team/foto.jpg', $this->staged);
+    }
+
+    public function testAFolderThatOnlyBeginsLikeTheMountIsOutside(): void
+    {
+        // The voter matches a prefix; the mount is a folder.
+        mkdir($this->root . '/files/teamwork');
+        $this->expectException(ToolAccessDeniedException::class);
+
+        try {
+            $this->tool()->createFolder('files/teamwork/neu');
+        } finally {
+            self::assertSame([], $this->runs);
+        }
+    }
+
+    public function testARenameAsksForTheNameFieldOfTlFiles(): void
+    {
+        $this->tool()->rename('files/team/foto.jpg', 'team.jpg');
+
+        self::assertContains([ContaoCorePermissions::USER_CAN_EDIT_FIELD_OF_TABLE, 'tl_files::name'], $this->asked);
     }
 
     public function testATamperedTempFileIsNotWritten(): void

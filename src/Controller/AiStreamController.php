@@ -286,7 +286,7 @@ class AiStreamController extends AbstractController
                 $rawAttachments,
                 $invocation->readableContent,
                 $invocation->model,
-                \in_array('file_store', $invocation->allowedToolNames, true),
+                $invocation->mayStoreFiles(),
             );
         } catch (AttachmentRefusedException $e) {
             // An answer, not a defect: no report.

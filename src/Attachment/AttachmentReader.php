@@ -143,8 +143,17 @@ final class AttachmentReader
     public static function looksLikeAScript(string $bytes): bool
     {
         $head = substr($bytes, 0, 4096);
+        if (1 === preg_match('/<\?php\b/i', $head)) {
+            return true;
+        }
 
-        return str_starts_with(ltrim($head), '#!') || 1 === preg_match('/<\?(?:php\b|=)/i', $head);
+        // The short tag and the shebang are three and two bytes: in binary data (a zip,
+        // an mp4) they occur by chance, about once in 3,000 files. A script has no NUL.
+        if (str_contains($head, "\0")) {
+            return false;
+        }
+
+        return str_starts_with(ltrim($head, " \t\r\n\u{FEFF}"), '#!') || str_contains($head, '<?=');
     }
 
     public static function fitsKnownType(string $extension, string $mime): bool
