@@ -160,7 +160,8 @@ renames, moves and deletes files and folders, sets their metadata and tells wher
 used. Each tool needs what the back end needs for the same operation: the module *File
 manager*, the file operation right (upload for storing and new folders, rename for renaming
 and moving, delete for deleting; a folder with content needs *delete recursively*), the
-field *Metadata* for metadata, and the file mounts for every path involved. A tool the user
+field *Metadata* for metadata and *File name* for renaming, and the file mounts for every
+path involved, compared as exactly as the back end compares them. A tool the user
 may not use is not offered.
 
 Beyond the back end:
